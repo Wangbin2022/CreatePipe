@@ -1,0 +1,23 @@
+﻿<Window x:Class="CreatePipe.WpfDirectoryTreeView.Save2Csv"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.WpfDirectoryTreeView"
+        mc:Ignorable="d"
+        Title="文件清单导出工具" Height="240" Width="200">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Button  Grid.Row="0" Content="选择文件夹" 
+                Command="{Binding SelectFolderCommand}"  Margin="5"/>
+        <TextBox Grid.Row="1" Margin="5" TextWrapping="Wrap"
+                 Text="{Binding SelectedFolderPath, Mode=OneWay}" 
+                 IsReadOnly="True" VerticalContentAlignment="Center"/>
+        <Button  Grid.Row="2" Content="保存csv" 
+                Command="{Binding SaveCommand}"  Margin="5"/>
+    </Grid>
+</Window>

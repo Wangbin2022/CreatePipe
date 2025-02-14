@@ -1,0 +1,86 @@
+﻿<Window x:Class="CreatePipe.PipeSystemManager.Form.PipeSystemListForm"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:CreatePipe.PipeSystemManager.Form"
+             mc:Ignorable="d" 
+             Height="450" Width="600" Title="管道系统列表" SizeToContent="WidthAndHeight" WindowStartupLocation="CenterScreen">
+    <StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="新增" Width="100"  Click="Button_Click_2" />
+            <Button Content="删除" Width="100"  Margin="10,0,0,0"  Click="Button_Click_1"/>
+        </StackPanel>
+        <DataGrid HorizontalAlignment="Stretch"  VerticalAlignment="Top"  x:Name="dataGrid" AutoGenerateColumns="False" CanUserAddRows="False"  SelectionUnit="FullRow"  Grid.ColumnSpan="2"   EnableColumnVirtualization="False" EnableRowVirtualization="False"   Height="400"  Width="auto">
+            <DataGrid.ContextMenu>
+                <ContextMenu Name="dgmenu1" StaysOpen="true">
+                    <MenuItem Header="删除">
+                    </MenuItem>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="系统类型名称"  Width="auto" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBox Text="{Binding SystemName,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Name="systemTypeName_tb"  TextChanged="systemTypeName_tb_TextChanged"></TextBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="系统分类"  Width="auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding PipeSystemTypeEntity.Name}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="缩写"  Width="80" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <TextBox Text="{Binding  Abbreviation,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Width="100"  Cursor="Hand"  TextChanged="systemTypeName_tb_TextChanged" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="线颜色"  Width="120" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <TextBlock Text="{Binding ColorText,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Width="auto"  
+                                           Cursor="Hand" Background="{Binding SolidColorBrush,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"                      Name="line_color_tb"  FontSize="15"  Tag="{Binding SystemTypeObj}"  MouseDown="line_color_tb_MouseDown"/>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="线型" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <ComboBox x:Name="cb_Type"
+                                     ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}},Path=LinePatternElementInfos}"  DisplayMemberPath="Name"    SelectedItem="{Binding LinePatternElement,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Background="White"  SelectionChanged="cb_Type_SelectionChanged" />    
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="线宽" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <ComboBox ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}},Path=LineWeights}"   SelectedValue="{Binding LineWeight,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"    Background="White" SelectionChanged="cb_Type_SelectionChanged"/>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <Button Width="100"  HorizontalAlignment="Center" Click="Button_Click">保存</Button>
+            <Button Width="100" Margin="10,0,0,0"  HorizontalAlignment="Center" Click="Button_Click_3">取消</Button>
+        </StackPanel>
+    </StackPanel>
+</Window>

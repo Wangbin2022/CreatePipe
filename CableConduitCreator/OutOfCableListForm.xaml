@@ -1,0 +1,40 @@
+﻿<Window x:Class="CreatePipe.CableConduitCreator.OutOfCableListForm"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.CableConduitCreator"
+        mc:Ignorable="d"
+        Title="OutOfCableListForm" Height="250" Width="200">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height=" 35"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="以下电缆位于桥架外：" Margin="5" Grid.Row="0"/>
+        <ListBox x:Name="ls_outList" ItemsSource="{Binding }"
+                 Margin="5" Grid.Row="1" SelectionChanged="ls_outList_SelectionChanged">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock>
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="ID：｛0｝类型：｛1｝">
+                                <Binding Path="Key"/>
+                                <Binding Path="Value"/>
+                            </MultiBinding>                                          
+                        </TextBlock.Text>
+                    </TextBlock>
+                </DataTemplate>
+            </ListBox.ItemTemplate>            
+        </ListBox>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="showLocation" Content="显示位置" Margin="5" Grid.Column="0" Click="showLocation_Click"/>
+            <Button x:Name="delete" Content="从表中删除" Margin="5" Grid.Column="1" Click="delete_Click"/>
+        </Grid>
+    </Grid>
+</Window>

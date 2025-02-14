@@ -1,0 +1,29 @@
+﻿<Window x:Class="CreatePipe.Form.FaceConfig"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d" Topmost="True"
+        Title="设置参数" Height="120" Width="280" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" >
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.3*"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center">
+            面类型：</TextBlock>
+        <ComboBox x:Name="cbWallType" Grid.Column="1" Margin="5" VerticalAlignment="Center" 
+                  ItemsSource="{Binding WallTypes}" DisplayMemberPath="Name" 
+                  SelectedItem="{Binding SelectedWallType,Mode=TwoWay}"
+                    SelectedIndex="0">
+        </ComboBox>
+        <Button Grid.Column="1" Grid.Row="1" Height="25" Width="auto" 
+                Command="{Binding CreateFaceCommand}" Content="OK"/>
+
+    </Grid>
+</Window>

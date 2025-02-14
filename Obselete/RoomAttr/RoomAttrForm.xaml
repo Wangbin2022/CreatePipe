@@ -1,0 +1,139 @@
+﻿<Window x:Class="CreatePipe.RoomAttr.RoomAttrForm"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.RoomAttr"
+        xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
+        xmlns:converter ="clr-namespace:CreatePipe.Utils" 
+        mc:Ignorable="d" WindowStartupLocation="CenterScreen"
+        Title="房间管理器" Height="450" Width="720" Topmost="True">
+    <Window.Resources>
+        <converter:ColorConvertHelper x:Key="colorConverter"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <GroupBox Grid.Column="0" Header="{Binding RoomCount,UpdateSourceTrigger=PropertyChanged}" HeaderStringFormat="{}当前模型房间类型数：{0}"  Margin="5" Grid.RowSpan="2">
+            <StackPanel >
+                <Grid  Height="30">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Height="20"   VerticalAlignment="Center"   Margin="5"
+        Text="{Binding Keyword,UpdateSourceTrigger=PropertyChanged}">
+                        <i:Interaction.Triggers>
+                            <i:EventTrigger EventName="TextChanged">
+                                <i:InvokeCommandAction Command="{Binding QueryELementCommand}" />
+                            </i:EventTrigger>
+                        </i:Interaction.Triggers>
+                    </TextBox>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="编码比对"   Margin="5,2,2,2" IsEnabled="{Binding HasLoadCsv}"
+                          Command="{Binding RoomCompareCommand}"
+                          />
+                        <Button Content="全部赋码"  Margin="2,2,5,2"
+                          Command="{Binding CodeAllCommand}"
+                          HorizontalAlignment="Right"/>
+                        <!--<Button Content="删除指定房间"  Margin="2,2,5,2"
+                          Command="{Binding DeleteRoomsCommand}"
+                          HorizontalAlignment="Right"/>-->
+                    </StackPanel>
+                </Grid>
+                <DataGrid x:Name="dataGrid" RowHeight="25"  
+                     HorizontalAlignment="Stretch" Margin="5"
+                     AutoGenerateColumns="False" CanUserAddRows="False"
+                     SelectionUnit="FullRow" EnableColumnVirtualization="False"
+                     GridLinesVisibility="None" Height="310"  Width="auto"
+                     SelectionMode="Extended" SelectedItem="{Binding SelectedFilter}"
+                          ItemsSource="{Binding RoomModels}"   >
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="房间名称" Width="80"
+                                            Binding="{Binding roomName}"
+                                            SortMemberPath="roomName"/>
+                        <DataGridTextColumn Header="缩写" Width="60"
+                                            Binding="{Binding roomAbbreviation,UpdateSourceTrigger=PropertyChanged}"
+                                            SortMemberPath="roomAbbreviation"/>
+                        <DataGridTextColumn Header="房间编码" Width="80"
+                                            Binding="{Binding roomCode}"/>
+                        <DataGridTextColumn Header="数量" Width="45"
+                                            Binding="{Binding roomNumber}"
+                                            SortMemberPath="roomNumber"/>
+                        <DataGridTemplateColumn Header="是否赋码" Width="60"
+                         SortMemberPath="IsRoomCoded">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" >
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Path= IsRoomCoded}" Value="False">
+                                                        <Setter Property="Text"  Value="未赋码">
+                                                        </Setter>
+                                                        <Setter Property="Foreground" Value="Red">
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Path= IsRoomCoded}" Value="True">
+                                                        <Setter Property="Text"  Value="已赋码">
+                                                        </Setter>
+                                                        <Setter Property="Foreground" Value="Green">
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="单类房间操作" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="当前房间编码" Width="80"  Command="{Binding DataContext.CodeEntityCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding }"  />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+        </GroupBox>
+        <GroupBox Grid.Column="1" Header="房间编码表" Margin="5" Grid.RowSpan="2">
+            <StackPanel >
+                <TextBox Margin="5" Height="20" VerticalAlignment="Center"  
+                     Text="{Binding KeyCodeName,UpdateSourceTrigger=PropertyChanged}"/>
+                <Grid  Height="30">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Button Content="读取csv" Margin="5"   Command="{Binding ReadCsvCommand}" />
+                    <Button Content="保存csv" Margin="5" Grid.Column="1"  Command="{Binding SaveCsvCommand}" Foreground="DarkRed"
+                            IsEnabled="{Binding HasLoadCsv}"/>
+                </Grid>
+                <DataGrid Margin="5" ItemsSource="{Binding ShowList,UpdateSourceTrigger=PropertyChanged}" Height="280"
+                          AutoGenerateColumns="False" CanUserAddRows="True"
+                          >
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="编码" Width="72" SortMemberPath="Code" 
+                    Binding="{Binding Code}" IsReadOnly="False"/>
+                        <DataGridTextColumn Header="房间名称" Width="100" SortMemberPath="Name" 
+                    Binding="{Binding Name}" IsReadOnly="False"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+        </GroupBox>
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="5" Padding="0,2,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="Gray">
+            <Button  Content="完成修改并退出"  
+                     Click="btn_OK_Click"/>
+        </Border>
+    </Grid>
+</Window>

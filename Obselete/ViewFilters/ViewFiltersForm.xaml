@@ -1,0 +1,211 @@
+﻿<Window x:Class="CreatePipe.ViewFilters.ViewFiltersForm"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.ViewFilters"
+        mc:Ignorable="d" 
+        xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
+        xmlns:converter ="clr-namespace:CreatePipe.Utils" 
+        xmlns:Form="clr-namespace:CreatePipe.Form"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        Title="ViewFiltersForm" Height="450" Width="720">
+    <!--<Window.Resources>
+        <converter:ColorConvertHelper x:Key="colorConverter"/>
+    </Window.Resources>-->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="230"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3.2*"/>
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        <GroupBox Grid.Column="0"  Header="{Binding FilterCount,UpdateSourceTrigger=PropertyChanged}" HeaderStringFormat="{}当前过滤器数量：{0}"  Margin="5" Grid.RowSpan="2">
+            <StackPanel >
+                <Grid  Height="30">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="240"/>
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Height="20"   VerticalAlignment="Center"   Margin="5"
+        Text="{Binding Keyword,UpdateSourceTrigger=PropertyChanged}">
+                        <i:Interaction.Triggers>
+                            <i:EventTrigger EventName="TextChanged">
+                                <i:InvokeCommandAction Command="{Binding QueryELementCommand}" />
+                            </i:EventTrigger>
+                        </i:Interaction.Triggers>
+                    </TextBox>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="新建过滤器"   Margin="5,2,2,2"
+                          Command="{Binding NewFilterCommand}"
+                          CommandParameter="{Binding FilterModelNames}"
+                          />
+                        <Button Content="删除过滤器"  Margin="2,2,5,2"
+                          Command="{Binding DeleteFilterCommand}"
+                          CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"
+                          HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Grid>
+                <DataGrid x:Name="dataGrid" RowHeight="25"  
+                     HorizontalAlignment="Stretch" Margin="5"
+                     AutoGenerateColumns="False" CanUserAddRows="False"
+                     SelectionUnit="FullRow" EnableColumnVirtualization="False"
+                     GridLinesVisibility="None" Height="305"  Width="auto"
+                     SelectionMode="Extended" SelectedItem="{Binding SelectedFilter}"
+                          ItemsSource="{Binding FilterModels}"                          
+                          local:ViewFilterViewModel.AttProp="True">
+                    <DataGrid.Resources>
+                        <Style TargetType="DataGridCell" x:Key="dataGridCellStyle">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="LightGray"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="Lightblue"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="DataGridCell">
+                                        <TextBlock TextAlignment="Center" >
+            <ContentPresenter />
+                                        </TextBlock>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter> 
+                        </Style>
+                        <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGrid.Resources>
+                    <DataGrid.CellStyle>
+                        <StaticResource ResourceKey="dataGridCellStyle"/>
+                    </DataGrid.CellStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="过滤器名称" Width="60" SortMemberPath="ViewFilterName" 
+                         Binding="{Binding ViewFilterName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                            IsReadOnly="False">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style>
+                                    <Setter Property="ToolTipService.ToolTip" Value="{Binding ViewFilterName}" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>                                            
+                        <DataGridTemplateColumn Header="在用" Width="35"
+                                                SortMemberPath="IsInUsing">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" >
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Path= IsInUsing}" Value="False">
+                                                        <Setter Property="Text"  Value="否">
+                                                        </Setter>
+                                                        <Setter Property="Foreground" Value="Red">
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Path= IsInUsing}" Value="True">
+                                                        <Setter Property="Text"  Value="是">
+                                                        </Setter>
+                                                        <Setter Property="Foreground" Value="Green">
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <!--<DataGridTemplateColumn Header="材质颜色" Width="80"
+                             SortMemberPath="Name" >
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button  BorderBrush="Transparent"  Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.SetColorCommand}" CommandParameter = "{Binding }" Background="{Binding Color,Converter={StaticResource colorConverter}}">
+                                        <TextBlock Text="{Binding ColorValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Foreground="Black"/>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>-->
+                        <DataGridTemplateColumn Header="透明度" Width="45">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <ComboBox ItemsSource="{Binding TransparencySamples}"   SelectedValue="{Binding TransparencyNum,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"  VerticalContentAlignment="Center" Height="28" IsEditable="False"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="附加/移除">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="ToAll视图" Width="60"  Command="{Binding DataContext.ApplyToViewsCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding }"  />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="和/或" Width="40"  SortMemberPath="ruleCombineType" 
+                         Binding="{Binding ruleCombineType}"
+                            IsReadOnly="True" />
+                        <DataGridTextColumn Header="过滤规则" Width="110" SortMemberPath="ruleCombine" 
+                         Binding="{Binding ruleCombine}"
+                            IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style>
+                                    <Setter Property="ToolTipService.ToolTip" Value="{Binding ruleCombine}" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTemplateColumn Header="过滤">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="隐藏" Width="40" Command="{Binding DataContext.HideInViewCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding }" IsEnabled="{Binding IsHideBtn}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <!--<DataGridTemplateColumn Header="选择">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="选择" Width="40" 
+                                          Command="{Binding DataContext.SelectCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding }" Click="Button_Click"  />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>-->
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+        </GroupBox>
+        <GroupBox Grid.Column="1" Header="所选过滤器应用类别如下" Margin="5">
+            <StackPanel>
+                <TextBlock Margin="5" Text="{Binding RowCount, StringFormat='Selected Items: {0}'}" />
+                <ListBox Margin="5" Height="95" x:Name="lsBox_Categorys" 
+                         ItemsSource="{Binding SelectedFilter.CategoryItems}"  
+                         IsEnabled="{Binding EnableCategoryList}"/>
+            </StackPanel>
+        </GroupBox>
+        <GroupBox Grid.Row="1" Grid.Column="1" Header="将选定过滤器复制到" Margin="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition />
+                    <RowDefinition Height="30"/>
+                </Grid.RowDefinitions>
+                <!--<ListBox Margin="5" Grid.Row="0"/>-->
+                <Form:MultiSelectListBox Margin="5" Grid.Row="0" ItemsSource="{Binding DataContext.AllViewNames,RelativeSource={RelativeSource AncestorType=Window}}" SelectedItems="{Binding SelectedItems}"/>
+                <Button x:Name="btn_Paste" Content="复制到所有指定视图" Grid.Row="2"  Margin="5"
+                                      Command="{Binding SelectViewCommand}" CommandParameter="{Binding SelectedItems}"
+                Click="Button_Click"/>
+            </Grid>            
+        </GroupBox>
+        <Border Grid.Row="2" Grid.ColumnSpan="3" Margin="5" Padding="0,2,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="Gray">
+            <Button  Content="完成修改并退出"  
+                     Click="Button_Click"/>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,39 @@
+﻿<Window x:Class="CreatePipe.PipeSystemManager.Form.AddPipeSystemForm"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:CreatePipe.PipeSystemManager.Form"
+             mc:Ignorable="d" 
+             d:DesignHeight="280" d:DesignWidth="200" Title="新增管道系统" WindowStartupLocation="CenterScreen" SizeToContent="WidthAndHeight" ResizeMode="NoResize">
+    <StackPanel>
+        <DockPanel Margin="5">
+            <Label Content="系统类型名称:" DockPanel.Dock="Left"/>
+            <TextBox Margin="5,0" Name="systemName_tb" DockPanel.Dock="Bottom"/>
+        </DockPanel>
+        <DockPanel  Margin="5">
+            <Label Content="系  统  类  型:"/>
+            <ComboBox Width="auto" Name="systemType_cb" DisplayMemberPath="Name"/>
+        </DockPanel>
+        <StackPanel Orientation="Horizontal" Margin="5">
+            <Label Content="缩             写:"/>
+            <TextBox Width="auto" Name="abbreviation_tb"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="5">
+            <Label Content="线     颜    色:"/>
+            <TextBlock Width="auto"  MouseDown="TextBlock_MouseDown"  Name="curveColor_tb"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="5">
+            <Label Content="线            型:"/>
+            <ComboBox Width="auto" Name="cb1" DisplayMemberPath="Name"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="5">
+            <Label Content="线            宽:"/>
+            <ComboBox Width="auto" Name="cb2"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5">
+            <Button Content="新增" Width="100" Click="Button_Click_1" />
+            <Button Content="关闭" Width="100" Margin="10,0,0,0" Click="Button_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

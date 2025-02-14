@@ -1,0 +1,33 @@
+﻿<Window x:Class="CreatePipe.WpfDirectoryTreeView.TestTreeView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.WpfDirectoryTreeView"
+        xmlns:U="clr-namespace:CreatePipe.Utils"
+        mc:Ignorable="d"
+        Title="TestTreeView" Height="450" Width="300">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Button Margin="5" Content="LoadDir" Grid.Row="0" Command="{Binding GetNewFolderCommand}"/>
+        <U:EnhancedTreeView Margin="5" Grid.Row="1"
+    ItemsSource="{Binding RootDirectories}" 
+    CurrentItem="{Binding SelectedDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+            <U:EnhancedTreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Directories}">
+                    <TextBlock Text="{Binding Info.Name}" />
+                </HierarchicalDataTemplate>
+            </U:EnhancedTreeView.ItemTemplate>
+        </U:EnhancedTreeView>
+        <Button Margin="5" Content="Test" Grid.Row="2" Command="{Binding SaveCsvCommand}"/>
+        <Button Margin="5" Content="OK" Grid.Row="3" Click="Button_Click"/>
+        <TextBlock Grid.Row="4" Margin="5" 
+                   Text="{Binding SelectedDirectoryPath}"/>
+    </Grid>
+</Window>

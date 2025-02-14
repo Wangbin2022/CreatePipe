@@ -1,0 +1,39 @@
+﻿<Window x:Class="CreatePipe.Form.PipeSystemTest"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:CreatePipe.Models"
+        xmlns:model="clr-namespace:CreatePipe.models"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+
+        Title="PipeSystemTest" Height="350" Width="240"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <StackPanel Margin="10,15,10,0">
+            <ComboBox ItemsSource="{Binding Items}"   SelectedItem="{Binding SelectedPipeSystem}"
+                      HorizontalAlignment="Stretch" IsEditable="False"/>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="已选中系统="/>
+                <TextBox Text="{Binding SelectedPipeSystem}" HorizontalAlignment="Left" Width="130" Margin="3" />
+            </StackPanel>
+            <TextBlock Text="系统管径"/>
+            <local:MultiSelectComboBox  ItemsSource="{Binding Items}" 
+  SelectedItems="{Binding SelectedItems}" IsEnabled="{Binding AllowDNSelect}"
+  ToolTip="{Binding Path=Text, RelativeSource={RelativeSource Self}}" />
+            <Button Content="test" Command="{Binding TestCommand}"
+                    Margin="3"/>
+        </StackPanel>
+        <Border Grid.Row="1" Margin="5" Padding="0,2,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="Gray">
+            <Button  Content="确定修改并退出"  Command="{Binding AddInsulationCommand}"
+                     CommandParameter="{Binding SelectedPipeSystem}"
+                     Click="Button_Click"/>
+        </Border>
+    </Grid>
+</Window>

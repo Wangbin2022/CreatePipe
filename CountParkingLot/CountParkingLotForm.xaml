@@ -1,0 +1,41 @@
+﻿<Window x:Class="CreatePipe.CountParkingLot.CountParkingLotForm"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.CountParkingLot"
+        mc:Ignorable="d"
+        Title="车位编号" Height="350" Width="240"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition />
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Label Content="{Binding ParkingLotNum}" ContentStringFormat="已选中车位数：{0}"  HorizontalAlignment="Stretch"
+               HorizontalContentAlignment="Center"
+               BorderBrush="Gray" BorderThickness="1" Margin="5"/>
+        <StackPanel Margin="5,10,5,0" Grid.Row="1">
+            <TextBlock Text="编号前缀"/>
+            <TextBox Height="22" Text="{Binding Prefix,UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="起始编号值"/>
+            <TextBox Height="22" Text="{Binding StartCode,UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="编号格式"/>
+            <ComboBox ItemsSource="{Binding Items}"
+                  DisplayMemberPath="DisplayText"
+                  SelectedValuePath="Value"
+                  SelectedValue="{Binding SelectedValue}"                      
+                  Height="22" />
+            <TextBlock Text="编号预览"/>
+            <TextBlock Height="22" Margin="0,10,0,0"
+                       Text="{Binding CodePreview,UpdateSourceTrigger=PropertyChanged}"
+                       HorizontalAlignment="Center"/>
+        </StackPanel>
+        <Border Grid.Row="2" Margin="5" Padding="0,2,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="Gray">
+            <Button  Content="快速编号" Command="{Binding CodeAllCommand}"
+                     Click="Button_Click"/>
+        </Border>
+    </Grid>
+</Window>
