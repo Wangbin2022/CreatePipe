@@ -14,17 +14,17 @@ namespace CreatePipe
     class FamilyParameterAssigner
     {
         #region Memeber Fields
-        private Autodesk.Revit.ApplicationServices.Application m_app;
-        private FamilyManager m_manager = null;
-        string m_assemblyPath;
+        private Autodesk.Revit.ApplicationServices.Application application;
+        private FamilyManager familyManager = null;
+        string assemblyPath;
         // indicate whether the parameter files have been loaded. If yes, no need to load again.
-        bool m_paramLoaded;
+        bool HasParamLoaded;
 
         // set the paramName as key of dictionary for exclusiveness (the names of parameters should be unique)
-        private Dictionary<string /*paramName*/, FamilyParam> m_familyParams;
-        private DefinitionFile m_sharedFile;
-        private string m_familyFilePath = string.Empty;
-        private string m_sharedFilePath = string.Empty;
+        private Dictionary<string /*paramName*/, FamilyParam> familyParams;
+        private DefinitionFile sharedFile;
+        private string familyFilePath = string.Empty;
+        private string sharedFilePath = string.Empty;
         #endregion
 
         /// <summary>
@@ -38,11 +38,11 @@ namespace CreatePipe
         /// </param>
         public FamilyParameterAssigner(Autodesk.Revit.ApplicationServices.Application app, Document doc)
         {
-            m_app = app;
-            m_manager = doc.FamilyManager;
-            m_familyParams = new Dictionary<string, FamilyParam>();
-            m_assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            m_paramLoaded = false;
+            application = app;
+            familyManager = doc.FamilyManager;
+            familyParams = new Dictionary<string, FamilyParam>();
+            assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            HasParamLoaded = false;
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace CreatePipe
         /// </returns>
         public bool LoadParametersFromFile()
         {
-            if (m_paramLoaded)
+            if (HasParamLoaded)
             {
                 return true;
             }
@@ -78,7 +78,7 @@ namespace CreatePipe
             {
                 return false;
             }
-            m_paramLoaded = true;
+            HasParamLoaded = true;
             return true;
         }
 
@@ -92,7 +92,7 @@ namespace CreatePipe
         {
             exist = true;
             // step 1: find the file "FamilyParameter.txt" and open it
-            string fileName = m_assemblyPath + "\\FamilyParameter.txt";
+            string fileName = assemblyPath + "\\FamilyParameter.txt";
             if (!File.Exists(fileName))
             {
                 exist = false;
@@ -183,14 +183,14 @@ namespace CreatePipe
                     // step 2.3: store the parameter fetched, check for exclusiveness (as the names of parameters should keep unique)
                     FamilyParam param = new FamilyParam(paramName, paramGroup, paramType, isInstance, lineNumber);
                     // the family parameter with the same name has already been stored to the dictionary, raise an error
-                    if (m_familyParams.ContainsKey(paramName))
+                    if (familyParams.ContainsKey(paramName))
                     {
-                        FamilyParam duplicatedParam = m_familyParams[paramName];
+                        FamilyParam duplicatedParam = familyParams[paramName];
                         string warning = "Line " + param.Line + "has a duplicate parameter name with Line " + duplicatedParam.Line + "\n";
                         MessageManager.MessageBuff.Append(warning);
                         continue;
                     }
-                    m_familyParams.Add(paramName, param);
+                    familyParams.Add(paramName, param);
                 }
             }
             catch (System.Exception e)
@@ -225,17 +225,17 @@ namespace CreatePipe
         private bool LoadSharedParameterFromFile(out bool exist)
         {
             exist = true;
-            string filePath = m_assemblyPath + "\\SharedParameter.txt";
+            string filePath = assemblyPath + "\\SharedParameter.txt";
             if (!File.Exists(filePath))
             {
                 exist = false;
                 return true;
             }
 
-            m_app.SharedParametersFilename = filePath;
+            application.SharedParametersFilename = filePath;
             try
             {
-                m_sharedFile = m_app.OpenSharedParameterFile();
+                sharedFile = application.OpenSharedParameterFile();
             }
             catch (System.Exception e)
             {
@@ -280,20 +280,20 @@ namespace CreatePipe
         private bool AddFamilyParameter()
         {
             bool allParamValid = true;
-            if (File.Exists(m_familyFilePath) &&
-               0 == m_familyParams.Count)
+            if (File.Exists(familyFilePath) &&
+               0 == familyParams.Count)
             {
                 MessageManager.MessageBuff.AppendLine("No family parameter available for adding.");
                 return false;
             }
 
-            foreach (FamilyParameter param in m_manager.Parameters)
+            foreach (FamilyParameter param in familyManager.Parameters)
             {
                 string name = param.Definition.Name;
-                if (m_familyParams.ContainsKey(name))
+                if (familyParams.ContainsKey(name))
                 {
                     allParamValid = false;
-                    FamilyParam famParam = m_familyParams[name];
+                    FamilyParam famParam = familyParams[name];
                     MessageManager.MessageBuff.Append("Line " + famParam.Line + ": paramName \"" + famParam.Name + "\"already exists in the family document.\n");
                 }
             }
@@ -304,11 +304,11 @@ namespace CreatePipe
                 return false;
             }
 
-            foreach (FamilyParam param in m_familyParams.Values)
+            foreach (FamilyParam param in familyParams.Values)
             {
                 try
                 {
-                    m_manager.AddParameter(param.Name, param.Group, param.Type, param.IsInstance);
+                    familyManager.AddParameter(param.Name, param.Group, param.Type, param.IsInstance);
                 }
                 catch (Exception e)
                 {
@@ -328,19 +328,19 @@ namespace CreatePipe
         /// </returns>
         private bool AddSharedParameter()
         {
-            if (File.Exists(m_sharedFilePath) &&
-                null == m_sharedFile)
+            if (File.Exists(sharedFilePath) &&
+                null == sharedFile)
             {
                 MessageManager.MessageBuff.AppendLine("SharedParameter.txt has an invalid format.");
                 return false;
             }
 
-            foreach (DefinitionGroup group in m_sharedFile.Groups)
+            foreach (DefinitionGroup group in sharedFile.Groups)
             {
                 foreach (ExternalDefinition def in group.Definitions)
                 {
                     // check whether the parameter already exists in the document
-                    FamilyParameter param = m_manager.get_Parameter(def.Name);
+                    FamilyParameter param = familyManager.get_Parameter(def.Name);
                     if (null != param)
                     {
                         continue;
@@ -348,7 +348,7 @@ namespace CreatePipe
 
                     try
                     {
-                        m_manager.AddParameter(def, def.ParameterGroup, true);
+                        familyManager.AddParameter(def, def.ParameterGroup, true);
                     }
                     catch (System.Exception e)
                     {
