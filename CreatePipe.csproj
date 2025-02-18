@@ -159,6 +159,9 @@
     </Compile>
     <Compile Include="FamilyParameterAssigner.cs" />
     <Compile Include="filter\ParkingLotFilter.cs" />
+    <Compile Include="Form\TabTest.xaml.cs">
+      <DependentUpon>TabTest.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Obselete\NumberByPick\NumberByPick.cs" />
     <Compile Include="Obselete\NumberByPick\NumberByPickWPF.xaml.cs">
       <DependentUpon>NumberByPickWPF.xaml</DependentUpon>
@@ -334,7 +337,7 @@
       <DependentUpon>ViewFiltersForm.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\ViewFilters\ViewFilterViewModel.cs" />
-    <Compile Include="ViewModel1127.cs" />
+    <Compile Include="ViewModel.cs" />
     <Compile Include="WpfDirectoryTreeView\FamilyManagerView.xaml.cs">
       <DependentUpon>FamilyManagerView.xaml</DependentUpon>
     </Compile>
@@ -423,6 +426,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\FilterTest.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\TabTest.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

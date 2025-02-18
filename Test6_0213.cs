@@ -3,6 +3,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
+using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
@@ -63,39 +64,18 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
-            //TaskDialog.Show("tt", $"视图方向{activeView.ViewDirection.X.ToString()}++{activeView.ViewDirection.Y.ToString()}++{activeView.ViewDirection.Z.ToString()}");
+            //0218 开始窗口
+            //TabTest tabTest = new TabTest(uiApp);
+            //tabTest.ShowDialog();
 
-            //0213 参考平面绘制方法，测试有误，没看懂cutVec是什么以及如何设置
-            // 定义视图坐标系的变换矩阵
-            //Transform vTrans = Transform.Identity;
-            //vTrans.BasisX = activeView.RightDirection;
-            //vTrans.BasisY = activeView.UpDirection;
-            //vTrans.BasisZ = activeView.ViewDirection;
-            //vTrans.Origin = activeView.Origin;
-            //// 定义参考平面的点（在视图坐标系中）
-            //double len = 100;
-            //XYZ pt1 = new XYZ(-len, 0, 0);  // 水平线起点
-            //XYZ pt2 = new XYZ(len * 2, 0, 0);  // 水平线终点
-            //XYZ pt3 = new XYZ(0, -len, 0);  // 垂直线起点
-            //XYZ pt4 = new XYZ(0, len * 2, 0);  // 垂直线终点
-            //// 将点从视图坐标系转换到模型空间
-            //XYZ[] pts = new XYZ[] { pt1, pt2, pt3, pt4 };
-            //for (int i = 0; i < pts.Length; i++)
-            //{
-            //    pts[i] = vTrans.OfPoint(pts[i]);
-            //}
-            //// 创建参考平面
-            //using (Transaction tx = new Transaction(doc, "Create Reference Planes"))
-            //{
-            //    tx.Start();
-            //    // 创建第一个参考平面（水平方向）
-            //    ReferencePlane rp1 = doc.Create.NewReferencePlane(pts[0], pts[1], activeView.ViewDirection, activeView);
-            //    // 创建第二个参考平面（垂直方向）
-            //    ReferencePlane rp2 = doc.Create.NewReferencePlane(pts[2], pts[3], activeView.ViewDirection, activeView);
-            //    tx.Commit();
-            //}
-            //例程结束
 
+            //0218 找参照平面
+
+
+
+
+
+            ////0217 测试画平行参照平面，OK
             //doc.NewTransaction(() =>
             //{
             //    if (activeView.SketchPlane == null)
@@ -200,6 +180,38 @@ namespace CreatePipe
             //    doc.Close();
             //    //TaskDialog.Show("tt", fileInfo.Name);
             //}
+
+            //0213 参考平面绘制方法
+            // 定义视图坐标系的变换矩阵
+            //Transform vTrans = Transform.Identity;
+            //vTrans.BasisX = activeView.RightDirection;
+            //vTrans.BasisY = activeView.UpDirection;
+            //vTrans.BasisZ = activeView.ViewDirection;
+            //vTrans.Origin = activeView.Origin;
+            //// 定义参考平面的点（在视图坐标系中）
+            //double len = 100;
+            //XYZ pt1 = new XYZ(-len, 0, 0);  // 水平线起点
+            //XYZ pt2 = new XYZ(len * 2, 0, 0);  // 水平线终点
+            //XYZ pt3 = new XYZ(0, -len, 0);  // 垂直线起点
+            //XYZ pt4 = new XYZ(0, len * 2, 0);  // 垂直线终点
+            //// 将点从视图坐标系转换到模型空间
+            //XYZ[] pts = new XYZ[] { pt1, pt2, pt3, pt4 };
+            //for (int i = 0; i < pts.Length; i++)
+            //{
+            //    pts[i] = vTrans.OfPoint(pts[i]);
+            //}
+            //// 创建参考平面
+            //using (Transaction tx = new Transaction(doc, "Create Reference Planes"))
+            //{
+            //    tx.Start();
+            //    // 创建第一个参考平面（水平方向）
+            //    ReferencePlane rp1 = doc.Create.NewReferencePlane(pts[0], pts[1], activeView.ViewDirection, activeView);
+            //    // 创建第二个参考平面（垂直方向）
+            //    ReferencePlane rp2 = doc.Create.NewReferencePlane(pts[2], pts[3], activeView.ViewDirection, activeView);
+            //    tx.Commit();
+            //}
+            //例程结束
+
             return Result.Succeeded;
         }
 

@@ -16,7 +16,7 @@ namespace CreatePipe.Form
             Doc = document;
             // 创建一个局部变量来存储 Message 的值
             string localMessage = message;
-            this.DataContext = new ViewModel1127(Doc, ref localMessage);
+            //this.DataContext = new ViewModel1127(Doc, ref localMessage);
             //this.DataContext = new ViewModelTest(Doc);
         }
 
