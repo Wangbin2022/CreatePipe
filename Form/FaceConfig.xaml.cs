@@ -2,6 +2,7 @@
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.filter;
+using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -46,32 +47,28 @@ namespace CreatePipe.Form
             XmlDoc.Instance.Task.Run(app =>
             {
                 UIDocument UIDoc = app.ActiveUIDocument;
+                Document doc = UIDoc.Document;
                 var faceReference = UIDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Face, new filterWallClass(), "拾取要复制的墙面");
                 var wallofFace = UIDoc.Document.GetElement(faceReference) as Wall;
                 var face = wallofFace.GetGeometryObjectFromReference(faceReference) as Face;
-                Transaction ts = new Transaction(UIDoc.Document, "创建面生面");
-                ts.Start();
-                CreateFace(UIDoc.Document, face, wallofFace, SelectedWallType);
-                ts.Commit();
-                //TaskDialog.Show("tt", "OK");
+                doc.NewTransaction(() =>
+                {
+                    var profile = new List<Curve>();
+                    var openingArrays = new List<CurveArray>();
+                    Double width = SelectedWallType.Width;
+                    ExtractFaceOutline(face, width, ref profile, ref openingArrays);//提取轮廓线
+                    var wall = Wall.Create(doc, profile, SelectedWallType.Id, wallofFace.LevelId, false);
+                    wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).Set(0);//设置底部偏移
+                    foreach (var item in openingArrays)
+                    {
+                        doc.Create.NewOpening(wall, item.get_Item(0).GetEndPoint(0), item.get_Item(1).GetEndPoint(1));
+                    }
+                }, "创建面生面");
             });
-        }
-        private void CreateFace(Document doc, Face face, Wall wallofFace, WallType selectedWallType)
-        {
-            var profile = new List<Curve>();
-            var openingArrays = new List<CurveArray>();
-            Double width = selectedWallType.Width;
-            ExtractFaceOutline(face, width, ref profile, ref openingArrays);//提取轮廓线
-            var wall = Wall.Create(doc, profile, selectedWallType.Id, wallofFace.LevelId, false);
-            wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).Set(0);//设置底部偏移
-            foreach (var item in openingArrays)
-            {
-                doc.Create.NewOpening(wall, item.get_Item(0).GetEndPoint(0), item.get_Item(1).GetEndPoint(1));
-            }
         }
         private void ExtractFaceOutline(Face face, double width, ref List<Curve> profile, ref List<CurveArray> openingArrays) //提取截面，Curve是墙体，CurveArray是墙体上的洞口
         {
-            var curveLoops = face.GetEdgesAsCurveLoops();
+            IList<CurveLoop> curveLoops = face.GetEdgesAsCurveLoops();
             XYZ normal = (face as PlanarFace)?.FaceNormal;
             if (normal == null) throw new ArgumentException("非平面不可用");
             Autodesk.Revit.DB.Transform translation = Autodesk.Revit.DB.Transform.CreateTranslation(normal * width / 2);

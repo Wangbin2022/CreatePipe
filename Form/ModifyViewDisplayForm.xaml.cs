@@ -16,14 +16,14 @@ using System.Windows.Shapes;
 namespace CreatePipe.Form
 {
     /// <summary>
-    /// TabTest.xaml 的交互逻辑
+    /// ModifyViewDisplayForm.xaml 的交互逻辑
     /// </summary>
-    public partial class TabTest : Window
+    public partial class ModifyViewDisplayForm : Window
     {
-        public TabTest(UIApplication application)
+        public ModifyViewDisplayForm(UIApplication app)
         {
             InitializeComponent();
-            this.DataContext = new RPManagerViewModel(application);
+            this.DataContext = new ModifyViewDisplayViewModel(app);
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

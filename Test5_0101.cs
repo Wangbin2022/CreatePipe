@@ -31,6 +31,47 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
+
+            //0220 找墙的所有面OK，希望通过这个找出另外搜轮廓办法不要出现多余的参照平面
+            //Reference r = uiDoc.Selection.PickObject(ObjectType.Element, new filterWallClass(), "pick wall");
+            //Wall wall =doc.GetElement(r.ElementId) as Wall;
+            //String faceInfo = "";
+            //Autodesk.Revit.DB.Options opt = new Options();
+            //Autodesk.Revit.DB.GeometryElement geomElem = wall.get_Geometry(opt);
+            //foreach (GeometryObject geomObj in geomElem)
+            //{
+            //    Solid geomSolid = geomObj as Solid;
+            //    if (null != geomSolid)
+            //    {
+            //        int faces = 0;
+            //        double totalArea = 0;
+            //        foreach (Face geomFace in geomSolid.Faces)
+            //        {
+            //            faces++;
+            //            faceInfo += "Face " + faces + " area: " + geomFace.Area.ToString() + "\n";
+            //            totalArea += geomFace.Area;
+            //        }
+            //        faceInfo += "Number of faces: " + faces + "\n";
+            //        faceInfo += "Total area: " + totalArea.ToString() + "\n";
+            //        foreach (Edge geomEdge in geomSolid.Edges)
+            //        {
+            //            // get wall's geometry edges
+            //        }
+            //    }
+            //}
+            //TaskDialog.Show("Revit", faceInfo);
+
+            //////0116 墙面生墙功能代码，模态.OK 0220 继续改解决多余参照平面问题
+            //////为了列表完全不得不先导出列表
+            var wallTypes = from element in new FilteredElementCollector(doc).OfClass(typeof(WallType))
+                            let type = element as WallType
+                            select type;
+            var faceConfigWin = new FaceConfig(wallTypes.ToList());//调用xmal生成窗体
+            faceConfigWin.Show();
+            //////例程结束
+            ////0101 面生面，非模态。OK 
+            ////例程结束
+
             //FamilyManagerView familyManager = new FamilyManagerView(uiApp);
             //familyManager.Show();
 
@@ -243,12 +284,6 @@ namespace CreatePipe
             //TaskDialog.Show("tt", familyManager.GetParameters().Count().ToString());
             //例程结束
 
-            ////当前文件保存次数
-            //var basicFileInfo = BasicFileInfo.Extract(doc.PathName);
-            //TaskDialog.Show("tt", basicFileInfo.GetDocumentVersion().NumberOfSaves.ToString());
-            //例程结束
-
-
             //0117 新建族属性实验
             //族属性值更改，注意对有公式的参数无效
             //FamilyManager familyManager = doc.FamilyManager;
@@ -326,40 +361,12 @@ namespace CreatePipe
             //}
             ////例程结束
 
-            ////0116 墙面生墙功能代码，模态.OK
-            ////为了列表完全不得不先导出列表
-            //var wallTypes = from element in new FilteredElementCollector(doc).OfClass(typeof(WallType))
-            //                let type = element as WallType
-            //                select type;
-            //var faceConfigWin = new FaceConfig(wallTypes.ToList());//调用xmal生成窗体
-            //faceConfigWin.Show();
-            ////例程结束
-
             ////0114 取得文件基本属性
             //var basicFileInfo = BasicFileInfo.Extract(doc.PathName);
             //TaskDialog.Show("tt", basicFileInfo.GetDocumentVersion().NumberOfSaves.ToString());//保存次数
             //TaskDialog.Show("tt", basicFileInfo.Format);//年度版本号
             ////例程结束
 
-            //0101 面生面，非模态。OK
-            //var faceReference = uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Face, "拾取要复制的墙面");
-            //var wallofFace = doc.GetElement(faceReference) as Wall;
-            //var face = wallofFace.GetGeometryObjectFromReference(faceReference) as Face;
-            //var wallTypes = from element in new FilteredElementCollector(doc).OfClass(typeof(WallType))
-            //                let type = element as WallType
-            //                select type;
-            //var faceConfigWin = new FaceConfig(wallTypes.ToList());//调用xmal生成窗体
-            //var result = faceConfigWin.ShowDialog(); //接收返回
-            //if (result.HasValue && result.Value)
-            //{
-            //    Transaction ts = new Transaction(doc, "创建面生面");
-            //    ts.Start();
-            //    CreateFace(doc, face, wallofFace, faceConfigWin.SelectedWallType);
-            //    ts.Commit();
-            //    return Result.Succeeded;
-            //}
-            //return Result.Cancelled;
-            //例程结束
             //0105 列举选择项的内置参数名称三段下划线分割
             //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, "选择一个");
             //Element element = doc.GetElement(reference.ElementId);
@@ -467,8 +474,7 @@ namespace CreatePipe
             //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new filterRoomClass(),"选择一个房间");
             //List<Room> rooms = new List<Room>();
             ////IList<Reference> rr = uiDoc.Selection.PickObjects(ObjectType.Element, new filterRoomClass()).ToList();//点选多选
-            //IList<Element> rr = uiDoc.Selection.PickElementsByRectangle(new filterRoomClass());//框选多个            
-
+            //IList<Element> rr = uiDoc.Selection.PickElementsByRectangle(new filterRoomClass());//框选多个        
             //foreach (var item in rr)
             //{
             //    Room r=doc.GetElement(item.Id) as Room;
