@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
@@ -8,13 +9,16 @@ using CreatePipe.cmd;
 using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.Utils;
+using EnumsNET;
 using NPOI.OpenXmlFormats.Vml;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Windows.Documents;
 using System.Windows.Forms;
 
 namespace CreatePipe
@@ -26,7 +30,28 @@ namespace CreatePipe
         {
             public FailureProcessingResult PreprocessFailures(FailuresAccessor failuresAccessor)
             {
-                throw new NotImplementedException();
+                try
+                {
+                    var failures = failuresAccessor.GetFailureMessages();
+                    foreach (var fail in failures)
+                    {
+                        FailureSeverity severity = fail.GetSeverity();
+                        string description = fail.GetDescriptionText();
+                        FailureDefinitionId fail_id = fail.GetFailureDefinitionId();
+                        if (severity == FailureSeverity.Warning)
+                        {
+                            if (fail_id == BuiltInFailures.GeneralFailures.DuplicateValue)
+                            {
+                                TaskDialog.Show("tt", $"解决错误{description}");
+                                failuresAccessor.DeleteWarning(fail);
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+                return FailureProcessingResult.Continue;
             }
         }
 
@@ -40,18 +65,57 @@ namespace CreatePipe
             XmlDoc.Instance.Task = new RevitTask();
 
 
+            //0224 按官方参考删除Schema，变量不全还需要测试
+            //https://thebuildingcoder.typepad.com/blog/2022/11/extensible-storage-schema-deletion.html
+            //using (Transaction tErase = new Transaction(doc, "Erase EStorage"))
+            //{ 
+            //    tErase.Start();
+            //    foreach (Schema schema in schemas.Where(sbyte=>sbyte.GUID.ToString()=="xxx"))
+            //    {
+            //        try
+            //        {
+            //            doc.EraseSchemaAndAllEntities(schema);
+            //            Schema.EraseSchemaAndAllEntities(schema, true);
+            //            deleted++;
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            message += ex.Message + "\n";
+            //            TaskDialog.Show("tt", ex.Message);
+            //        }
 
-            //0223 错误处理
+            //    }
+            //    tErase.Commit();
+            //}
+
+            //0223 错误处理器，必须在命令事务中可能出错时才执行，不是对已有错误的解决。。。
             //参考https://learnrevitapi.com/newsletter/how-to-suppress-warnings-in-revit-api
-            var wall = uiDoc.Selection.PickObject(ObjectType.Element, new filterWallClass(), "选墙");
-            Wall elem = doc.GetElement(wall.ElementId) as Wall;
-            using (Transaction trans = new Transaction(doc, "Update Mark"))
-            {
-                trans.Start();
-                var p_mark = elem.get_Parameter(BuiltInParameter.ALL_MODEL_MARK);
-                p_mark.Set("Warning 2");
-                trans.Commit();
-            }
+            //var wall = uiDoc.Selection.PickObject(ObjectType.Element, new filterWallClass(), "选墙");
+            //Wall elem = doc.GetElement(wall.ElementId) as Wall;
+            //以下正式测试重复属性代码
+            //List<Wall> elems = new List<Wall>();
+            //foreach (Reference refItem in uiDoc.Selection.PickObjects(ObjectType.Element, new filterWallClass(), "选择墙"))
+            //{
+            //    Element elem = uiDoc.Document.GetElement(refItem);
+            //    if (elem is Wall wall)
+            //    {
+            //        elems.Add(wall);
+            //    }
+            //}
+            //using (Transaction trans = new Transaction(doc, "Update Mark"))
+            //{
+            //    foreach (var item in elems)
+            //    {
+            //        trans.Start();
+            //        var p_mark = item.get_Parameter(BuiltInParameter.ALL_MODEL_MARK);
+            //        p_mark.Set("Warning 2");
+            //        var fail_hand_opts = trans.GetFailureHandlingOptions();
+            //        fail_hand_opts.SetFailuresPreprocessor(new SupressWarning());
+            //        trans.SetFailureHandlingOptions(fail_hand_opts);
+            //        trans.Commit();
+            //    }
+            //}
+
             //0222 用标高切分结构柱，初步完成 在结构柱分层的高度上仍有问题。。要考虑柱的顶底偏移再设置切分逻辑
             //新的柱子虽然不用考虑开洞但仍需手动考虑偏移的各种情况给赋值。
             //var columnRef = uiDoc.Selection.PickObject(ObjectType.Element, new ColumnFilter(), "选择结构柱");
