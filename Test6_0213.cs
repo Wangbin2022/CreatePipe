@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
+using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
@@ -20,6 +21,7 @@ using System.Net;
 using System.Text;
 using System.Windows.Documents;
 using System.Windows.Forms;
+
 
 namespace CreatePipe
 {
@@ -54,7 +56,28 @@ namespace CreatePipe
                 return FailureProcessingResult.Continue;
             }
         }
+        private bool IsConnectedAtBothEnds(MEPCurve mEPCurve)
+        {
+            // 获取连接点
+            ConnectorSet connectors = mEPCurve.ConnectorManager.Connectors;
+            Connector startConnector = connectors.Cast<Connector>().FirstOrDefault(c => c.Domain == Domain.DomainHvac);
+            Connector endConnector = connectors.Cast<Connector>().LastOrDefault(c => c.Domain == Domain.DomainHvac);
 
+            if (startConnector == null || endConnector == null)
+            {
+                return false; // 如果没有找到连接点，返回 false
+            }
+
+            // 检查连接状态
+            bool startConnected = startConnector.IsConnected;
+            bool endConnected = endConnector.IsConnected;
+            bool result = false;
+            if (startConnected == true || endConnected == true)
+            {
+                result = true;
+            }
+            return result;
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -64,6 +87,149 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
+            //TaskDialog.Show("tt", con1.Size.ToString() );//构件连接器数量
+            //0225 喷头转换？
+            //先试一下找到的风口上下切换
+            Selection sel = uiDoc.Selection;
+            var instance = doc.GetElement(sel.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "选取风口末端")) as FamilyInstance;
+            using (Transaction ts = new Transaction(doc, "Test"))
+            {
+                ts.Start();
+                ////找出构件的偏移值并设置参数
+                //var s1 = instance.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM);
+                //s1.Set(3000 / 304.8);
+                //构件旋转
+                LocationPoint locationPoint = instance.Location as LocationPoint;
+                if (locationPoint == null)
+                {
+                    TaskDialog.Show("错误", "选择的构件没有位置信息！");
+                }
+                else
+                { 
+                XYZ rotationCenter = locationPoint.Point;
+                XYZ rotationAxis = new XYZ(0, 0, 1);
+                // 定义旋转角度（90度，单位为弧度）
+                double rotationAngle = Math.PI / 2;
+                ElementTransformUtils.RotateElement(doc, instance.Id, rotationAxis, rotationAngle);
+                }
+                //if (instance.CanRotate)
+                //{
+                //    TaskDialog.Show("tt", "PASS");
+                //}
+                //else { TaskDialog.Show("tt", "NOPASS"); }
+                //找构件连接器连得是什么对象
+
+
+                ts.Commit();
+            }
+            //旋转构件
+            //var con1 = instance.MEPModel.ConnectorManager.Connectors;
+            //foreach (Connector item in con1)
+            //{
+            //    if (item.IsConnected)
+            //    {
+            //        TaskDialog.Show("tt", "PASS");
+            //    }
+            //    else { TaskDialog.Show("tt", "NOPASS"); }
+            //}
+            //TaskDialog.Show("tt", instance.Id.ToString());
+            //Connector con = null;
+            //Connector conn = null;
+            //Duct duct = null;
+            //Transaction tr = new Transaction(doc);
+            //tr.Start("管线微调后连接");
+            //try
+            //{
+            //    var conset = instance.MEPModel.ConnectorManager.Connectors;
+            //    foreach (Connector item in conset)
+            //    {
+            //        con = item;
+            //        var itemOR = item.Origin.ToString();
+            //        var connset = item.AllRefs;
+            //        foreach (Connector item1 in connset)
+            //        {
+            //            if (!item1.IsConnected) continue;
+            //            conn = item1;
+            //            duct = conn.Owner as Duct;
+            //            con.DisconnectFrom(conn); // 断开风道末端
+
+            //            // 获取风管的中心线作为旋转轴
+            //            LocationCurve locationCurve = duct.Location as LocationCurve;
+            //            if (locationCurve == null) continue;
+
+            //            Line rotationAxis = locationCurve.Curve as Line;
+            //            if (rotationAxis == null) continue;
+
+            //            // 旋转风道末端90度（1.57弧度）
+            //            double rotationAngle = Math.PI / 2; // 90度
+            //            ElementTransformUtils.RotateElement(doc, instance.Id, rotationAxis, rotationAngle);
+
+            //            // 重新连接风道末端和风管
+            //            var mepcurve = doc.GetElement(duct.Id) as MEPCurve;
+            //            MechanicalUtils.ConnectAirTerminalOnDuct(doc, instance.Id, mepcurve.Id);
+            //        }
+            //    }
+            //    tr.Commit();
+            //}
+            //catch (Exception ex)
+            //{
+            //    tr.RollBack();
+            //    TaskDialog.Show("Error", ex.Message);
+            //}
+            //源程序，只能参考
+            //Selection sel = uiDoc.Selection;
+            //var instance = doc.GetElement(sel.PickObject(ObjectType.Element, "选取风口末端")) as FamilyInstance;
+            //Connector con = null;
+            //Connector conn = null;
+            //Duct duct = null;
+            //Transaction tr = new Transaction(doc);
+            //tr.Start("管线微调后连接");
+            //var conset = instance.MEPModel.ConnectorManager.Connectors;
+            //foreach (Connector item in conset)
+            //{
+            //    con = item;
+            //    var itemOR = item.Origin.ToString();
+            //    var connset = item.AllRefs;
+            //    foreach (Connector item1 in connset)
+            //    {
+            //        if (!item1.IsConnected) continue;
+            //        conn = item1;
+            //        duct = conn.Owner as Duct;
+            //        con.DisconnectFrom(conn);//断开风道末端
+            //        LocationCurve line = duct.Location as LocationCurve;
+            //        XYZ rotationCenter = line.Curve.GetEndPoint(0); // 使用曲线起点作为旋转中心点
+            //        XYZ rotationAxis = XYZ.BasisZ; // 假设绕 Z 轌道旋转
+            //        var mepcurve = doc.GetElement(duct.Id) as MEPCurve;
+            //        //待补充测试，旋转对象方法的参数设置
+            //        //ElementTransformUtils.RotateElement(doc, instance.Id, line, 1.57);
+            //        ElementTransformUtils.RotateElement(doc, instance.Id, rotationCenter, rotationAxis, 1.57);
+            //        //旋转风道末端，需自定一个旋转方法
+            //        //MechanicalUtils.ConnectAirTerminalOnDuct(doc, instance.Id, mepcurve.Id);
+            //        MechanicalUtils.ConnectAirTerminalOnDuct(doc, instance.Id, duct.Id);
+
+            //    }
+
+            //}
+
+
+
+            ////0225 找无机电系统构件
+            //var elem = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPCurveClass(), "选风管或水管");
+            //var mEPCurve = doc.GetElement(elem.ElementId) as MEPCurve;
+            //if (mEPCurve.MEPSystem == null)
+            //{
+            //    TaskDialog.Show("tt", "NOPASS");
+            //}
+            //else
+            //{
+            //    //TaskDialog.Show("tt", mEPCurve.MEPSystem.Name); 
+            //    // 检测两端是否均与其他管或管件相连
+            //    //bool isConnectedAtBothEnds = IsConnectedAtBothEnds(mEPCurve);
+            //    // 显示结果
+            //    string resultMessage = IsConnectedAtBothEnds(mEPCurve) ? "至少有一端与其他管或管件相连。" : "未连接到其他管或管件。";
+            //    TaskDialog.Show("检查结果", resultMessage);
+            //}
+            ////查找两端是否均无连接
 
             //0224 按官方参考删除Schema，变量不全还需要测试
             //https://thebuildingcoder.typepad.com/blog/2022/11/extensible-storage-schema-deletion.html
