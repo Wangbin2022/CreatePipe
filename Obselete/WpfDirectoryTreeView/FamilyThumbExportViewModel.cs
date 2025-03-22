@@ -6,8 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.WpfDirectoryTreeView
 {
@@ -135,8 +133,8 @@ namespace CreatePipe.WpfDirectoryTreeView
                 {
                     application.ActiveUIDocument.Document.NewTransaction(() =>
                     {
-                        view.OrientTo(new XYZ(1, 0, 1));
-                        //view.OrientTo(new XYZ(-0.577350269189626, 0.577350269189626, -0.577350269189626));
+                        //view.OrientTo(new XYZ(1, 0, 1));
+                        view.OrientTo(new XYZ(-0.577350269189626, 0.577350269189626, -0.577350269189626));
                         view.DetailLevel = DetailLevel;
                         view.DisplayStyle = ViewDisplayStyle;
                         if (is_HideHost == true)

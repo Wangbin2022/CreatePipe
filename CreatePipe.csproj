@@ -147,14 +147,14 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
-    <Compile Include="CountParkingLot\CountParkingLotForm.xaml.cs">
+    <Compile Include="Obselete\CountParkingLot\CountParkingLotForm.xaml.cs">
       <DependentUpon>CountParkingLotForm.xaml</DependentUpon>
     </Compile>
-    <Compile Include="CountParkingLot\CountParkingLotViewModel.cs" />
-    <Compile Include="CountParkingLot\FindParkingLotForm.xaml.cs">
+    <Compile Include="Obselete\CountParkingLot\CountParkingLotViewModel.cs" />
+    <Compile Include="Obselete\CountParkingLot\FindParkingLotForm.xaml.cs">
       <DependentUpon>FindParkingLotForm.xaml</DependentUpon>
     </Compile>
-    <Compile Include="CountParkingLot\NumberByPickWPF.xaml.cs">
+    <Compile Include="Obselete\CountParkingLot\NumberByPickWPF.xaml.cs">
       <DependentUpon>NumberByPickWPF.xaml</DependentUpon>
     </Compile>
     <Compile Include="FamilyParameterAssigner.cs" />
@@ -176,7 +176,7 @@
     <Compile Include="Obselete\0602Test1.cs" />
     <Compile Include="Obselete\0619Test2.cs" />
     <Compile Include="Obselete\1007Test3.cs" />
-    <Compile Include="1213Test4.cs" />
+    <Compile Include="Obselete\1213Test4.cs" />
     <Compile Include="CableConduitCreator\allCreatedIdsVM.cs" />
     <Compile Include="CableConduitCreator\CableConduitCreatorCmd.cs" />
     <Compile Include="CableConduitCreator\CableTrayPathForm.xaml.cs">
@@ -341,16 +341,16 @@
       <DependentUpon>ViewFiltersForm.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\ViewFilters\ViewFilterViewModel.cs" />
-    <Compile Include="RPManagerViewModel.cs" />
-    <Compile Include="WpfDirectoryTreeView\FamilyManagerView.xaml.cs">
+    <Compile Include="Obselete\RPManagerViewModel.cs" />
+    <Compile Include="Obselete\WpfDirectoryTreeView\FamilyManagerView.xaml.cs">
       <DependentUpon>FamilyManagerView.xaml</DependentUpon>
     </Compile>
-    <Compile Include="WpfDirectoryTreeView\FamilyManagerViewModel.cs" />
-    <Compile Include="WpfDirectoryTreeView\FamilyThumbExportForm.xaml.cs">
+    <Compile Include="Obselete\WpfDirectoryTreeView\FamilyManagerViewModel.cs" />
+    <Compile Include="Obselete\WpfDirectoryTreeView\FamilyThumbExportForm.xaml.cs">
       <DependentUpon>FamilyThumbExportForm.xaml</DependentUpon>
     </Compile>
-    <Compile Include="WpfDirectoryTreeView\FamilyThumbExportViewModel.cs" />
-    <Compile Include="WpfDirectoryTreeView\FileSingle.cs" />
+    <Compile Include="Obselete\WpfDirectoryTreeView\FamilyThumbExportViewModel.cs" />
+    <Compile Include="Obselete\WpfDirectoryTreeView\FileSingle.cs" />
     <Compile Include="Obselete\Save2Csv.xaml.cs">
       <DependentUpon>Save2Csv.xaml</DependentUpon>
     </Compile>
@@ -369,15 +369,15 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="CountParkingLot\CountParkingLotForm.xaml">
+    <Page Include="Obselete\CountParkingLot\CountParkingLotForm.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="CountParkingLot\FindParkingLotForm.xaml">
+    <Page Include="Obselete\CountParkingLot\FindParkingLotForm.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="CountParkingLot\NumberByPickWPF.xaml">
+    <Page Include="Obselete\CountParkingLot\NumberByPickWPF.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -509,11 +509,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="WpfDirectoryTreeView\FamilyManagerView.xaml">
+    <Page Include="Obselete\WpfDirectoryTreeView\FamilyManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="WpfDirectoryTreeView\FamilyThumbExportForm.xaml">
+    <Page Include="Obselete\WpfDirectoryTreeView\FamilyThumbExportForm.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

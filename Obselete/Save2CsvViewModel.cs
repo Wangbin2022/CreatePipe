@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
 
@@ -40,7 +39,7 @@ namespace CreatePipe.WpfDirectoryTreeView
                     if (Match(item.Name))
                     {
                         bakFiles.Add(item);
-                    }                    
+                    }
                 }
                 TaskDialog.Show("tt", bakFiles.Count().ToString());
             }

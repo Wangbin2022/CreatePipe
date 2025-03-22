@@ -1,9 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using System.Collections.Generic;
-
-namespace CreatePipe.NumberByPick
+﻿namespace CreatePipe.NumberByPick
 {
     //[TransactionAttribute(TransactionMode.Manual)]
     //public class NumberByPick : IExternalCommand

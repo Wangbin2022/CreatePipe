@@ -1,26 +1,15 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.ExtensibleStorage;
-using Autodesk.Revit.DB.Mechanical;
-using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CommandLine;
 using CreatePipe.cmd;
-using CreatePipe.filter;
-using CreatePipe.Form;
-using CreatePipe.Utils;
-using EnumsNET;
-using NPOI.OpenXmlFormats.Vml;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
-using System.Windows.Documents;
-using System.Windows.Forms;
 
 
 namespace CreatePipe
@@ -87,42 +76,216 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
+            //0322 导出FBX测试.OK
+            //using (var folderDialog = new FolderBrowserDialog())
+            //{
+            //    folderDialog.Description = "请选择一个文件夹";
+            //    folderDialog.ShowNewFolderButton = false; // 是否显示“新建文件夹”按钮
+            //    if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            //    {
+            //        string selectedPath = folderDialog.SelectedPath;
+            //        DirectoryInfo dir = new DirectoryInfo(selectedPath);
+            //        // 获取指定文件夹中所有扩展名为 ".rfa" 的文件
+            //        FileInfo[] dirFiles = dir.GetFiles("*.rvt");
+            //        // 如果需要将这些文件信息存储到一个列表中
+            //        List<FileInfo> fileList = dirFiles.ToList();
+            //        foreach (FileInfo file in fileList)
+            //        {
+            //            try
+            //            {
+            //                UIDocument newUIDoc = uiApp.OpenAndActivateDocument(file.FullName);
+            //                Document newDoc = newUIDoc.Document;
+            //                if (doc != null)
+            //                    doc.Close(false);
+            //                doc = newDoc;
+            //                //找第一个三维视图
+            //                FilteredElementCollector collector = new FilteredElementCollector(doc);
+            //                IList<Element> Views = collector.OfClass(typeof(View)).ToList();
+            //                List<View> all3DViews = new List<View>();
+            //                foreach (var item in Views)
+            //                {
+            //                    View view = item as View;
+            //                    if (view == null || view.IsTemplate)
+            //                    {
+            //                        continue;
+            //                    }
+            //                    else
+            //                    {
+            //                        // 检查视图类型，排除明细表、图纸、图例和面积平面，仅包含平立剖，三维
+            //                        if (view.ViewType != ViewType.ThreeD)
+            //                        {
+            //                            continue;
+            //                        }
+            //                        else
+            //                        {
+            //                            ElementType objType = doc.GetElement(view.GetTypeId()) as ElementType;
+            //                            if (objType == null)
+            //                            {
+            //                                continue;
+            //                            }
+            //                            all3DViews.Add(view);
+            //                        }
+            //                    }
+            //                }
+            //                View3D exportView = all3DViews.FirstOrDefault() as View3D;
+            //                ViewSet views = new ViewSet();
+            //                views.Insert(exportView);
+            //                FBXExportOptions options = new FBXExportOptions();
+            //                string filename = Path.GetFileNameWithoutExtension(file.FullName);
+            //                doc.Export(selectedPath, filename, views, options);
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                TaskDialog.Show("tt", "错误信息info" + ex.Message);
+            //            }
+            //        }
+            //    }
+            //}       
+            //StringBuilder sb=new StringBuilder();
+            //foreach (FileInfo item in fileList)
+            //{
+            //    sb.Append(item.Name+"\n");
+            //}
+            //TaskDialog.Show("tt", sb.ToString());
+            //测试结束
+            //HW_Family_Encrypt
+            //0224 按官方参考删除Schema，变量不全还需要测试
+            //https://thebuildingcoder.typepad.com/blog/2022/11/extensible-storage-schema-deletion.html
+            //FilteredElementCollector collector = new FilteredElementCollector(doc);
+            //ICollection<Element> allElements = collector.WhereElementIsNotElementType().ToElements();
+            //foreach (Element element in allElements)
+            //{
+            //    IList<Schema> schemas = Schema.ListSchemas();
+            //    using (Transaction tErase = new Transaction(doc, "Erase EStorage"))
+            //    {
+            //        tErase.Start();
+            //        //foreach (Schema schema in schemas.Where(sbyte=> sbyte.GUID.ToString() == "xxx"))
+            //        foreach (Schema schema in schemas)
+            //        {
+            //            try
+            //            {
+            //                //doc.EraseSchemaAndAllEntities(schema);
+            //                Schema.EraseSchemaAndAllEntities(schema, true);
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                message += ex.Message + "\n";
+            //                TaskDialog.Show("tt", ex.Message);
+            //            }
+            //        }
+            //        tErase.Commit();
+            //    }
+            //}
             //TaskDialog.Show("tt", con1.Size.ToString() );//构件连接器数量
+
+            //0320 清理文件夹内族属性
+            //var folderDialog = new FolderBrowserDialog();
+            //folderDialog.Description = "请选择一个文件夹";
+            //folderDialog.ShowNewFolderButton = false; // 是否显示“新建文件夹”按钮
+            //if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            //{
+            //    string selectedPath = folderDialog.SelectedPath;
+            //    DirectoryInfo dir = new DirectoryInfo(selectedPath);
+            //    // 获取指定文件夹中所有扩展名为 ".rfa" 的文件
+            //    FileInfo[] dirFiles = dir.GetFiles("*.rfa");
+            //    // 如果需要将这些文件信息存储到一个列表中
+            //    List<FileInfo> fileList = dirFiles.ToList();
+            //    foreach (FileInfo file in fileList)
+            //    {
+            //        try
+            //        {
+            //            UIDocument newUIDoc = uiApp.OpenAndActivateDocument(file.FullName);
+            //            Document newDoc = newUIDoc.Document;
+            //            if (doc != null)
+            //                doc.Close(false);
+            //            doc = newDoc;
+            //            FamilyManager familyManager = doc.FamilyManager;
+            //            doc.NewTransaction(() =>
+            //            {
+            //                List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //                List<ElementId> elementIds = new List<ElementId>();
+            //                List<FamilyParameter> newIds = new List<FamilyParameter>();
+            //                foreach (FamilyParameter item in parameters)
+            //                {
+            //                    Definition definition = item.Definition;
+            //                    if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID)
+            //                    {
+            //                        if (definition.Name.ToString()=="材质")
+            //                        {
+            //                            familyManager.RemoveParameter(item);
+            //                        };                                  
+            //                    }
+            //                    else newIds.Add(item);
+            //                }
+            //                //TaskDialog.Show("tt", newIds.Count().ToString());
+            //            }, "删除属性");
+            //            doc.Save();
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            TaskDialog.Show("tt", "错误信息info" + ex.Message);
+            //        }
+            //    }
+            //    TaskDialog.Show("tt", "清理完成");
+            //}
+            //以下为在族文件直接删除
+            //doc.NewTransaction(() =>
+            //{
+            //    FamilyManager familyManager = doc.FamilyManager;
+            //    List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //    List<ElementId> elementIds = new List<ElementId>();
+            //    List<FamilyParameter> newIds = new List<FamilyParameter>();
+            //    foreach (FamilyParameter item in parameters)
+            //    {
+            //        Definition definition = item.Definition;
+            //        if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID)
+            //        {
+            //            //TaskDialog.Show("tt", definition.Name.ToString());
+            //            //elementIds.Add(item.Id);
+            //            familyManager.RemoveParameter(item);
+            //        }
+            //        else newIds.Add(item);
+            //    }
+            //}, "删除属性");
+            //TaskDialog.Show("tt", newIds.Count().ToString());
+
             //0225 喷头转换？
             //先试一下找到的风口上下切换
-            Selection sel = uiDoc.Selection;
-            var instance = doc.GetElement(sel.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "选取风口末端")) as FamilyInstance;
-            using (Transaction ts = new Transaction(doc, "Test"))
-            {
-                ts.Start();
-                ////找出构件的偏移值并设置参数
-                //var s1 = instance.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM);
-                //s1.Set(3000 / 304.8);
-                //构件旋转
-                LocationPoint locationPoint = instance.Location as LocationPoint;
-                if (locationPoint == null)
-                {
-                    TaskDialog.Show("错误", "选择的构件没有位置信息！");
-                }
-                else
-                { 
-                XYZ rotationCenter = locationPoint.Point;
-                XYZ rotationAxis = new XYZ(0, 0, 1);
-                // 定义旋转角度（90度，单位为弧度）
-                double rotationAngle = Math.PI / 2;
-                ElementTransformUtils.RotateElement(doc, instance.Id, rotationAxis, rotationAngle);
-                }
-                //if (instance.CanRotate)
-                //{
-                //    TaskDialog.Show("tt", "PASS");
-                //}
-                //else { TaskDialog.Show("tt", "NOPASS"); }
-                //找构件连接器连得是什么对象
+            //Selection sel = uiDoc.Selection;
+            //var instance = doc.GetElement(sel.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "选取风口末端")) as FamilyInstance;
+            //using (Transaction ts = new Transaction(doc, "Test"))
+            //{
+            //    ts.Start();
+            //    var s1 = instance.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM);
+            //    TaskDialog.Show("tt", s1.AsValueString());
+            //    //ts.Start();
+            //    //////找出构件的偏移值并设置参数
+            //    ////var s1 = instance.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM);
+            //    ////s1.Set(3000 / 304.8);
+            //    ////构件旋转
+            //    //LocationPoint locationPoint = instance.Location as LocationPoint;
+            //    //if (locationPoint == null)
+            //    //{
+            //    //    TaskDialog.Show("错误", "选择的构件没有位置信息！");
+            //    //}
+            //    //else
+            //    //{ 
+            //    //XYZ rotationCenter = locationPoint.Point;
+            //    //XYZ rotationAxis = new XYZ(0, 0, 1);
+            //    //// 定义旋转角度（90度，单位为弧度）
+            //    //double rotationAngle = Math.PI / 2;
+            //    //ElementTransformUtils.RotateElement(doc, instance.Id, rotationAxis, rotationAngle);
+            //    //}
+            //    ////if (instance.CanRotate)
+            //    ////{
+            //    ////    TaskDialog.Show("tt", "PASS");
+            //    ////}
+            //    ////else { TaskDialog.Show("tt", "NOPASS"); }
+            //    ////找构件连接器连得是什么对象
 
-
-                ts.Commit();
-            }
-            //旋转构件
+            //    ts.Commit();
+            //}
+            //旋转构件不成功
             //var con1 = instance.MEPModel.ConnectorManager.Connectors;
             //foreach (Connector item in con1)
             //{
@@ -206,12 +369,8 @@ namespace CreatePipe
             //        //旋转风道末端，需自定一个旋转方法
             //        //MechanicalUtils.ConnectAirTerminalOnDuct(doc, instance.Id, mepcurve.Id);
             //        MechanicalUtils.ConnectAirTerminalOnDuct(doc, instance.Id, duct.Id);
-
             //    }
-
             //}
-
-
 
             ////0225 找无机电系统构件
             //var elem = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPCurveClass(), "选风管或水管");
@@ -231,28 +390,7 @@ namespace CreatePipe
             //}
             ////查找两端是否均无连接
 
-            //0224 按官方参考删除Schema，变量不全还需要测试
-            //https://thebuildingcoder.typepad.com/blog/2022/11/extensible-storage-schema-deletion.html
-            //using (Transaction tErase = new Transaction(doc, "Erase EStorage"))
-            //{ 
-            //    tErase.Start();
-            //    foreach (Schema schema in schemas.Where(sbyte=>sbyte.GUID.ToString()=="xxx"))
-            //    {
-            //        try
-            //        {
-            //            doc.EraseSchemaAndAllEntities(schema);
-            //            Schema.EraseSchemaAndAllEntities(schema, true);
-            //            deleted++;
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            message += ex.Message + "\n";
-            //            TaskDialog.Show("tt", ex.Message);
-            //        }
 
-            //    }
-            //    tErase.Commit();
-            //}
 
             //0223 错误处理器，必须在命令事务中可能出错时才执行，不是对已有错误的解决。。。
             //参考https://learnrevitapi.com/newsletter/how-to-suppress-warnings-in-revit-api

@@ -1,19 +1,13 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
-using CreatePipe.WpfDirectoryTreeView;
-using CreatePipe.CountParkingLot;
-using CreatePipe.filter;
-using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using System.IO;
-using CreatePipe.Form;
 
 
 namespace CreatePipe
@@ -31,6 +25,9 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
+            //FilteredElementCollector collector = new FilteredElementCollector(doc, uiDoc.ActiveView.Id).OfClass(typeof(FamilyInstance));
+            //List<FamilyInstance> parkingSpaces = collector.Cast<FamilyInstance>().Where(fi => fi.Symbol.Family.Name.Contains("车位")).ToList();
+            //TaskDialog.Show("tt", parkingSpaces.Count.ToString());
 
             //0220 找墙的所有面OK，希望通过这个找出另外搜轮廓办法不要出现多余的参照平面
             //Reference r = uiDoc.Selection.PickObject(ObjectType.Element, new filterWallClass(), "pick wall");
@@ -63,11 +60,11 @@ namespace CreatePipe
 
             //////0116 墙面生墙功能代码，模态.OK 0220 继续改解决多余参照平面问题
             //////为了列表完全不得不先导出列表
-            var wallTypes = from element in new FilteredElementCollector(doc).OfClass(typeof(WallType))
-                            let type = element as WallType
-                            select type;
-            var faceConfigWin = new FaceConfig(wallTypes.ToList());//调用xmal生成窗体
-            faceConfigWin.Show();
+            //var wallTypes = from element in new FilteredElementCollector(doc).OfClass(typeof(WallType))
+            //                let type = element as WallType
+            //                select type;
+            //var faceConfigWin = new FaceConfig(wallTypes.ToList());//调用xmal生成窗体
+            //faceConfigWin.Show();
             //////例程结束
             ////0101 面生面，非模态。OK 
             ////例程结束
@@ -133,7 +130,6 @@ namespace CreatePipe
             //    TaskDialog.Show("提示", "未选择任何车位。");
             //}
             ////例程结束
-
             //0208 找未编号清理车位编号不必要，所有车位自动生成有编号
             //0208 全选快速车位编码cmd.OK
             //IList<Reference> parkReference;
@@ -161,13 +157,11 @@ namespace CreatePipe
             //}
             //0208最好加上无选中就拒绝执行
             //例程结束
-
             //0209 查找车位element
             //找所有车位族。OK
             //FindParkingLotForm findParkingLotForm = new FindParkingLotForm(uiApp);
             //findParkingLotForm.ShowDialog();
             //例程结束
-
             ////0208 找重叠车位编号.OK
             //IList<Reference> parkReference = uiDoc.Selection.PickObjects(Autodesk.Revit.UI.Selection.ObjectType.Element, new ParkingLotFilter(), "拾取");
             //// 创建一个字典来存储编号和对应的 ElementId
@@ -206,7 +200,6 @@ namespace CreatePipe
             //    TaskDialog.Show("检查结果", $"检查车位数量{parkReference.Count}，没有发现重复的车位编号。");
             //}
             ////例程结束
-
             ////0205 过滤车位族属性，统计数量，查找ElemId
             //var ParkReference = uiDoc.Selection.PickObjects(Autodesk.Revit.UI.Selection.ObjectType.Element, new ParkingLotFilter(), "拾取");
             //doc.NewTransaction(() =>
@@ -245,7 +238,7 @@ namespace CreatePipe
             ////TaskDialog.Show("tt", sb.ToString());
             ////TaskDialog.Show("tt", ParkReference.Count().ToString());
             ////例程结束
-
+            ///
             //0203 通过反射返回程序集的地址，应该是dll的
             //string AssemblyLocation = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
             //TaskDialog.Show("tt", AssemblyLocation);
@@ -255,7 +248,6 @@ namespace CreatePipe
             //C: \Users\mhzy\AppData\Local\Temp\8837764f - d635 - 4b8e - b585 - c3093f8d8bfe\RevitAddins\CreatePipe - Executing - 20250203_222747_3714
             //[关闭(C)]
             //例程结束
-
             //// 获取 FamilyManager
             //0114 删除族属性， 区分是否是自带属性，是否只删文字属性？.OK
             //FamilyManager familyManager = doc.FamilyManager;
@@ -283,7 +275,6 @@ namespace CreatePipe
             //}, "删除属性");
             //TaskDialog.Show("tt", familyManager.GetParameters().Count().ToString());
             //例程结束
-
             //0117 新建族属性实验
             //族属性值更改，注意对有公式的参数无效
             //FamilyManager familyManager = doc.FamilyManager;
@@ -316,7 +307,6 @@ namespace CreatePipe
             //ParameterType.FamilyType = 族类型
             //ParameterType.Material = 材质
             //例程结束
-
             //0117放置族事件.OK
             //OpenFileDialog fDialog = new System.Windows.Forms.OpenFileDialog();
             //if (fDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
@@ -342,7 +332,6 @@ namespace CreatePipe
             //    }
             //}
             //例程结束
-
             //0116取新版本族尝试.OK
             ////using (var folderDialog = new FolderBrowserDialog())
             //OpenFileDialog fDialog = new System.Windows.Forms.OpenFileDialog();
@@ -360,13 +349,11 @@ namespace CreatePipe
             //    }
             //}
             ////例程结束
-
             ////0114 取得文件基本属性
             //var basicFileInfo = BasicFileInfo.Extract(doc.PathName);
             //TaskDialog.Show("tt", basicFileInfo.GetDocumentVersion().NumberOfSaves.ToString());//保存次数
             //TaskDialog.Show("tt", basicFileInfo.Format);//年度版本号
             ////例程结束
-
             //0105 列举选择项的内置参数名称三段下划线分割
             //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, "选择一个");
             //Element element = doc.GetElement(reference.ElementId);
@@ -381,14 +368,12 @@ namespace CreatePipe
             //string localMessage = message;
             //FilterTestNew filterTestNew = new FilterTestNew(doc,ref localMessage);
             //filterTestNew.ShowDialog();
-
             //////0105 族文件参数访问
             //if (!doc.IsFamilyDocument)
             //{
             //    message = "This command must be run in a family document.";
             //    return Result.Failed;
             //}
-
             //// 获取所有参数
             //IEnumerable<FamilyParameter> parameters = familyManager.GetParameters();
             //StringBuilder stringBuilder = new StringBuilder();
@@ -400,7 +385,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("Parameter", stringBuilder.ToString() + parameters.Count());
             //例程结束
-
             //int index = myList.IndexOf("Banana");
             //FilteredElementCollector elems = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms);
             //List<Room> roomQuery = elems.OfType<Room>().ToList();
