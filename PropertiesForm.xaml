@@ -11,10 +11,15 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
-        <ListView Grid.Row="0" Margin="5">
-            
-            
-        </ListView>
-        <Button Grid.Row="1" Margin="5" Content="OK"/>
+        <TextBox Grid.Row="0" Margin="20" ToolTip="请输入1-100数字">
+            <TextBox.Text>
+                <Binding Path="NumericValue" UpdateSourceTrigger="PropertyChanged">
+                    <Binding.ValidationRules>
+                        <local:NumberValidationRule Minimum="0" Maximum="100"/>
+                    </Binding.ValidationRules>
+                </Binding>
+            </TextBox.Text>
+        </TextBox>
+        <Button Grid.Row="1" Margin="5" Content="OK" Click="Button_Click"/>
     </Grid>
 </Window>

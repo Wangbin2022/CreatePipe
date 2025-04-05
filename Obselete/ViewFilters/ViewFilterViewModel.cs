@@ -226,7 +226,7 @@ namespace CreatePipe.ViewFilters
         {
             List<View> allViews = new List<View>();
             FilteredElementCollector collector = new FilteredElementCollector(Doc);
-            IList<Element> Views = collector.OfClass(typeof(View)).ToList();
+            IList<Element> Views = new FilteredElementCollector(Doc).OfClass(typeof(View)).ToList();
             foreach (var item in Views)
             {
                 View view = item as View;

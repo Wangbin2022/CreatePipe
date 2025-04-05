@@ -4,12 +4,17 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CommandLine;
 using CreatePipe.cmd;
+using CreatePipe.Utils;
+using EnumsNET;
+using NPOI.SS.UserModel;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Windows.Media.Imaging;
 
 
 namespace CreatePipe
@@ -67,6 +72,77 @@ namespace CreatePipe
             }
             return result;
         }
+        // 辅助方法：生成水平分割线
+        private List<Line> CreateDivisionLines(XYZ start, XYZ end, XYZ perpendicularStart, int divisions, bool isHorizontal)
+        {
+            var lines = new List<Line>();
+            double totalLength = isHorizontal ?
+                perpendicularStart.X - start.X :  // 列模式取X轴长度
+                start.Y - perpendicularStart.Y;   // 行模式取Y轴长度
+
+            for (int i = 1; i < divisions; i++)
+            {
+                double ratio = (double)i / divisions;
+                XYZ point1, point2;
+
+                if (isHorizontal)
+                {
+                    // 垂直线（列分割）
+                    double xPos = start.X + (totalLength * ratio);
+                    point1 = new XYZ(xPos, start.Y, 0);
+                    point2 = new XYZ(xPos, end.Y, 0);
+                }
+                else
+                {
+                    // 水平线（行分割）
+                    double yPos = start.Y - (totalLength * ratio);
+                    point1 = new XYZ(start.X, yPos, 0);
+                    point2 = new XYZ(end.X, yPos, 0);
+                }
+
+                lines.Add(Line.CreateBound(point1, point2));
+            }
+            return lines;
+        }
+        // 创建表格线（整合行列生成）
+        private List<Line> CreateTableLines(XYZ topLeft, XYZ bottomRight, int rows, int columns)
+        {
+            var lines = new List<Line>();
+
+            // 边界线
+            lines.Add(Line.CreateBound(topLeft, new XYZ(bottomRight.X, topLeft.Y, 0))); // 上
+            lines.Add(Line.CreateBound(topLeft, new XYZ(topLeft.X, bottomRight.Y, 0))); // 左
+            lines.Add(Line.CreateBound(bottomRight, new XYZ(bottomRight.X, topLeft.Y, 0))); // 右
+            lines.Add(Line.CreateBound(bottomRight, new XYZ(topLeft.X, bottomRight.Y, 0))); // 下
+
+            // 水平线（行分割）
+            for (int i = 1; i < rows; i++)
+            {
+                double y = topLeft.Y - (topLeft.Y - bottomRight.Y) * i / rows;
+                lines.Add(Line.CreateBound(
+                    new XYZ(topLeft.X, y, 0),
+                    new XYZ(bottomRight.X, y, 0)
+                ));
+            }
+
+            // 垂直线（列分割）
+            for (int i = 1; i < columns; i++)
+            {
+                double x = topLeft.X + (bottomRight.X - topLeft.X) * i / columns;
+                lines.Add(Line.CreateBound(
+                    new XYZ(x, topLeft.Y, 0),
+                    new XYZ(x, bottomRight.Y, 0)
+                ));
+            }
+
+            return lines;
+        }
+        private ElementId GetDefaultTextTypeId(Document doc)
+        {
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(TextNoteType))
+                .FirstElementId();
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -75,6 +151,165 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
+
+            FamilyManager familyManager = doc.FamilyManager;
+            doc.NewTransaction(() =>
+            {
+                List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+                List<ElementId> elementIds = new List<ElementId>();
+                List<FamilyParameter> newIds = new List<FamilyParameter>();
+                foreach (FamilyParameter item in parameters)
+                {
+                    Definition definition = item.Definition;
+                    if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID && definition.ParameterType.ToString() == "Text")
+                    {
+                        familyManager.RemoveParameter(item);
+                    }
+                    else newIds.Add(item);
+                }
+                //TaskDialog.Show("tt", newIds.Count().ToString());
+            }, "删除属性");
+
+            //
+            //PropertiesForm propertiesForm =new PropertiesForm();
+            //propertiesForm.ShowDialog();
+
+            //0326 检测是否在详图视图并用详图线生成一个方块
+            //if (activeView.ViewType == ViewType.Legend)
+            //{
+            //    //TaskDialog.Show("tt", activeView.Scale.ToString());
+            //    using (Transaction ts = new Transaction(doc, "绘制表"))
+            //    {
+            //        ts.Start();
+            //        try
+            //        {
+            //            // 1. 获取用户输入的两个对角点
+            //            XYZ pt1 = uiDoc.Selection.PickPoint("请选择表格左上角点");
+            //            XYZ pt2 = uiDoc.Selection.PickPoint("请选择表格右下角点");
+            //            int rowCount = 3;
+            //            int columnCount = 5;
+            //            // 2. 计算单元格尺寸
+            //            double cellWidth = (pt2.X - pt1.X) / columnCount;
+            //            double cellHeight = (pt1.Y - pt2.Y) / rowCount;
+            //            // 3. 创建表格线（复用之前的方法）
+            //            var allLines = CreateTableLines(pt1, pt2, rowCount, columnCount);
+            //            foreach (var line in allLines)
+            //            {
+            //                doc.Create.NewDetailCurve(activeView, line);
+            //            }
+            //            // 4. 在每个单元格中心添加文字
+            //            for (int row = 0; row < rowCount; row++)
+            //            {
+            //                for (int col = 0; col < columnCount; col++)
+            //                {
+            //                    // 计算当前单元格中心坐标
+            //                    XYZ textPosition = new XYZ(
+            //                        pt1.X + (cellWidth * col) + (cellWidth / 2),
+            //                        pt1.Y - (cellHeight * row) - (cellHeight / 2),
+            //                        0
+            //                    );
+
+            //                    // 创建文字注释
+            //                    TextNote textNote = TextNote.Create(
+            //                        doc,
+            //                        activeView.Id,
+            //                        textPosition,
+            //                        $"R{row + 1}C{col + 1}", // 示例文字：R1C1表示第1行第1列
+            //                        new TextNoteOptions
+            //                        {
+            //                            HorizontalAlignment = HorizontalTextAlignment.Center,
+            //                            VerticalAlignment = VerticalTextAlignment.Middle,
+            //                            TypeId = GetDefaultTextTypeId(doc) // 获取默认文字类型
+            //                        }
+            //                    );
+
+            //                    // 可选：设置文字高度
+            //                    //textNote.TextNoteType.LookupParameter("Text Size").Set(0.5); // 0.5单位高度
+            //                }
+            //            }
+            //            ts.Commit();
+            //            TaskDialog.Show("完成", $"成功创建 {rowCount}行×{columnCount}列 带文字表格");
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            ts.RollBack();
+            //            TaskDialog.Show("错误", $"操作失败: {ex.Message}");
+            //        }
+            //    }
+            //}
+            //else TaskDialog.Show("tt", "请在图例视图操作");
+
+            //0320 清理文件夹内族属性
+            //var folderDialog = new FolderBrowserDialog();
+            //folderDialog.Description = "请选择一个文件夹";
+            //folderDialog.ShowNewFolderButton = false; // 是否显示“新建文件夹”按钮
+            //if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            //{
+            //    string selectedPath = folderDialog.SelectedPath;
+            //    DirectoryInfo dir = new DirectoryInfo(selectedPath);
+            //    // 获取指定文件夹中所有扩展名为 ".rfa" 的文件
+            //    FileInfo[] dirFiles = dir.GetFiles("*.rfa");
+            //    // 如果需要将这些文件信息存储到一个列表中
+            //    List<FileInfo> fileList = dirFiles.ToList();
+            //    foreach (FileInfo file in fileList)
+            //    {
+            //        try
+            //        {
+            //            UIDocument newUIDoc = uiApp.OpenAndActivateDocument(file.FullName);
+            //            Document newDoc = newUIDoc.Document;
+            //            if (doc != null)
+            //                doc.Close(false);
+            //            doc = newDoc;
+            //            FamilyManager familyManager = doc.FamilyManager;
+            //            doc.NewTransaction(() =>
+            //            {
+            //                List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //                List<ElementId> elementIds = new List<ElementId>();
+            //                List<FamilyParameter> newIds = new List<FamilyParameter>();
+            //                foreach (FamilyParameter item in parameters)
+            //                {
+            //                    Definition definition = item.Definition;
+            //                    if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID)
+            //                    {
+            //                        if (definition.Name.ToString()=="材质")
+            //                        {
+            //                            familyManager.RemoveParameter(item);
+            //                        };                                  
+            //                    }
+            //                    else newIds.Add(item);
+            //                }
+            //                //TaskDialog.Show("tt", newIds.Count().ToString());
+            //            }, "删除属性");
+            //            doc.Save();
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            TaskDialog.Show("tt", "错误信息info" + ex.Message);
+            //        }
+            //    }
+            //    TaskDialog.Show("tt", "清理完成");
+            //}
+            //以下为在族文件直接删除
+            //doc.NewTransaction(() =>
+            //{
+            //    FamilyManager familyManager = doc.FamilyManager;
+            //    List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //    List<ElementId> elementIds = new List<ElementId>();
+            //    List<FamilyParameter> newIds = new List<FamilyParameter>();
+            //    foreach (FamilyParameter item in parameters)
+            //    {
+            //        Definition definition = item.Definition;
+            //        if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID && definition.ParameterType.ToString()=="Text")
+            //        {
+            //            //TaskDialog.Show("tt", definition.Name.ToString());
+            //            //elementIds.Add(item.Id);
+            //            familyManager.RemoveParameter(item);
+            //        }
+            //        else newIds.Add(item);
+            //    }
+            //}, "删除属性");
+            //TaskDialog.Show("tt", newIds.Count().ToString());
+
 
             //0322 导出FBX测试.OK
             //using (var folderDialog = new FolderBrowserDialog())
@@ -176,78 +411,7 @@ namespace CreatePipe
             //        tErase.Commit();
             //    }
             //}
-            //TaskDialog.Show("tt", con1.Size.ToString() );//构件连接器数量
-
-            //0320 清理文件夹内族属性
-            //var folderDialog = new FolderBrowserDialog();
-            //folderDialog.Description = "请选择一个文件夹";
-            //folderDialog.ShowNewFolderButton = false; // 是否显示“新建文件夹”按钮
-            //if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            //{
-            //    string selectedPath = folderDialog.SelectedPath;
-            //    DirectoryInfo dir = new DirectoryInfo(selectedPath);
-            //    // 获取指定文件夹中所有扩展名为 ".rfa" 的文件
-            //    FileInfo[] dirFiles = dir.GetFiles("*.rfa");
-            //    // 如果需要将这些文件信息存储到一个列表中
-            //    List<FileInfo> fileList = dirFiles.ToList();
-            //    foreach (FileInfo file in fileList)
-            //    {
-            //        try
-            //        {
-            //            UIDocument newUIDoc = uiApp.OpenAndActivateDocument(file.FullName);
-            //            Document newDoc = newUIDoc.Document;
-            //            if (doc != null)
-            //                doc.Close(false);
-            //            doc = newDoc;
-            //            FamilyManager familyManager = doc.FamilyManager;
-            //            doc.NewTransaction(() =>
-            //            {
-            //                List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-            //                List<ElementId> elementIds = new List<ElementId>();
-            //                List<FamilyParameter> newIds = new List<FamilyParameter>();
-            //                foreach (FamilyParameter item in parameters)
-            //                {
-            //                    Definition definition = item.Definition;
-            //                    if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID)
-            //                    {
-            //                        if (definition.Name.ToString()=="材质")
-            //                        {
-            //                            familyManager.RemoveParameter(item);
-            //                        };                                  
-            //                    }
-            //                    else newIds.Add(item);
-            //                }
-            //                //TaskDialog.Show("tt", newIds.Count().ToString());
-            //            }, "删除属性");
-            //            doc.Save();
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            TaskDialog.Show("tt", "错误信息info" + ex.Message);
-            //        }
-            //    }
-            //    TaskDialog.Show("tt", "清理完成");
-            //}
-            //以下为在族文件直接删除
-            //doc.NewTransaction(() =>
-            //{
-            //    FamilyManager familyManager = doc.FamilyManager;
-            //    List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-            //    List<ElementId> elementIds = new List<ElementId>();
-            //    List<FamilyParameter> newIds = new List<FamilyParameter>();
-            //    foreach (FamilyParameter item in parameters)
-            //    {
-            //        Definition definition = item.Definition;
-            //        if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID)
-            //        {
-            //            //TaskDialog.Show("tt", definition.Name.ToString());
-            //            //elementIds.Add(item.Id);
-            //            familyManager.RemoveParameter(item);
-            //        }
-            //        else newIds.Add(item);
-            //    }
-            //}, "删除属性");
-            //TaskDialog.Show("tt", newIds.Count().ToString());
+            //TaskDialog.Show("tt", con1.Size.ToString() );//构件连接器数量            
 
             //0225 喷头转换？
             //先试一下找到的风口上下切换

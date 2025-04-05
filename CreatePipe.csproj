@@ -147,6 +147,9 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="Form\ViewTemplateManagerView.xaml.cs">
+      <DependentUpon>ViewTemplateManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Obselete\CountParkingLot\CountParkingLotForm.xaml.cs">
       <DependentUpon>CountParkingLotForm.xaml</DependentUpon>
     </Compile>
@@ -306,6 +309,7 @@
     </Compile>
     <Compile Include="Obselete\RoomAttr\RoomAttrViewModel.cs" />
     <Compile Include="Obselete\RoomAttr\RoomEntity.cs" />
+    <Compile Include="Test07_0402.cs" />
     <Compile Include="Test5_0101.cs" />
     <Compile Include="Test6_0213.cs" />
     <Compile Include="Utils\CADCHelper.cs" />
@@ -359,6 +363,7 @@
       <DependentUpon>TestTreeView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\TestTreeViewModel.cs" />
+    <Compile Include="ViewTemplateManagerViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="CableConduitCreator\CableTrayPathForm.xaml">
@@ -366,6 +371,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="CableConduitCreator\OutOfCableListForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ViewTemplateManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

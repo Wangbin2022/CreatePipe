@@ -1,8 +1,32 @@
-﻿using System.Windows;
+﻿using System.ComponentModel;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace CreatePipe.Utils.UserControls.LabelComboBox
 {
+
+    //    <!--Dictionary for style-->
+    //<UserControl.Resources>
+    //    <ResourceDictionary>
+    //        <ResourceDictionary.MergedDictionaries>
+    //            <ResourceDictionary Source = "..\..\ResourceDictionaries\DictionaryWindows.xaml" />
+    //        </ ResourceDictionary.MergedDictionaries >
+    //    </ ResourceDictionary >
+    //</ UserControl.Resources >
+
+    //< !--Container-- >
+    //< StackPanel DataContext="{Binding ElementName=comboSelection}">
+    //    <!--Title-->
+    //    <TextBlock Style = "{StaticResource Title}"
+    //               Text="{Binding Path=Label}"/>
+    //    <!--ComboBox-->
+    //    <ComboBox Style = "{StaticResource comboDisplay}"
+    //              ItemsSource="{Binding Value}"
+    //              SelectedItem="{Binding SelectedComboItemCategories}"/>
+    //</StackPanel>
+
+
+
     /// <summary>
     /// UCComboBox.xaml 的交互逻辑
     /// </summary>
