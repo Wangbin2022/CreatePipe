@@ -9,7 +9,7 @@ namespace CreatePipe.utils
     /// <summary>
     /// xml工具类  
     /// </summary>
-    public class XMLUtil
+    public static class XMLUtil
     {
 
         /// <summary>

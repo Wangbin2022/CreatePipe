@@ -147,6 +147,12 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="Form\TableTemplateView.xaml.cs">
+      <DependentUpon>TableTemplateView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\TableTemplateViewHorizon.xaml.cs">
+      <DependentUpon>TableTemplateViewHorizon.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\ViewTemplateManagerView.xaml.cs">
       <DependentUpon>ViewTemplateManagerView.xaml</DependentUpon>
     </Compile>
@@ -309,6 +315,7 @@
     </Compile>
     <Compile Include="Obselete\RoomAttr\RoomAttrViewModel.cs" />
     <Compile Include="Obselete\RoomAttr\RoomEntity.cs" />
+    <Compile Include="TableTemplateViewModel.cs" />
     <Compile Include="Test07_0402.cs" />
     <Compile Include="Test5_0101.cs" />
     <Compile Include="Test6_0213.cs" />
@@ -371,6 +378,14 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="CableConduitCreator\OutOfCableListForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\TableTemplateView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\TableTemplateViewHorizon.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -550,6 +565,9 @@
   <ItemGroup>
     <Resource Include="Resources\三维图.png" />
     <Resource Include="Resources\二维图.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\TableSample.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="packages\Microsoft.NETFramework.ReferenceAssemblies.net452.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net452.targets" Condition="Exists('packages\Microsoft.NETFramework.ReferenceAssemblies.net452.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net452.targets')" />

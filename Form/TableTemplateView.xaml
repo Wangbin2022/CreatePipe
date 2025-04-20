@@ -1,0 +1,57 @@
+﻿<Window x:Class="CreatePipe.Form.TableTemplateView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d" Topmost="True"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        WindowStartupLocation="CenterScreen"
+        Title="TableTemplateView" Height="650" Width="300">
+    <Grid>
+        <StackPanel>
+            <Button Content="GetCsv" 
+                    Command="{Binding GetCsvCommand}"
+                    Margin="5" />
+            <ComboBox Margin="5" ItemsSource="{Binding TableSingles}" DisplayMemberPath="tableName"  SelectedItem = "{Binding SelectedTableSingle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <DataGrid Margin="5" AutoGenerateColumns="False" Height="150"
+                      ItemsSource="{Binding ColumnPropertiesList,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="列名称" Binding="{Binding Title}" Width="*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="列宽系数" Binding="{Binding Width,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                    <DataGridComboBoxColumn Header="对齐方式" 
+                        SelectedItemBinding="{Binding Alignment, Mode=TwoWay}"
+                        Width="*">
+                        <DataGridComboBoxColumn.ItemsSource>
+                            <x:Array Type="sys:String">
+                                <sys:String>靠左</sys:String>
+                                <sys:String>居中</sys:String>
+                                <sys:String>靠右</sys:String>
+                            </x:Array>
+                        </DataGridComboBoxColumn.ItemsSource>
+                    </DataGridComboBoxColumn>
+                    <!--<DataGridTextColumn Header="行数" Binding="{Binding RowCount,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Width="*"/>-->
+                </DataGrid.Columns>
+            </DataGrid>
+            <TextBox Margin="5" Text="{Binding TName,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
+            <!--<Button Content="导出到XML"  Margin="5" Command="{Binding ExportXmlCommand}" IsEnabled="{Binding                         CanExportXML, UpdateSourceTrigger=PropertyChanged}"/>-->
+            <Button Content="导出到XML"  Margin="5"  Command="{Binding TestCommand}" />
+            <Button Content="删除XML"  Margin="5" Command="{Binding RemoveXmlCommand}" IsEnabled="{Binding                         CanExportXML,UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBox Text="{Binding BaseWidth,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+            <TextBox Text="{Binding TableName,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+            <TextBox Text="{Binding TableScale,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+            <TextBox Text="{Binding TextSize,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Margin="5"/>
+            <ComboBox Margin="5" SelectedItem="{Binding Font, Mode=TwoWay}">
+                <ComboBox.ItemsSource>
+                    <x:Array Type="sys:String">
+                        <sys:String>宋体</sys:String>
+                        <sys:String>黑体</sys:String>
+                        <sys:String>仿宋</sys:String>
+                    </x:Array>
+                </ComboBox.ItemsSource>
+            </ComboBox>
+            <Button Content="OK" Click="Button_Click" Margin="5" 
+                    Command="{Binding DrawTableCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

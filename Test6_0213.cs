@@ -1,19 +1,24 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CommandLine;
 using CreatePipe.cmd;
+using CreatePipe.Form;
 using CreatePipe.Utils;
 using EnumsNET;
 using NPOI.SS.UserModel;
+using OfficeOpenXml.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Windows.Forms;
 using System.Windows.Media.Imaging;
 
 
@@ -143,6 +148,42 @@ namespace CreatePipe
                 .OfClass(typeof(TextNoteType))
                 .FirstElementId();
         }
+        public void RemoveEStorage(Guid guid)
+        {
+            IList<Schema> schemas = Schema.ListSchemas();
+            foreach (Schema schema in schemas.Where(s => s.GUID.ToString() == guid.ToString()))
+            {
+                try
+                {
+                    Schema.EraseSchemaAndAllEntities(schema, true);
+                }
+                catch (Exception ex)
+                {
+
+                }
+            }
+        }
+        public List<ElementId> GetElements(params int[] ints)
+        {
+            List<ElementId> ids = new List<ElementId>();
+            foreach (int item in ints)
+            {
+                ElementId elementId = new ElementId(item);
+                ids.Add(elementId);
+            }
+            return ids;
+        }
+        public List<ElementId> GetElements(List<int> ints)
+        {
+            List<ElementId> ids = new List<ElementId>();
+            foreach (int item in ints)
+            {
+                ElementId elementId = new ElementId(item);
+                ids.Add(elementId);
+            }
+            return ids;
+        }
+        public List<Category> LineStyles = new List<Category>();
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -152,27 +193,103 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
-            FamilyManager familyManager = doc.FamilyManager;
-            doc.NewTransaction(() =>
-            {
-                List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-                List<ElementId> elementIds = new List<ElementId>();
-                List<FamilyParameter> newIds = new List<FamilyParameter>();
-                foreach (FamilyParameter item in parameters)
-                {
-                    Definition definition = item.Definition;
-                    if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID && definition.ParameterType.ToString() == "Text")
-                    {
-                        familyManager.RemoveParameter(item);
-                    }
-                    else newIds.Add(item);
-                }
-                //TaskDialog.Show("tt", newIds.Count().ToString());
-            }, "删除属性");
+            ////Category c = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
+            //CategoryNameMap subcats = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines).SubCategories;
+            //foreach (Category lineStyle in subcats)
+            //{
+            //    TaskDialog.Show("Line style", string.Format("Linestyle {0} id {1}", lineStyle.Name,lineStyle.Id.ToString()));
+            //}
+            //CategoryNameMap subcats = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines).SubCategories;
+            //foreach (Category item in subcats)
+            //{
+            //    LineStyles.Add(item);
+            //}
+            //TaskDialog.Show("tt", LineStyles.Count().ToString());
+            ////载入前要检测当前视图样式是否可绘制
+            TableTemplateViewHorizon tableTemplate = new TableTemplateViewHorizon(uiApp);
+            tableTemplate.ShowDialog();
+            //TableTemplateView tableTemplate = new TableTemplateView(uiApp);
+            //tableTemplate.Show();
+            //0406 实现破解红瓦的加密族，有点废人，删掉Schema还要反隐藏实体、参照和标注
+            //List<ReferencePlane> referencePlanes = new FilteredElementCollector(doc).OfClass(typeof(ReferencePlane)).Cast<ReferencePlane>().ToList();
+            //int[] eIds1 = referencePlanes.Select(item => item.Id.IntegerValue).ToArray();
+            //foreach (var item in referencePlanes)
+            //{
+            //    eIds1.Append(item.Id.IntegerValue);
+            //}
+            //List<ElementId> ids = GetElements(eIds1);
+            //doc.NewTransaction(() => activeView.UnhideElements(ids), "显示隐藏参照");
+            //List<Dimension> dimensions = new FilteredElementCollector(doc).OfClass(typeof(Dimension)).Cast<Dimension>().ToList();
+            //List<int> eIds2 = dimensions.Select(item => item.Id.IntegerValue).ToList();
+            //foreach (var item in dimensions)
+            //{
+            //    eIds2.Append(item.Id.IntegerValue);
+            //}
+            //List<ElementId> ids2 = GetElements(eIds2);
+            //doc.NewTransaction(() => activeView.UnhideElements(ids2), "显示隐藏标注");
+            //显示实体，待组合
+            //List<ElementId> ids = GetElements(215159, 215195,215186,215110);
+            //doc.NewTransaction(() => activeView.UnhideElements(ids), "显示隐藏实体");
+            //0406 实现根据Guid删掉Schema
+            //string[] guids ={
+            //"9aa67c9d-27c5-436c-b817-8039c028ec6c",
+            //"3085fd75-4852-45e7-a84a-9b045930d5a9",
+            //"5a38ff26-ff2a-4d40-9916-e8c715341372"};
 
+            ////"f1e15105-8311-4a71-b48b-ec64c2d28380",
+            ////"ba4b0b0c-3fdb-49d7-a08d-4793e1cc344d",
+            ////"5a38ff26-ff2a-4d40-9916-e8c715341372"};
+            ////"9b4f6180-c43a-4289-ba85-4856358505c8",
+            ////"52b66e42-9b41-4983-b5aa-df90b6cd7ac7",
+            //Guid guid;
+            //using (Transaction tErase = new Transaction(doc, "Erase EStorage"))
+            //{
+            //    tErase.Start();
+            //foreach (string item in guids)
+            //{
+            //    Guid.TryParse(item, out guid);
+            //    RemoveEStorage(guid);
+            //}
+            //    tErase.Commit();
+            //}
+            //0406 查找文档中所有Schema
+            //FilteredElementCollector collector = new FilteredElementCollector(doc);
+            //ICollection<Element> allElements = collector.WhereElementIsNotElementType().ToElements();
+            //StringBuilder stringBuilder = new StringBuilder();
+            //IList<Schema> schemas = Schema.ListSchemas();
+            //foreach (var item in schemas)
+            //{
+            //    stringBuilder.AppendLine(item.SchemaName + "++" + item.GUID);
+            //}
+            //TaskDialog.Show("tt", stringBuilder.ToString());
+            //测试结束
+            //HW_Family_Encrypt
+            //0224 按官方参考删除Schema，变量不全还需要测试
+            //https://thebuildingcoder.typepad.com/blog/2022/11/extensible-storage-schema-deletion.html
+            //IList<Schema> schemas = Schema.ListSchemas();
+            //foreach (Schema schema in schemas)
+            //{
+            //    Schema.EraseSchemaAndAllEntities(schema, true); //2021API命令将过期
+            //}
             //
-            //PropertiesForm propertiesForm =new PropertiesForm();
-            //propertiesForm.ShowDialog();
+            //删除族文字属性
+            //FamilyManager familyManager = doc.FamilyManager;
+            //doc.NewTransaction(() =>
+            //{
+            //    List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //    List<ElementId> elementIds = new List<ElementId>();
+            //    List<FamilyParameter> newIds = new List<FamilyParameter>();
+            //    foreach (FamilyParameter item in parameters)
+            //    {
+            //        Definition definition = item.Definition;
+            //        if (definition is InternalDefinition internalDef && internalDef.BuiltInParameter == BuiltInParameter.INVALID && definition.ParameterType.ToString() == "Text")
+            //        {
+            //            familyManager.RemoveParameter(item);
+            //        }
+            //        else newIds.Add(item);
+            //    }
+            //    //TaskDialog.Show("tt", newIds.Count().ToString());
+            //}, "删除属性");
 
             //0326 检测是否在详图视图并用详图线生成一个方块
             //if (activeView.ViewType == ViewType.Legend)
@@ -208,7 +325,6 @@ namespace CreatePipe
             //                        pt1.Y - (cellHeight * row) - (cellHeight / 2),
             //                        0
             //                    );
-
             //                    // 创建文字注释
             //                    TextNote textNote = TextNote.Create(
             //                        doc,
@@ -222,7 +338,6 @@ namespace CreatePipe
             //                            TypeId = GetDefaultTextTypeId(doc) // 获取默认文字类型
             //                        }
             //                    );
-
             //                    // 可选：设置文字高度
             //                    //textNote.TextNoteType.LookupParameter("Text Size").Set(0.5); // 0.5单位高度
             //                }
@@ -310,7 +425,6 @@ namespace CreatePipe
             //}, "删除属性");
             //TaskDialog.Show("tt", newIds.Count().ToString());
 
-
             //0322 导出FBX测试.OK
             //using (var folderDialog = new FolderBrowserDialog())
             //{
@@ -383,36 +497,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", sb.ToString());
             //测试结束
-            //HW_Family_Encrypt
-            //0224 按官方参考删除Schema，变量不全还需要测试
-            //https://thebuildingcoder.typepad.com/blog/2022/11/extensible-storage-schema-deletion.html
-            //FilteredElementCollector collector = new FilteredElementCollector(doc);
-            //ICollection<Element> allElements = collector.WhereElementIsNotElementType().ToElements();
-            //foreach (Element element in allElements)
-            //{
-            //    IList<Schema> schemas = Schema.ListSchemas();
-            //    using (Transaction tErase = new Transaction(doc, "Erase EStorage"))
-            //    {
-            //        tErase.Start();
-            //        //foreach (Schema schema in schemas.Where(sbyte=> sbyte.GUID.ToString() == "xxx"))
-            //        foreach (Schema schema in schemas)
-            //        {
-            //            try
-            //            {
-            //                //doc.EraseSchemaAndAllEntities(schema);
-            //                Schema.EraseSchemaAndAllEntities(schema, true);
-            //            }
-            //            catch (Exception ex)
-            //            {
-            //                message += ex.Message + "\n";
-            //                TaskDialog.Show("tt", ex.Message);
-            //            }
-            //        }
-            //        tErase.Commit();
-            //    }
-            //}
-            //TaskDialog.Show("tt", con1.Size.ToString() );//构件连接器数量            
-
             //0225 喷头转换？
             //先试一下找到的风口上下切换
             //Selection sel = uiDoc.Selection;
