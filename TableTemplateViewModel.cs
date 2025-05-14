@@ -181,14 +181,14 @@ namespace CreatePipe
                             for (int i = 0; i < columnCount; i++) t1 += baseCellWidth * colWidthFactors[i];
                             totalWidth = t1;
                             // 内部网格线
-                            for (int i = 0; i <= rowCount; i++)
+                            for (int i = 0; i < rowCount; i++)
                             {
                                 double y = origin.Y - i * rowHeight;
                                 allCurves.Add(Line.CreateBound(
                                     new XYZ(origin.X, y, origin.Z),
                                     new XYZ(origin.X + totalWidth, y, origin.Z)));
                             }
-                            for (int j = 0; j <= columnCount; j++)
+                            for (int j = 0; j < columnCount; j++)
                             {
                                 double x = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
                                 allCurves.Add(Line.CreateBound(
@@ -268,6 +268,7 @@ namespace CreatePipe
             }
             else TaskDialog.Show("tt", "请载入csv数据源表格并重试");
         }
+
         private double GetColumnWidthSum(int columnIndex, double baseCellWidth, double[] colWidthFactors)
         {
             double sum = 0;

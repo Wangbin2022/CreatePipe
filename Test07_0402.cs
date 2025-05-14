@@ -132,172 +132,174 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
+            PropertiesForm propertiesForm =new PropertiesForm(uiDoc);
+            propertiesForm.ShowDialog();
             //TableTemplateView tableTemplate = new TableTemplateView(uiApp);
             //tableTemplate.Show();
             //0410 csv画表测试
-            OpenFileDialog fDialog = new System.Windows.Forms.OpenFileDialog();
-            fDialog.Filter = "csv 文件 (*.csv)|*.csv";
-            if (fDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                string[] lines = File.ReadAllLines(fDialog.FileName);
-                int rowCount = lines.Length;
-                int columnCount = lines[0].Split(',').Length;
-                using (Transaction tx = new Transaction(doc))
-                {
-                    tx.Start("绘制表格");
-                    //行>60,列超出12要提示退出
-                    activeView.Scale = 50;
-                    double rowHeight = 5 / 304.8 * activeView.Scale; // 行高（单位：mm）
-                    double baseCellWidth = 10 / 304.8 * activeView.Scale; // 基准列宽（单位：mm）
-                    double[] colWidthFactors = new double[12];
-                    if (columnCount <= 12)
-                    {
-                        colWidthFactors[0] = 3;
-                        colWidthFactors[1] = 1.5;
-                        colWidthFactors[2] = 2;
-                        colWidthFactors[3] = 2.4;
-                        colWidthFactors[4] = 3;
-                        colWidthFactors[5] = 2;
-                        colWidthFactors[6] = 1;
-                        colWidthFactors[7] = 1;
-                        colWidthFactors[8] = 1;
-                        colWidthFactors[9] = 1;
-                        colWidthFactors[10] = 1;
-                        colWidthFactors[11] = 1;
-                    }
-                    else TaskDialog.Show("tt", "csv列数太多请清理后添加");
-                    //double[] colWidthFactors = Enumerable.Repeat(1.0, columnCount).ToArray();
-                    //double[] colWidthFactors = { 1.0, 1.5, 1, 1, 1 }; // 列宽系数 
-                    string wideLineStyleName = "H-CONA";
-                    //应该ComboBox选一种线样式
-                    //string wideLineStyleName = "<Sketch>";
-                    List<TextNoteType> refs = new FilteredElementCollector(doc).OfClass(typeof(TextNoteType)).Cast<TextNoteType>().ToList();
-                    string tableFont = "3_宋体_0.7";
-                    string[] fontAttr = tableFont.Split('_').ToArray();
-                    double sizeFactor;
-                    double.TryParse(fontAttr[0].ToString(), out sizeFactor);
-                    //string tableFont2 = "3_仿宋_0.7";
-                    //string tableFont3 = "3_宋体_0.7";
-                    bool found = refs.Any(item => item.Name == tableFont);
-                    //当无同名时新建
-                    TextNoteType textType = found
-                        ? refs.FirstOrDefault(item => item.Name == tableFont)
-                        : refs.FirstOrDefault()?.Duplicate(tableFont) as TextNoteType;
-                    if (textType != null)
-                    {
-                        textType.get_Parameter(BuiltInParameter.TEXT_FONT).Set(fontAttr[1]);
-                        textType.get_Parameter(BuiltInParameter.TEXT_SIZE).Set(sizeFactor / 304.8);
-                        textType.get_Parameter(BuiltInParameter.TEXT_WIDTH_SCALE).Set(0.7);
-                    }
-                    // 2. 初始化数据和对齐数组
-                    string[,] tableData = new string[rowCount, columnCount];
-                    TextAlignment[] columnAlignments = new TextAlignment[columnCount];
-                    // 3. 解析每行数据
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        string[] cells = lines[i].Split(',');
-                        for (int j = 0; j < columnCount; j++)
-                        {
-                            string cellContent = cells[j].Trim();
-                            TextAlignment alignment = TextAlignment.Center;
-                            if (!true)
-                            {
-                                alignment = TextAlignment.Left;
-                            }
-                            tableData[i, j] = cellContent;
-                            // 第一行决定列对齐方式（可根据需要改为其他逻辑）
-                            if (i == 0) columnAlignments[j] = alignment;
-                        }
-                    }
-                    // 绘制表格
-                    XYZ origin = uiDoc.Selection.PickPoint("请选择表格左上角点");
-                    //// 收集所有线条一次性创建
-                    //List<Curve> allCurves = new List<Curve>();
-                    //double t1 = 0;
-                    //for (int i = 0; i < columnCount; i++) t1 += baseCellWidth * colWidthFactors[i];
-                    //double totalWidth = t1;
-                    //// 内部网格线
-                    //for (int i = 0; i <= rowCount; i++)
-                    //{
-                    //    double y = origin.Y - i * rowHeight;
-                    //    allCurves.Add(Line.CreateBound(
-                    //        new XYZ(origin.X, y, origin.Z),
-                    //        new XYZ(origin.X + totalWidth, y, origin.Z)));
-                    //}
-                    //for (int j = 0; j <= columnCount; j++)
-                    //{
-                    //    double x = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
-                    //    allCurves.Add(Line.CreateBound(
-                    //        new XYZ(x, origin.Y, origin.Z),
-                    //        new XYZ(x, origin.Y - rowCount * rowHeight, origin.Z)));
-                    //}
-                    //// 批量创建（效率提升关键）
-                    //foreach (var item in allCurves)
-                    //{
-                    //    doc.Create.NewDetailCurve(activeView, item);
-                    //}
-                    // 创建所有单元格边界(有重复)
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        for (int j = 0; j < columnCount; j++)
-                        {
-                            // 计算当前单元格的起始点
-                            double cellX = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
-                            double cellY = origin.Y - i * rowHeight;
-                            // 绘制当前单元格的四条边
-                            XYZ startTop = new XYZ(cellX, cellY, origin.Z);
-                            XYZ endTop = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY, origin.Z);
-                            Line lineTop = Line.CreateBound(startTop, endTop);
-                            doc.Create.NewDetailCurve(activeView, lineTop);
-                            XYZ startRight = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY, origin.Z);
-                            XYZ endRight = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY - rowHeight, origin.Z);
-                            Line lineRight = Line.CreateBound(startRight, endRight);
-                            doc.Create.NewDetailCurve(activeView, lineRight);
-                            XYZ startBottom = new XYZ(cellX, cellY - rowHeight, origin.Z);
-                            XYZ endBottom = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY - rowHeight, origin.Z);
-                            Line lineBottom = Line.CreateBound(startBottom, endBottom);
-                            doc.Create.NewDetailCurve(activeView, lineBottom);
-                            XYZ startLeft = new XYZ(cellX, cellY, origin.Z);
-                            XYZ endLeft = new XYZ(cellX, cellY - rowHeight, origin.Z);
-                            Line lineLeft = Line.CreateBound(startLeft, endLeft);
-                            doc.Create.NewDetailCurve(activeView, lineLeft);
-                        }
-                    }
-                    //外框线绘制
-                    double total = 0;
-                    for (int i = 0; i < columnCount; i++) total += baseCellWidth * colWidthFactors[i];
-                    double totalWidth = total;
-                    double totalHeight = rowCount * rowHeight;
-                    Line topLine = Line.CreateBound(origin, new XYZ(origin.X + totalWidth, origin.Y, origin.Z));
-                    Line rightLine = Line.CreateBound(new XYZ(origin.X + totalWidth, origin.Y, origin.Z), new XYZ(origin.X + totalWidth, origin.Y - totalHeight, origin.Z));
-                    Line bottomLine = Line.CreateBound(new XYZ(origin.X, origin.Y - totalHeight, origin.Z), new XYZ(origin.X + totalWidth, origin.Y - totalHeight, origin.Z));
-                    Line leftLine = Line.CreateBound(new XYZ(origin.X, origin.Y, origin.Z), new XYZ(origin.X, origin.Y - totalHeight, origin.Z));
-                    DetailLine topBorder = doc.Create.NewDetailCurve(activeView, topLine) as DetailLine;
-                    DetailLine rightBorder = doc.Create.NewDetailCurve(activeView, rightLine) as DetailLine;
-                    DetailLine bottomBorder = doc.Create.NewDetailCurve(activeView, bottomLine) as DetailLine;
-                    DetailLine leftBorder = doc.Create.NewDetailCurve(activeView, leftLine) as DetailLine;
-                    //加粗外框线
-                    CategoryNameMap subcats = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines).SubCategories;
-                    Category setstyle = subcats.Cast<Category>().FirstOrDefault(c => c.Name == wideLineStyleName);
-                    topBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
-                    rightBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
-                    bottomBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
-                    leftBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
-                    //表内加字
-                    for (int i = 0; i < rowCount; i++)
-                    {
-                        for (int j = 0; j < columnCount; j++)
-                        {
-                            double cellX = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
-                            double cellY = origin.Y - i * rowHeight;
-                            XYZ cellOrigin = new XYZ(cellX, cellY - rowHeight / 2, origin.Z); // 垂直居中
-                            AddTextToCell(doc, activeView, cellOrigin, tableData[i, j], baseCellWidth * colWidthFactors[j], columnAlignments[j], textType.Id);
-                            //AddTextToCell(doc, activeView, cellOrigin, tableData[i, j], baseCellWidth * colWidthFactors[j], TextAlignment.Center, textType.Id);
-                        }
-                    }
-                    tx.Commit();
-                }
-            }
+            //OpenFileDialog fDialog = new System.Windows.Forms.OpenFileDialog();
+            //fDialog.Filter = "csv 文件 (*.csv)|*.csv";
+            //if (fDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            //{
+            //    string[] lines = File.ReadAllLines(fDialog.FileName);
+            //    int rowCount = lines.Length;
+            //    int columnCount = lines[0].Split(',').Length;
+            //    using (Transaction tx = new Transaction(doc))
+            //    {
+            //        tx.Start("绘制表格");
+            //        //行>60,列超出12要提示退出
+            //        activeView.Scale = 50;
+            //        double rowHeight = 5 / 304.8 * activeView.Scale; // 行高（单位：mm）
+            //        double baseCellWidth = 10 / 304.8 * activeView.Scale; // 基准列宽（单位：mm）
+            //        double[] colWidthFactors = new double[12];
+            //        if (columnCount <= 12)
+            //        {
+            //            colWidthFactors[0] = 3;
+            //            colWidthFactors[1] = 1.5;
+            //            colWidthFactors[2] = 2;
+            //            colWidthFactors[3] = 2.4;
+            //            colWidthFactors[4] = 3;
+            //            colWidthFactors[5] = 2;
+            //            colWidthFactors[6] = 1;
+            //            colWidthFactors[7] = 1;
+            //            colWidthFactors[8] = 1;
+            //            colWidthFactors[9] = 1;
+            //            colWidthFactors[10] = 1;
+            //            colWidthFactors[11] = 1;
+            //        }
+            //        else TaskDialog.Show("tt", "csv列数太多请清理后添加");
+            //        //double[] colWidthFactors = Enumerable.Repeat(1.0, columnCount).ToArray();
+            //        //double[] colWidthFactors = { 1.0, 1.5, 1, 1, 1 }; // 列宽系数 
+            //        string wideLineStyleName = "H-CONA";
+            //        //应该ComboBox选一种线样式
+            //        //string wideLineStyleName = "<Sketch>";
+            //        List<TextNoteType> refs = new FilteredElementCollector(doc).OfClass(typeof(TextNoteType)).Cast<TextNoteType>().ToList();
+            //        string tableFont = "3_宋体_0.7";
+            //        string[] fontAttr = tableFont.Split('_').ToArray();
+            //        double sizeFactor;
+            //        double.TryParse(fontAttr[0].ToString(), out sizeFactor);
+            //        //string tableFont2 = "3_仿宋_0.7";
+            //        //string tableFont3 = "3_宋体_0.7";
+            //        bool found = refs.Any(item => item.Name == tableFont);
+            //        //当无同名时新建
+            //        TextNoteType textType = found
+            //            ? refs.FirstOrDefault(item => item.Name == tableFont)
+            //            : refs.FirstOrDefault()?.Duplicate(tableFont) as TextNoteType;
+            //        if (textType != null)
+            //        {
+            //            textType.get_Parameter(BuiltInParameter.TEXT_FONT).Set(fontAttr[1]);
+            //            textType.get_Parameter(BuiltInParameter.TEXT_SIZE).Set(sizeFactor / 304.8);
+            //            textType.get_Parameter(BuiltInParameter.TEXT_WIDTH_SCALE).Set(0.7);
+            //        }
+            //        // 2. 初始化数据和对齐数组
+            //        string[,] tableData = new string[rowCount, columnCount];
+            //        TextAlignment[] columnAlignments = new TextAlignment[columnCount];
+            //        // 3. 解析每行数据
+            //        for (int i = 0; i < rowCount; i++)
+            //        {
+            //            string[] cells = lines[i].Split(',');
+            //            for (int j = 0; j < columnCount; j++)
+            //            {
+            //                string cellContent = cells[j].Trim();
+            //                TextAlignment alignment = TextAlignment.Center;
+            //                if (!true)
+            //                {
+            //                    alignment = TextAlignment.Left;
+            //                }
+            //                tableData[i, j] = cellContent;
+            //                // 第一行决定列对齐方式（可根据需要改为其他逻辑）
+            //                if (i == 0) columnAlignments[j] = alignment;
+            //            }
+            //        }
+            //        // 绘制表格
+            //        XYZ origin = uiDoc.Selection.PickPoint("请选择表格左上角点");
+            //        //// 收集所有线条一次性创建
+            //        //List<Curve> allCurves = new List<Curve>();
+            //        //double t1 = 0;
+            //        //for (int i = 0; i < columnCount; i++) t1 += baseCellWidth * colWidthFactors[i];
+            //        //double totalWidth = t1;
+            //        //// 内部网格线
+            //        //for (int i = 0; i <= rowCount; i++)
+            //        //{
+            //        //    double y = origin.Y - i * rowHeight;
+            //        //    allCurves.Add(Line.CreateBound(
+            //        //        new XYZ(origin.X, y, origin.Z),
+            //        //        new XYZ(origin.X + totalWidth, y, origin.Z)));
+            //        //}
+            //        //for (int j = 0; j <= columnCount; j++)
+            //        //{
+            //        //    double x = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
+            //        //    allCurves.Add(Line.CreateBound(
+            //        //        new XYZ(x, origin.Y, origin.Z),
+            //        //        new XYZ(x, origin.Y - rowCount * rowHeight, origin.Z)));
+            //        //}
+            //        //// 批量创建（效率提升关键）
+            //        //foreach (var item in allCurves)
+            //        //{
+            //        //    doc.Create.NewDetailCurve(activeView, item);
+            //        //}
+            //        // 创建所有单元格边界(有重复)
+            //        for (int i = 0; i < rowCount; i++)
+            //        {
+            //            for (int j = 0; j < columnCount; j++)
+            //            {
+            //                // 计算当前单元格的起始点
+            //                double cellX = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
+            //                double cellY = origin.Y - i * rowHeight;
+            //                // 绘制当前单元格的四条边
+            //                XYZ startTop = new XYZ(cellX, cellY, origin.Z);
+            //                XYZ endTop = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY, origin.Z);
+            //                Line lineTop = Line.CreateBound(startTop, endTop);
+            //                doc.Create.NewDetailCurve(activeView, lineTop);
+            //                XYZ startRight = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY, origin.Z);
+            //                XYZ endRight = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY - rowHeight, origin.Z);
+            //                Line lineRight = Line.CreateBound(startRight, endRight);
+            //                doc.Create.NewDetailCurve(activeView, lineRight);
+            //                XYZ startBottom = new XYZ(cellX, cellY - rowHeight, origin.Z);
+            //                XYZ endBottom = new XYZ(cellX + baseCellWidth * colWidthFactors[j], cellY - rowHeight, origin.Z);
+            //                Line lineBottom = Line.CreateBound(startBottom, endBottom);
+            //                doc.Create.NewDetailCurve(activeView, lineBottom);
+            //                XYZ startLeft = new XYZ(cellX, cellY, origin.Z);
+            //                XYZ endLeft = new XYZ(cellX, cellY - rowHeight, origin.Z);
+            //                Line lineLeft = Line.CreateBound(startLeft, endLeft);
+            //                doc.Create.NewDetailCurve(activeView, lineLeft);
+            //            }
+            //        }
+            //        //外框线绘制
+            //        double total = 0;
+            //        for (int i = 0; i < columnCount; i++) total += baseCellWidth * colWidthFactors[i];
+            //        double totalWidth = total;
+            //        double totalHeight = rowCount * rowHeight;
+            //        Line topLine = Line.CreateBound(origin, new XYZ(origin.X + totalWidth, origin.Y, origin.Z));
+            //        Line rightLine = Line.CreateBound(new XYZ(origin.X + totalWidth, origin.Y, origin.Z), new XYZ(origin.X + totalWidth, origin.Y - totalHeight, origin.Z));
+            //        Line bottomLine = Line.CreateBound(new XYZ(origin.X, origin.Y - totalHeight, origin.Z), new XYZ(origin.X + totalWidth, origin.Y - totalHeight, origin.Z));
+            //        Line leftLine = Line.CreateBound(new XYZ(origin.X, origin.Y, origin.Z), new XYZ(origin.X, origin.Y - totalHeight, origin.Z));
+            //        DetailLine topBorder = doc.Create.NewDetailCurve(activeView, topLine) as DetailLine;
+            //        DetailLine rightBorder = doc.Create.NewDetailCurve(activeView, rightLine) as DetailLine;
+            //        DetailLine bottomBorder = doc.Create.NewDetailCurve(activeView, bottomLine) as DetailLine;
+            //        DetailLine leftBorder = doc.Create.NewDetailCurve(activeView, leftLine) as DetailLine;
+            //        //加粗外框线
+            //        CategoryNameMap subcats = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines).SubCategories;
+            //        Category setstyle = subcats.Cast<Category>().FirstOrDefault(c => c.Name == wideLineStyleName);
+            //        topBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
+            //        rightBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
+            //        bottomBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
+            //        leftBorder.LineStyle = setstyle.GetGraphicsStyle(GraphicsStyleType.Projection);
+            //        //表内加字
+            //        for (int i = 0; i < rowCount; i++)
+            //        {
+            //            for (int j = 0; j < columnCount; j++)
+            //            {
+            //                double cellX = origin.X + GetColumnWidthSum(j, baseCellWidth, colWidthFactors);
+            //                double cellY = origin.Y - i * rowHeight;
+            //                XYZ cellOrigin = new XYZ(cellX, cellY - rowHeight / 2, origin.Z); // 垂直居中
+            //                AddTextToCell(doc, activeView, cellOrigin, tableData[i, j], baseCellWidth * colWidthFactors[j], columnAlignments[j], textType.Id);
+            //                //AddTextToCell(doc, activeView, cellOrigin, tableData[i, j], baseCellWidth * colWidthFactors[j], TextAlignment.Center, textType.Id);
+            //            }
+            //        }
+            //        tx.Commit();
+            //    }
+            //}
             //List<DetailLine> horizontalLines = new List<DetailLine>();
             //double currentY = origin.Y;
             //for (int i = 0; i <= rowCount; i++)
