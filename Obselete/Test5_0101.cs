@@ -12,8 +12,8 @@ using System.Windows.Forms;
 
 namespace CreatePipe
 {
-    [Transaction(TransactionMode.Manual)]
-    public class Test5_0101 : IExternalCommand
+    //[Transaction(TransactionMode.Manual)]
+    public class Test5_0101  
     {
 
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)

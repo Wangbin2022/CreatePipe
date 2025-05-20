@@ -132,8 +132,8 @@ namespace CreatePipe
             XmlDoc.Instance.UIDoc = uiDoc;
             XmlDoc.Instance.Task = new RevitTask();
 
-            PropertiesForm propertiesForm =new PropertiesForm(uiDoc);
-            propertiesForm.ShowDialog();
+            //PropertiesForm propertiesForm =new PropertiesForm(uiDoc);
+            //propertiesForm.ShowDialog();
             //TableTemplateView tableTemplate = new TableTemplateView(uiApp);
             //tableTemplate.Show();
             //0410 csv画表测试
@@ -554,6 +554,7 @@ namespace CreatePipe
             //    }
             //}
             //例程结束
+
             ////0404 切换连接顺序抄网上代码，初步实现柱切板和梁，梁切板。
             //FilteredElementCollector list_column = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns).OfClass(typeof(FamilyInstance));
             //FilteredElementCollector list_beam = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming).OfClass(typeof(FamilyInstance));

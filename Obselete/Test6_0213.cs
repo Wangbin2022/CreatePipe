@@ -24,8 +24,8 @@ using System.Windows.Media.Imaging;
 
 namespace CreatePipe
 {
-    [Transaction(TransactionMode.Manual)]
-    public class Test6_0213 : IExternalCommand
+    //[Transaction(TransactionMode.Manual)]: IExternalCommand
+    public class Test6_0213
     {
         public class SupressWarning : IFailuresPreprocessor
         {
@@ -206,27 +206,29 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", LineStyles.Count().ToString());
             ////载入前要检测当前视图样式是否可绘制
-            TableTemplateViewHorizon tableTemplate = new TableTemplateViewHorizon(uiApp);
-            tableTemplate.ShowDialog();
+            //TableTemplateViewHorizon tableTemplate = new TableTemplateViewHorizon(uiApp);
+            //tableTemplate.ShowDialog();
             //TableTemplateView tableTemplate = new TableTemplateView(uiApp);
             //tableTemplate.Show();
+
             //0406 实现破解红瓦的加密族，有点废人，删掉Schema还要反隐藏实体、参照和标注
-            //List<ReferencePlane> referencePlanes = new FilteredElementCollector(doc).OfClass(typeof(ReferencePlane)).Cast<ReferencePlane>().ToList();
-            //int[] eIds1 = referencePlanes.Select(item => item.Id.IntegerValue).ToArray();
-            //foreach (var item in referencePlanes)
-            //{
-            //    eIds1.Append(item.Id.IntegerValue);
-            //}
-            //List<ElementId> ids = GetElements(eIds1);
-            //doc.NewTransaction(() => activeView.UnhideElements(ids), "显示隐藏参照");
-            //List<Dimension> dimensions = new FilteredElementCollector(doc).OfClass(typeof(Dimension)).Cast<Dimension>().ToList();
-            //List<int> eIds2 = dimensions.Select(item => item.Id.IntegerValue).ToList();
-            //foreach (var item in dimensions)
-            //{
-            //    eIds2.Append(item.Id.IntegerValue);
-            //}
-            //List<ElementId> ids2 = GetElements(eIds2);
-            //doc.NewTransaction(() => activeView.UnhideElements(ids2), "显示隐藏标注");
+            List<ReferencePlane> referencePlanes = new FilteredElementCollector(doc).OfClass(typeof(ReferencePlane)).Cast<ReferencePlane>().ToList();
+            int[] eIds1 = referencePlanes.Select(item => item.Id.IntegerValue).ToArray();
+            foreach (var item in referencePlanes)
+            {
+                eIds1.Append(item.Id.IntegerValue);
+            }
+            List<ElementId> ids = GetElements(eIds1);
+            doc.NewTransaction(() => activeView.UnhideElements(ids), "显示隐藏参照");
+            List<Dimension> dimensions = new FilteredElementCollector(doc).OfClass(typeof(Dimension)).Cast<Dimension>().ToList();
+            List<int> eIds2 = dimensions.Select(item => item.Id.IntegerValue).ToList();
+            foreach (var item in dimensions)
+            {
+                eIds2.Append(item.Id.IntegerValue);
+            }
+            List<ElementId> ids2 = GetElements(eIds2);
+            doc.NewTransaction(() => activeView.UnhideElements(ids2), "显示隐藏标注");
+
             //显示实体，待组合
             //List<ElementId> ids = GetElements(215159, 215195,215186,215110);
             //doc.NewTransaction(() => activeView.UnhideElements(ids), "显示隐藏实体");
@@ -994,8 +996,8 @@ namespace CreatePipe
                 throw new Exception("无法创建草图平面，出错原因: " + ex.Message);
             }
         }
-        [Transaction(TransactionMode.Manual)]
-        public class AddParameterToFamily : IExternalCommand
+        //[Transaction(TransactionMode.Manual)]
+        public class AddParameterToFamily
         {
             private UIApplication m_app;
 
@@ -1059,8 +1061,8 @@ namespace CreatePipe
                 }
             }
         } // end of class "AddParameterToFamily"
-        [Transaction(TransactionMode.Manual)]
-        public class AddParameterToFamilies : IExternalCommand
+        //[Transaction(TransactionMode.Manual)]: IExternalCommand
+        public class AddParameterToFamilies
         {
             //在 Revit 的族文件（.rfa）中批量添加参数
             private Autodesk.Revit.ApplicationServices.Application application;

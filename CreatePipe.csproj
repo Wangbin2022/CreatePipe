@@ -174,7 +174,7 @@
     <Compile Include="Form\TabTest.xaml.cs">
       <DependentUpon>TabTest.xaml</DependentUpon>
     </Compile>
-    <Compile Include="ModifyViewDisplayViewModel.cs" />
+    <Compile Include="Obselete\ModifyViewDisplayViewModel.cs" />
     <Compile Include="Obselete\NumberByPick\NumberByPick.cs" />
     <Compile Include="Obselete\NumberByPick\NumberByPickWPF.xaml.cs">
       <DependentUpon>NumberByPickWPF.xaml</DependentUpon>
@@ -299,7 +299,7 @@
     <Compile Include="Obselete\PipeSystemManager\Form\PipeSystemListForm.xaml.cs">
       <DependentUpon>PipeSystemListForm.xaml</DependentUpon>
     </Compile>
-    <Compile Include="PropertiesForm.xaml.cs">
+    <Compile Include="Obselete\PropertiesForm.xaml.cs">
       <DependentUpon>PropertiesForm.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -315,10 +315,11 @@
     </Compile>
     <Compile Include="Obselete\RoomAttr\RoomAttrViewModel.cs" />
     <Compile Include="Obselete\RoomAttr\RoomEntity.cs" />
-    <Compile Include="TableTemplateViewModel.cs" />
-    <Compile Include="Test07_0402.cs" />
-    <Compile Include="Test5_0101.cs" />
-    <Compile Include="Test6_0213.cs" />
+    <Compile Include="Obselete\TableTemplateViewModel.cs" />
+    <Compile Include="Obselete\Test07_0402.cs" />
+    <Compile Include="Obselete\Test5_0101.cs" />
+    <Compile Include="Obselete\Test6_0213.cs" />
+    <Compile Include="Test08_0520.cs" />
     <Compile Include="Utils\CADCHelper.cs" />
     <Compile Include="Utils\ChineseToSpell.cs" />
     <Compile Include="Utils\ColorConvertHelper.cs" />
@@ -370,7 +371,7 @@
       <DependentUpon>TestTreeView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\TestTreeViewModel.cs" />
-    <Compile Include="ViewTemplateManagerViewModel.cs" />
+    <Compile Include="Obselete\ViewTemplateManagerViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="CableConduitCreator\CableTrayPathForm.xaml">
@@ -505,7 +506,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="PropertiesForm.xaml">
+    <Page Include="Obselete\PropertiesForm.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
