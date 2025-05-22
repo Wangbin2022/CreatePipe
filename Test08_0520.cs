@@ -1,8 +1,13 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using CreatePipe.filter;
+using CreatePipe.NCCoding;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,7 +25,46 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
 
 
+            //0522
+            //还是先尝试做个项目参数管理器吧
+             
+            
+            //NCCodingView codingView = new NCCodingView(uiApp);
+            //codingView.ShowDialog();
+            //Reference r = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "pick something");
+            //Element ele = doc.GetElement(r);
+            //Parameter para = ele.LookupParameter("族ID");
+            //if (para.AsString() != null)
+            //{ 
+            //    TaskDialog.Show("tt",para.AsString());
+            //}
+            ////0521 
+            //// 获取所有 FamilyInstance
+            //var familyInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>();
+            //// 获取所有 Family 的唯一集合
+            //List<Family> families = familyInstances.Select(fi => fi.Symbol.Family).Distinct().ToList();
+            //StringBuilder stringBuilder = new StringBuilder();
+            //List<Family> newFamily = new List<Family>();
+            //foreach (var family in families)
+            //{
+            //    Parameter para= family.LookupParameter("族ID");
+            //    if (para.AsString() != null)
+            //    {
+            //        stringBuilder.Append(family.Name.ToString() + "||");
+            //        newFamily.Add(family);
+            //    }
+            //}
+            //// 定义输出文件路径
+            //string outputFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Families.txt");
+            //// 将 StringBuilder 的内容写入到文本文件
+            //File.WriteAllText(outputFilePath, stringBuilder.ToString());
+            ////int familyCount = families.Count;
+            //int familyCount = newFamily.Count;
+            //TaskDialog.Show("Family Count", $"当前文档中存在的 FamilyInstance 的 Family 数量为: {familyCount}");
 
+
+            //0521 当前应用程序路径的上级目录？为什么返回的是桌面？
+            //TaskDialog.Show("tt", Path.GetFullPath(".."));             
             //0520 遗留测试
             ////0404 切换连接顺序抄网上代码，初步实现柱切板和梁，梁切板。
             //FilteredElementCollector list_column = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns).OfClass(typeof(FamilyInstance));

@@ -147,6 +147,7 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="Form\Behaviors\TextBoxBehavior.cs" />
     <Compile Include="Form\TableTemplateView.xaml.cs">
       <DependentUpon>TableTemplateView.xaml</DependentUpon>
     </Compile>
@@ -156,6 +157,11 @@
     <Compile Include="Form\ViewTemplateManagerView.xaml.cs">
       <DependentUpon>ViewTemplateManagerView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="NCCoding\NCCodingEntity.cs" />
+    <Compile Include="NCCoding\NCCodingView.xaml.cs">
+      <DependentUpon>NCCodingView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="NCCoding\NCCodingViewModel.cs" />
     <Compile Include="Obselete\CountParkingLot\CountParkingLotForm.xaml.cs">
       <DependentUpon>CountParkingLotForm.xaml</DependentUpon>
     </Compile>
@@ -319,6 +325,8 @@
     <Compile Include="Obselete\Test07_0402.cs" />
     <Compile Include="Obselete\Test5_0101.cs" />
     <Compile Include="Obselete\Test6_0213.cs" />
+    <Compile Include="Utils\ValueConverter\CategoryIdToNameConverter.cs" />
+    <Compile Include="Utils\ValueConverter\IntToStringConverter.cs" />
     <Compile Include="Test08_0520.cs" />
     <Compile Include="Utils\CADCHelper.cs" />
     <Compile Include="Utils\ChineseToSpell.cs" />
@@ -391,6 +399,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ViewTemplateManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="NCCoding\NCCodingView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

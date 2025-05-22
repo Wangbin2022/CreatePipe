@@ -1,0 +1,38 @@
+﻿<Window x:Class="CreatePipe.NCCoding.NCCodingView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.NCCoding"
+        mc:Ignorable="d"
+        Title="南昌构件编码" Height="450" Width="720"
+               Topmost="True"
+       WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
+        xmlns:vc="clr-namespace:CreatePipe.Resources.ValueConverter"  >
+    <Grid Margin="5">
+        <Grid.Resources>
+            <vc:CategoryIdToNameConverter x:Key="CategoryIdToNameConverter"/>
+            <vc:IntToStringConverter x:Key="IntToStringConverter"/>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+            <TextBox Width="230"  Margin="5"
+  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+        </StackPanel>
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+            <TextBlock Text="{Binding ViewTemplates.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+            <Button Width="80" Margin="5" Content="显示所有族" Command="{Binding ShowAllElementCommand}"
+                    CommandParameter="{Binding SelectedItems, ElementName=dataGrid}" ToolTip="默认只显示不合规族"/>
+        </StackPanel>
+        
+        <DockPanel Grid.Row="2" Grid.ColumnSpan="2">
+            <Button  Content="确定并退出" Height="20" x:Name="btn_OK"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

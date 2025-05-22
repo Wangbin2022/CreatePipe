@@ -13,7 +13,6 @@ namespace CreatePipe.filter
             }
             return false;
         }
-
         public bool AllowReference(Reference reference, XYZ position)
         {
             return true;
