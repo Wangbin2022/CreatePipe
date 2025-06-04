@@ -1,0 +1,49 @@
+﻿<Window x:Class="CreatePipe.Form.UniversalNewString"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="UniversalNewString" Height="140" Width="280"    Topmost="True"
+        WindowStartupLocation="CenterScreen" 
+        xmlns:vr="clr-namespace:CreatePipe.Form.ValidationRule">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.4*"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5">新增名称：</TextBlock>
+        <TextBox Grid.Column="1" Margin="5">
+            <TextBox.Text>
+                <Binding Path="NewName" UpdateSourceTrigger="PropertyChanged">
+                    <Binding.ValidationRules>
+                        <vr:InvalidCharacterValidationRule />
+                    </Binding.ValidationRules>
+                </Binding>
+            </TextBox.Text>
+        </TextBox>
+        <TextBlock Grid.Row="1" Text="{Binding DisplayText}"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center"
+           Grid.ColumnSpan="2" Width="180">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="Black" />
+                    <Style.Triggers>
+                        <!-- 如果 IsValid 为 false，设置颜色为红色 -->
+                        <DataTrigger Binding="{Binding IsValid,UpdateSourceTrigger=PropertyChanged}" Value="False">
+                            <Setter Property="Foreground" Value="Red" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+        <Button Grid.Row="2" Content="确认并退出" x:Name="btn_OK" Click="Button_Click" Margin="5" Grid.ColumnSpan="2"/>
+    </Grid>
+</Window>

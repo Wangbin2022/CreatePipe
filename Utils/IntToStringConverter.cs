@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
 
-namespace CreatePipe.Utils.ValueConverter
+namespace CreatePipe.Utils
 {
     public class IntToStringConverter : IValueConverter
     {

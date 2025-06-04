@@ -5,11 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CreatePipe.NCCoding"
         mc:Ignorable="d"
-        Title="南昌构件编码" Height="450" Width="720"
+        Title="南昌构件编码检查" Height="450" Width="720"
                Topmost="True"
        WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
         xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
-        xmlns:vc="clr-namespace:CreatePipe.Resources.ValueConverter"  >
+        xmlns:vc="clr-namespace:CreatePipe.Utils.ValueConverter"  >
     <Grid Margin="5">
         <Grid.Resources>
             <vc:CategoryIdToNameConverter x:Key="CategoryIdToNameConverter"/>
@@ -22,14 +22,87 @@
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
             <TextBox Width="230"  Margin="5"
-  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" Text="{Binding KeyWord}"/>
         </StackPanel>
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-            <TextBlock Text="{Binding ViewTemplates.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
-            <Button Width="80" Margin="5" Content="显示所有族" Command="{Binding ShowAllElementCommand}"
-                    CommandParameter="{Binding SelectedItems, ElementName=dataGrid}" ToolTip="默认只显示不合规族"/>
+            <TextBlock Text="{Binding Entities.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+            <Button Width="80" Margin="5" Content="输出ID对照" Command="{Binding ExportCsvCommand}"/>
+            <Button Width="80" Margin="5" Content="隐藏合规" Command="{Binding HideElementCommand}"/>
         </StackPanel>
-        
+        <StackPanel  Grid.Row="1" Margin="5">
+            <DataGrid x:Name="dataGrid" RowHeight="30"  
+                     HorizontalAlignment="Stretch"
+                     AutoGenerateColumns="False" CanUserAddRows="False"
+                     SelectionUnit="FullRow" EnableColumnVirtualization="False"
+                     GridLinesVisibility="None" Height="335"  Width="auto"
+                     SelectionMode="Extended" ItemsSource="{Binding Entities}" SelectedItem="{Binding SelectedView}"
+                     >                 
+                <DataGrid.Resources>
+                    <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                    </Style>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="名称" Width="160" SortMemberPath="FamilyName" 
+  Binding="{Binding FamilyName}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="类别" Width="80" SortMemberPath="CategoryName" 
+  Binding="{Binding CategoryName}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="实体数" Width="50" SortMemberPath="FamilyCount" 
+  Binding="{Binding FamilyCount}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="是否合规" Width="35"
+                    SortMemberPath="IsCompliant" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" >
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Path= IsCompliant}" Value="False">
+                                                    <Setter Property="Text"  Value="否">
+                                                    </Setter>
+                                                    <Setter Property="Foreground" Value="Red">
+                                                    </Setter>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Path= IsCompliant}" Value="True">
+                                                    <Setter Property="Text"  Value="是">
+                                                    </Setter>
+                                                    <Setter Property="Foreground" Value="Green">
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="合规数" Width="50" SortMemberPath="CompliantFamilyCount" 
+  Binding="{Binding CompliantFamilyCount}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="选择" Width="60" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button HorizontalAlignment="Stretch" Content="PickALL" 
+                     Command="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor},Path= DataContext.SelectElementsCommand}" 
+                     CommandParameter="{Binding .}"
+                     BorderBrush="Transparent"  Background="Transparent"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="赋码" Width="40" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button HorizontalAlignment="Stretch" Content="赋码" 
+Command="{Binding RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor},Path= DataContext.CodeElementsCommand}"      CommandParameter="{Binding .}"
+BorderBrush="Transparent"  Background="Transparent" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="族ID" Width="180" SortMemberPath="projectId" 
+  Binding="{Binding projectId}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
         <DockPanel Grid.Row="2" Grid.ColumnSpan="2">
             <Button  Content="确定并退出" Height="20" x:Name="btn_OK"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
