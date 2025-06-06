@@ -154,6 +154,9 @@
     <Compile Include="Form\CopyFamilySymbolsView.xaml.cs">
       <DependentUpon>CopyFamilySymbolsView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\SprinklerReplaceView.xaml.cs">
+      <DependentUpon>SprinklerReplaceView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\TableTemplateView.xaml.cs">
       <DependentUpon>TableTemplateView.xaml</DependentUpon>
     </Compile>
@@ -403,6 +406,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\CopyFamilySymbolsView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\SprinklerReplaceView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
