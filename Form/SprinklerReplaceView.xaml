@@ -10,6 +10,36 @@
                 Topmost="True" WindowStartupLocation="CenterScreen">
     <Grid>
         <TabControl  Margin="5">
+            <TabItem Header="上下喷头转换">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1.75*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="5">
+                        <TextBlock Text="上喷喷头选型："
+                       Margin="5"/>
+                        <ComboBox ItemsSource="{Binding UpSprinklerType}"
+                      DisplayMemberPath="Name"
+                      SelectedItem="{Binding SelectedUpSp, UpdateSourceTrigger=PropertyChanged}"
+                      Margin="5" />
+                        <TextBlock Text="下喷喷头选型：" 
+                       Margin="5"/>
+                        <ComboBox ItemsSource="{Binding DownSprinklerType}"
+                      DisplayMemberPath="Name"
+                      SelectedItem="{Binding SelectedDownSp, UpdateSourceTrigger=PropertyChanged}"
+                      Margin="5" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1"  Margin="5">
+                        <Button Content="将选择喷头转化为上喷" Command="{Binding ConvertUpSprinklerCommand}"
+                                Click="Button_Click" Height="25" Margin="0,2,0,2"/>
+                        <Button Content="将选择喷头转化为下喷"  Command="{Binding ConvertDownSprinklerCommand}"
+                                Click="Button_Click" Height="25" Margin="0,2,0,2"/>
+                        <Button Content="将选择喷头转化为上下喷" Command="{Binding ConvertDoubleSprinklerCommand}"
+                                Click="Button_Click" Height="25" Margin="0,2,0,2"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
             <TabItem Header="喷头替换">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -17,7 +47,7 @@
                         <RowDefinition Height="50"/>
                         <RowDefinition Height="35"/>
                     </Grid.RowDefinitions>
-                    <StackPanel Margin="5" Grid.ColumnSpan="2">
+                    <StackPanel Margin="5">
                         <TextBlock Text="上喷喷头选型："
                        Margin="5"/>
                         <ComboBox ItemsSource="{Binding UpSprinklerType}"
@@ -35,36 +65,67 @@
            HorizontalAlignment="Center" Foreground="DarkRed"
            VerticalAlignment="Center" TextWrapping="Wrap"
            Grid.ColumnSpan="2" Margin="5"/>
-                    <Button Grid.Row="2" Content="确认并替换" x:Name="btn_OK" 
+                    <Button Grid.Row="2" Content="选择并替换" x:Name="btn_OK" 
                 Command="{Binding SwitchSprinklerCommand}"
                 Click="Button_Click" Margin="5" Grid.ColumnSpan="2"/>
                 </Grid>
             </TabItem>
-            <TabItem Header="上下喷头转换">
-
-            </TabItem>
             <TabItem Header="喷头数据统计">
-                <StackPanel>
-                    <TextBlock Text="{Binding AllSprinklerCount, StringFormat='文档内喷头总数量：{0}'}" />
-                    <TextBlock TextWrapping="Wrap">
-                        <TextBlock.Text>
-                            <MultiBinding StringFormat="文档内上喷头总数量：{0}，其中已连接喷头数量：{1}">
-                                <Binding Path="AllUpSprinklerCount" />
-                                <Binding Path="ConnectedUpSprinklerCount" />
-                            </MultiBinding>
-                        </TextBlock.Text>
-                    </TextBlock>
-                    <TextBlock TextWrapping="Wrap">
-                        <TextBlock.Text>
-                            <MultiBinding StringFormat="文档内下喷头总数量：{0}，其中已连接喷头数量：{1}">
-                                <Binding Path="AllDownSprinklerCount" />
-                                <Binding Path="ConnectedDownSprinklerCount" />
-                            </MultiBinding>
-                        </TextBlock.Text>
-                    </TextBlock>
-                    <TextBlock Text="{Binding ConnectedDoubleSprinklerCount, StringFormat='文档内已连接上下喷头总数量：{0}组（含上下）'}" 
-                               TextWrapping="Wrap"/>
-                </StackPanel>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="35"/>
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{Binding AllSprinklerCount, StringFormat='文档内喷头总数量：{0}'}" Margin="5"/>
+                        <TextBlock TextWrapping="Wrap" Margin="5">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="文档内上喷头总数量：{0}，其中已连接喷头数量：{1}">
+                                    <Binding Path="AllUpSprinklerCount" />
+                                    <Binding Path="ConnectedUpSprinklerCount" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="5">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="文档内下喷头总数量：{0}，其中已连接喷头数量：{1}">
+                                    <Binding Path="AllDownSprinklerCount" />
+                                    <Binding Path="ConnectedDownSprinklerCount" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <TextBlock Text="{Binding ConnectedDoubleSprinklerCount, StringFormat='文档内已连接上下喷头总数量：{0}个（上下总记）'}" 
+                               TextWrapping="Wrap" Margin="5"/>
+                    </StackPanel>
+                    <Button Content="选择未连接的上喷头" Command="{Binding SelectUnconnctedUpCommand}"
+                            Click="Button_Click" Grid.Row="1" Margin="5"/>
+                    <Button Content="选择未连接的下喷头" Command="{Binding SelectUnconnctedDownCommand}"
+                            Click="Button_Click" Grid.Row="2" Margin="5"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="喷头修复">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="35"/>
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel>
+                        <Button Content="选择喷头断开" 
+                            Command="{Binding DisconnectSpCommand}"
+                            Click="Button_Click" 
+                            Height="25" Margin="5"/>
+                        <Button Content="选择喷头连接到管网" 
+                            Command="{Binding ConnectSpCommand}"
+                            Click="Button_Click" 
+                            Height="25" Margin="5"/>
+                        <Button Content="修复连接喷头的非垂直立管" 
+                            Command="{Binding FixVerticalPipeCommand}"
+                            Click="Button_Click"  
+                            Height="25" Margin="5"/>
+                    </StackPanel>
+                </Grid>
             </TabItem>
         </TabControl>
     </Grid>

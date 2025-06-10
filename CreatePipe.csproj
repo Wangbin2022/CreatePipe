@@ -147,6 +147,7 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="filter\filterMEPFitting.cs" />
     <Compile Include="filter\filterPipeFitting.cs" />
     <Compile Include="filter\RoomEntity.cs" />
     <Compile Include="filter\SprinklerEntityFilter.cs" />
