@@ -225,22 +225,7 @@ namespace CreatePipe.Form
 
 
         }
-        //private FamilySymbol GetCrossSymbol(PipeType pipeType)
-        //{
-        //    FilteredElementCollector collector = new FilteredElementCollector(Document).OfClass(typeof(FamilySymbol)).OfCategory(BuiltInCategory.OST_PipeFitting);
-        //    foreach (FamilySymbol symbol in collector)
-        //    {
-        //        if (symbol.FamilyName.Contains("Cross") || symbol.FamilyName.Contains("四通"))
-        //        {
-        //            if (symbol.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()
-        //                == pipeType.Diameter)
-        //            {
-        //                return symbol;
-        //            }
-        //        }
-        //    }
-        //    return null;
-        //}
+
         List<ElementId> ConnectedDoubleUpSprinkler = new List<ElementId>();
         List<ElementId> ConnectedUpSprinkler = new List<ElementId>();
         List<ElementId> ConnectedDoubleDownSprinkler = new List<ElementId>();
