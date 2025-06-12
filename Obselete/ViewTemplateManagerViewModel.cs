@@ -1,17 +1,12 @@
 ﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.Utils;
-using CreatePipe.ViewFilters;
-using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -40,7 +35,7 @@ namespace CreatePipe
                     if (item.ViewType == selectedView.viewType)
                     {
                         foreach (var item2 in enumerable)
-                        {                            
+                        {
                             if (item.Name == item2.ToString())
                             {
                                 item.ViewTemplateId = selectedView.Id;
@@ -174,7 +169,7 @@ namespace CreatePipe
         }
         private ObservableCollection<ViewTemplate> GetEntity()
         {
-            ObservableCollection<ViewTemplate> vts = new ObservableCollection<ViewTemplate>();     
+            ObservableCollection<ViewTemplate> vts = new ObservableCollection<ViewTemplate>();
             List<ViewTemplate> cableSystems = views.Select(v => new ViewTemplate(v)).Where(e => e.isTemplate == true && (string.IsNullOrEmpty(Keyword) || e.ViewName.Contains(Keyword) || e.ViewName.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
             foreach (var item in cableSystems)
             {
@@ -182,7 +177,7 @@ namespace CreatePipe
             }
             return vts;
         }
-        public List<View> views =new List<View>();
+        public List<View> views = new List<View>();
         private ObservableCollection<ViewTemplate> viewTemplates;
         public ObservableCollection<ViewTemplate> ViewTemplates
         {

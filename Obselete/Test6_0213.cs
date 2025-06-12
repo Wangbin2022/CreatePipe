@@ -1,25 +1,16 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CommandLine;
 using CreatePipe.cmd;
-using CreatePipe.Form;
 using CreatePipe.Utils;
-using EnumsNET;
-using NPOI.SS.UserModel;
-using OfficeOpenXml.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
-using System.Windows.Forms;
-using System.Windows.Media.Imaging;
 
 
 namespace CreatePipe

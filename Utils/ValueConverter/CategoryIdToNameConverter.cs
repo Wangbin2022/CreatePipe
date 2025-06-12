@@ -1,11 +1,6 @@
 ﻿using Autodesk.Revit.DB;
-using OfficeOpenXml.FormulaParsing.Utilities;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Data;
 
 namespace CreatePipe.Utils.ValueConverter
@@ -18,7 +13,7 @@ namespace CreatePipe.Utils.ValueConverter
             {
                 Document doc = (Document)parameter;
                 Category category = Category.GetCategory(doc, (ElementId)value);
-                return category?.Name;  
+                return category?.Name;
             }
             return string.Empty;
         }

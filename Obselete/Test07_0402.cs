@@ -2,20 +2,8 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
-using CreatePipe.Form;
-using CreatePipe.utils;
-using CreatePipe.Utils;
-using Org.BouncyCastle.Crypto;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Xml;
-using System.Xml.Serialization;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using View = Autodesk.Revit.DB.View;
 namespace CreatePipe
 {

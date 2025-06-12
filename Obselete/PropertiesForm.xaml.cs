@@ -4,15 +4,13 @@ using CreatePipe.cmd;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
 using System.Windows.Input;
 using Document = Autodesk.Revit.DB.Document;
-using View= Autodesk.Revit.DB.View;
+using View = Autodesk.Revit.DB.View;
 
 namespace CreatePipe
 {
@@ -48,7 +46,7 @@ namespace CreatePipe
             return new ValidationResult(false, $"请输入 {Minimum} 到 {Maximum} 之间的数字");
         }
     }
-    public class PropertiesViewModel:ObserverableObject
+    public class PropertiesViewModel : ObserverableObject
     {
         Document Document { get; set; }
         public List<View> views = new List<View>();

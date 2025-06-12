@@ -4,15 +4,12 @@ using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
 using CreatePipe.Form;
 using CreatePipe.Utils;
-using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace CreatePipe.NCCoding

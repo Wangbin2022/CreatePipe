@@ -1,11 +1,9 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
@@ -13,7 +11,7 @@ using System.Windows.Forms;
 namespace CreatePipe
 {
     //[Transaction(TransactionMode.Manual)]
-    public class Test5_0101  
+    public class Test5_0101
     {
 
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
