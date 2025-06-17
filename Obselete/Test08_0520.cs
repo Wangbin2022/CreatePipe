@@ -9,6 +9,7 @@ using CreatePipe.Form;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace CreatePipe
 {
@@ -304,26 +305,54 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
             Document = uiDoc.Document;
 
-            FilteredElementCollector collector = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Sprinklers).OfClass(typeof(FamilyInstance));
-            foreach (Element elem in collector)
-            {
-                FamilyInstance sprinkler = (FamilyInstance)Document.GetElement(elem.Id);
-                var connector = sprinkler.MEPModel.ConnectorManager.Connectors.OfType<Connector>().First();
-                bool isDown = connector.CoordinateSystem.BasisZ.Z.ToString() == "1";
-                bool isUp = connector.CoordinateSystem.BasisZ.Z.ToString() == "-1";
-                if (isDown)
-                {
-                    SelectedDownSp = sprinkler.Symbol.Family;
-                }
-                else if (isUp)
-                {
-                    SelectedUpSp = sprinkler.Symbol.Family;
-                }
-            }
+            //FilteredElementCollector collector = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Sprinklers).OfClass(typeof(FamilyInstance));
+            //foreach (Element elem in collector)
+            //{
+            //    FamilyInstance sprinkler = (FamilyInstance)Document.GetElement(elem.Id);
+            //    var connector = sprinkler.MEPModel.ConnectorManager.Connectors.OfType<Connector>().First();
+            //    bool isDown = connector.CoordinateSystem.BasisZ.Z.ToString() == "1";
+            //    bool isUp = connector.CoordinateSystem.BasisZ.Z.ToString() == "-1";
+            //    if (isDown)
+            //    {
+            //        SelectedDownSp = sprinkler.Symbol.Family;
+            //    }
+            //    else if (isUp)
+            //    {
+            //        SelectedUpSp = sprinkler.Symbol.Family;
+            //    }
+            //}
+            //// 检查视图是否关联了标高
+            //if (activeView.LevelId != ElementId.InvalidElementId)
+            //{
+            //    // 获取标高元素
+            //    Level level = doc.GetElement(activeView.LevelId) as Level;
+            //    if (level != null)
+            //    {
+            //        // 获取标高名称
+            //        string levelName = level.Name;
+            //        // 在这里可以使用 levelName
+            //        TaskDialog.Show("标高名称", levelName);
+            //    }
+            //    else
+            //    {
+            //        TaskDialog.Show("错误", "当前视图未关联有效的标高！");
+            //    }
+            //}
+            //else
+            //{
+            //    TaskDialog.Show("错误", "当前视图未关联标高！");
+            //}
+            //ViewPlan viewPlan = (ViewPlan)activeView;
+            //PlanViewRange viewRange = viewPlan.GetViewRange();
+            //TaskDialog.Show("tt", Document.GetElement(viewRange.GetLevelId(PlanViewPlane.CutPlane)).Name);
+
+            //0614 视图管理
+            //ViewManagerView viewManagerView = new ViewManagerView(uiApp);
+            //viewManagerView.ShowDialog();
 
             //0605 XAML
-            SprinklerReplaceView sprinklerReplace = new SprinklerReplaceView(uiApp);
-            sprinklerReplace.ShowDialog();
+            //SprinklerReplaceView sprinklerReplace = new SprinklerReplaceView(uiApp);
+            //sprinklerReplace.ShowDialog();
 
             ////0610 查找管件连接器尺寸.OK
             //Reference r2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPFitting(), "pick something");
@@ -359,7 +388,6 @@ namespace CreatePipe
             //            defaultConnector = refConn;
             //            pipe = (Pipe)GetConnectedMEPCurve(fitting, sp.Id);
             //        }
-
             //        if (pipe == null) continue;
             //        // 查找管道另一端的有效管件
             //        foreach (Connector pipeConn in pipe.ConnectorManager.Connectors)

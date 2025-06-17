@@ -14,7 +14,6 @@ namespace CreatePipe.Form
             InitializeComponent();
             this.DataContext = new ViewTemplateManagerViewModel(application);
         }
-
         private void btn_OK_Click(object sender, RoutedEventArgs e)
         {
             this.Close();

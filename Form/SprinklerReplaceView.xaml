@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
-        Title="SprinklerReplaceView" Height="360" Width="240"
+        Title="喷头编辑" Height="360" Width="240"
         ResizeMode="CanMinimize"
                 Topmost="True" WindowStartupLocation="CenterScreen">
     <Grid>

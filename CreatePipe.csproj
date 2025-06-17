@@ -168,9 +168,13 @@
       <DependentUpon>UniversalNewString.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\ValidationRule\InvalidCharacterValidationRule.cs" />
+    <Compile Include="Form\ViewManagerView.xaml.cs">
+      <DependentUpon>ViewManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\ViewTemplateManagerView.xaml.cs">
       <DependentUpon>ViewTemplateManagerView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="models\ViewTemplateEntity.cs" />
     <Compile Include="NCCoding\NCCodingEntity.cs" />
     <Compile Include="NCCoding\NCCodingView.xaml.cs">
       <DependentUpon>NCCodingView.xaml</DependentUpon>
@@ -339,11 +343,12 @@
     <Compile Include="Obselete\Test07_0402.cs" />
     <Compile Include="Obselete\Test5_0101.cs" />
     <Compile Include="Obselete\Test6_0213.cs" />
+    <Compile Include="Test09_0617.cs" />
     <Compile Include="Utils\BaseExternalHandler.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
     <Compile Include="Utils\ValueConverter\CategoryIdToNameConverter.cs" />
     <Compile Include="Utils\ValueConverter\IntToStringConverter.cs" />
-    <Compile Include="Test08_0520.cs" />
+    <Compile Include="Obselete\Test08_0520.cs" />
     <Compile Include="Utils\CADCHelper.cs" />
     <Compile Include="Utils\ChineseToSpell.cs" />
     <Compile Include="Utils\ColorConvertHelper.cs" />
@@ -396,6 +401,7 @@
     </Compile>
     <Compile Include="Obselete\TestTreeViewModel.cs" />
     <Compile Include="Obselete\ViewTemplateManagerViewModel.cs" />
+    <Compile Include="Obselete\ViewManagerViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="CableConduitCreator\CableTrayPathForm.xaml">
@@ -423,6 +429,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\UniversalNewString.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ViewManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
