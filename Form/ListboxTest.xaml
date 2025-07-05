@@ -5,21 +5,33 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
-        Title="ListboxTest" Height="360" Width="240">
+        Title="ListboxTest" Height="360" Width="240"
+        xmlns:form="clr-namespace:CreatePipe.Form">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="32"/>
         </Grid.RowDefinitions>
         <StackPanel Margin="5">
-            <ComboBox ItemsSource="{Binding Girls}"
-                      SelectedItem="{Binding SelectedGirl}">
-                <ComboBox.ItemContainerStyle>
+            <!--<ComboBox ItemsSource="{Binding Items}"
+                  SelectedItem="{Binding SelectedItem}"
+                  SelectionChanged="ComboBox_SelectionChanged"
+                  Width="auto" Height="30" Margin="10"/>-->
+            <!--<form:ExtendedComboBox 
+    ItemsSource="{Binding Items}" 
+    SelectedItem="{Binding SelectedItem}"
+    EnableCustomItem="True"
+    CustomItemPrompt="提示：请输入主文件名"/>-->
+            <form:ExtendedComboBox ItemsSource="{Binding Girls}"
+                      SelectedItem="{Binding SelectedItem}"
+                             EnableCustomItem="True"
+    CustomItemPrompt="提示：请输入新名称">
+                <form:ExtendedComboBox.ItemContainerStyle>
                     <Style TargetType="ComboBoxItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                     </Style>
-                </ComboBox.ItemContainerStyle>
-                <ComboBox.ItemTemplate>
+                </form:ExtendedComboBox.ItemContainerStyle>
+                <form:ExtendedComboBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:BeautifulGirl}">
                         <Grid>
                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
@@ -38,16 +50,14 @@ CommandParameter="{Binding}" Margin="10,0,0,0">
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
                                                             <Setter TargetName="deleteImage" Property="Source" 
-                                Value="pack://application:,,,/CreatePipe;component/Resources/4删除R16.png"/>
+                                Value="pack://application:,,,/CreatePipe;component/Resources/4删除R16a.png"/>
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
                                             </Setter.Value>
                                         </Setter>
                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                        <!-- 默认隐藏 -->
                                         <Style.Triggers>
-                                            <!-- 当下拉项不是当前选中项时显示按钮 -->
                                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBoxItem}, Path=IsSelected}" Value="False">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
@@ -57,9 +67,9 @@ CommandParameter="{Binding}" Margin="10,0,0,0">
                             </Button>
                         </Grid>
                     </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <!--<ListBox ItemsSource="{Binding Girls}">
+                </form:ExtendedComboBox.ItemTemplate>
+            </form:ExtendedComboBox>
+            <ListBox ItemsSource="{Binding Girls}">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -84,7 +94,7 @@ CommandParameter="{Binding}" Margin="10,0,0,0">
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
                                                             <Setter TargetName="deleteImage" Property="Source" 
-                                   Value="pack://application:,,,/CreatePipe;component/Resources/4删除R16.png"/>
+                                   Value="pack://application:,,,/CreatePipe;component/Resources/4删除R16a.png"/>
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -96,7 +106,7 @@ CommandParameter="{Binding}" Margin="10,0,0,0">
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
-            </ListBox>-->
+            </ListBox>
         </StackPanel>
 
         <Button Grid.Row="1" Content="OK" Command="{Binding TestCommand}"

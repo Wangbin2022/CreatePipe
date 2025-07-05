@@ -1,0 +1,145 @@
+﻿<Window x:Class="CreatePipe.Form.OpenningManagerView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="OpenningManagerView" 
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Height="450" Width="720"  Topmost="True"
+        WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
+        xmlns:vc="clr-namespace:CreatePipe.Utils.ValueConverter"
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
+    <Grid>
+        <Grid.Resources>
+            <vc:IntToStringConverter x:Key="IntToStringConverter"/>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Grid  >
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBox Width="230"  Margin="5"
+  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <TextBlock Text="{Binding AllOpens.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+
+                <Button Width="80" Margin="5" Content="门窗放大图" Command="{Binding MakeElevDetailCommand}"
+                        Click="btn_OK_Click"/>
+                <Button Width="80" Margin="5" Content="删除门窗实例" Command="{Binding DeleteElementsCommand}"
+                        CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
+            </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="1" >
+            <DataGrid x:Name="dataGrid" RowHeight="30"  Margin="5"
+               HorizontalAlignment="Stretch"
+               AutoGenerateColumns="False" CanUserAddRows="False"
+               SelectionUnit="FullRow" EnableColumnVirtualization="False"
+               GridLinesVisibility="None" Width="auto" Height="325"
+               SelectionMode="Extended" ItemsSource="{Binding AllOpens}">
+                <DataGrid.Resources>
+                    <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                    </Style>
+                    <Style x:Key="TextVerticalArea" TargetType="{x:Type TextBlock}">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                    </Style>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="名称" Width="65" SortMemberPath="entityName" 
+  Binding="{Binding entityName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="数量" Width="40" SortMemberPath="entityNum" 
+  Binding="{Binding entityNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="设置操作" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="更改标识" Width="auto" Command="{Binding DataContext.TagRenameCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="标识" Width="65" SortMemberPath="entityTagName" 
+  Binding="{Binding entityTagName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="匹配" Width="35"
+                                        SortMemberPath="isMatching" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" >
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Path= isMatching}" Value="False">
+                                                    <Setter Property="Text"  Value="不匹配">
+                                                    </Setter>
+                                                    <Setter Property="Foreground" Value="Red">
+                                                    </Setter>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Path= isMatching}" Value="True">
+                                                    <Setter Property="Text"  Value="匹配">
+                                                    </Setter>
+                                                    <Setter Property="Foreground" Value="Green">
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="类型" Width="40" SortMemberPath="entityType" 
+  Binding="{Binding entityType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="洞宽" Width="35" SortMemberPath="entityWidth" 
+  Binding="{Binding entityWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="洞高" Width="35" SortMemberPath="entityHeight" 
+  Binding="{Binding entityHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="设置操作" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="分层统计" Width="auto" Command="{Binding DataContext.SubViewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="当前视图" Width="auto" Command="{Binding DataContext.PickOpenCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="编辑对象" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="修改族" Width="auto" Command="{Binding DataContext.OpenFamilyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"  Click="btn_OK_Click"
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="宽度" Width="40" SortMemberPath="entityWidthType" 
+  Binding="{Binding entityWidthType, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="类别" Width="40" SortMemberPath="entityCategoty" 
+  Binding="{Binding entityCategoty, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+        <DockPanel Grid.Row="2" >
+            <Button  Content="放置并退出" Margin="5"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

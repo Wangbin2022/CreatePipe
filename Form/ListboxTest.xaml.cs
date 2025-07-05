@@ -28,11 +28,43 @@ namespace CreatePipe.Form
         {
             InitializeComponent();
             this.DataContext = new ListboxTestVM();
+            //this.DataContext = new mViewModel();
         }
+        //private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        //{
+        //    var viewModel = (mViewModel)DataContext;
+        //    viewModel.OnCustomItemSelected();
+        //}
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
+    }
+    public class mViewModel  
+    {
+        public ObservableCollection<string> Items { get; set; }
+        public string SelectedItem { get; set; }
+        public mViewModel()
+        {
+            Items = new ObservableCollection<string> { "选项1", "选项2", "选项3", "自定义" };
+        }
+        //public void AddCustomItem(string newItem)
+        //{
+        //    if (!string.IsNullOrWhiteSpace(newItem) && !Items.Contains(newItem))
+        //    {
+        //        Items.Add(newItem);
+        //        SelectedItem = newItem;
+        //    }
+        //}
+        //public void OnCustomItemSelected()
+        //{
+        //    if (SelectedItem == "自定义")
+        //    {
+        //        UniversalNewString subView = new UniversalNewString("提示：请输入主文件名");
+        //        if (subView.ShowDialog() != true || !(subView.DataContext is NewStringViewModel vm) || string.IsNullOrWhiteSpace(vm.NewName)) return;
+        //        AddCustomItem(vm.NewName);
+        //    }
+        //}
     }
     public class ListboxTestVM : ObserverableObject
     {
@@ -43,10 +75,6 @@ namespace CreatePipe.Form
             {
                 new BeautifulGirl
                 {
-                    Name ="Write Sth",
-                },
-                new BeautifulGirl
-                {
                     Name ="刘亦菲",
                 },
                 new BeautifulGirl
@@ -55,20 +83,21 @@ namespace CreatePipe.Form
                 },
                 new BeautifulGirl
                 {
-                    Name ="凤姐",
+                    Name ="自定义",
                 }
             };
             if (Girls.Count > 0)
             {
-                SelectedGirl = Girls[0];
+                SelectedItem = Girls[0];
             }
         }
         private BeautifulGirl _selectedGirl;
-        public BeautifulGirl SelectedGirl
+        public BeautifulGirl SelectedItem
         {
             get => _selectedGirl;
             set => SetProperty(ref _selectedGirl, value);
         }
+
         public ICommand TestCommand => new BaseBindingCommand(Test);
         private void Test(object obj)
         {

@@ -151,7 +151,7 @@ namespace CreatePipe
             Document.NewTransaction(() =>
             {
                 List<ElementId> toRemove = new List<ElementId>();
-                var selectedItems = selectedElements.Cast<ViewTemplateEntity>().ToList();
+                List<ViewTemplateEntity> selectedItems = selectedElements.Cast<ViewTemplateEntity>().ToList();
                 if (selectedItems == null) return;
                 foreach (var item in selectedItems)
                 {
