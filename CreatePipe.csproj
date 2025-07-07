@@ -147,6 +147,7 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="DrawEvacRouteFunc.cs" />
     <Compile Include="filter\filterMEPFitting.cs" />
     <Compile Include="filter\filterPipeFitting.cs" />
     <Compile Include="filter\OpenningFilter.cs" />
@@ -181,6 +182,9 @@
     </Compile>
     <Compile Include="Form\TableTemplateViewHorizon.xaml.cs">
       <DependentUpon>TableTemplateViewHorizon.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\UniversalComboBoxSelection.xaml.cs">
+      <DependentUpon>UniversalComboBoxSelection.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\UniversalNewString.xaml.cs">
       <DependentUpon>UniversalNewString.xaml</DependentUpon>
@@ -422,6 +426,7 @@
     <Compile Include="Obselete\TestTreeViewModel.cs" />
     <Compile Include="Obselete\ViewTemplateManagerViewModel.cs" />
     <Compile Include="Obselete\ViewManagerViewModel.cs" />
+    <Compile Include="WallSurfaceFunc.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="CableConduitCreator\CableTrayPathForm.xaml">
@@ -465,6 +470,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\TableTemplateViewHorizon.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\UniversalComboBoxSelection.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

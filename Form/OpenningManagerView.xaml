@@ -27,9 +27,6 @@
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <TextBlock Text="{Binding AllOpens.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
-
-                <Button Width="80" Margin="5" Content="门窗放大图" Command="{Binding MakeElevDetailCommand}"
-                        Click="btn_OK_Click"/>
                 <Button Width="80" Margin="5" Content="删除门窗实例" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>

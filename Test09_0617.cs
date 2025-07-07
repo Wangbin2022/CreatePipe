@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
@@ -9,6 +10,7 @@ using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.models;
+using NPOI.POIFS.FileSystem;
 using OfficeOpenXml.Drawing.Chart;
 using System;
 using System.Collections.Generic;
@@ -144,11 +146,98 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+
+            //0706 WallSurfaceFunc 替换原面生面功能
+            //0706 测试通用列表项。OK
+            //var wallTypes = from element in new FilteredElementCollector(uiDoc.Document).OfClass(typeof(WallType))
+            //                let type = element as WallType
+            //                select type;
+            //List<string> wallNames = new List<string>();
+            //foreach (var item in wallTypes)
+            //{
+            //    wallNames.Add(item.Name);
+            //}
+            //UniversalComboBoxSelection subView = new UniversalComboBoxSelection(wallNames, $"提示：喂我花生");
+            //if (subView.ShowDialog() != true || !(subView.DataContext is ComboboxStringViewModel vm) || string.IsNullOrWhiteSpace(vm.SelectName))
+            //{
+            //    return Result.Failed;
+            //}
+            //try
+            //{
+            //    TaskDialog.Show("tt", vm.SelectName);
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("tt", $"发生错误: {ex.Message}");
+            //}
+
+            ////0705 自适应族放置
+            //// 替换为您要放置的自适应族的族名称
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            FamilySymbol adaptiveSymbol = collector.OfClass(typeof(FamilySymbol))
+                .WhereElementIsElementType()
+                .Cast<FamilySymbol>()
+                .FirstOrDefault(q => q.FamilyName.Contains("C自适应_疏散距离计算2段")) as FamilySymbol;
+            if (adaptiveSymbol == null)
+            {
+                TaskDialog.Show("错误", "未找到指定的自适应族");
+                return Result.Failed;
+            }
+            if (!adaptiveSymbol.IsActive)
+            {
+                adaptiveSymbol.Activate();
+                doc.Regenerate();
+            }
+            //    // 2. 定义三个放置点的位置
+            List<XYZ> placementPoints = new List<XYZ>
+            {
+                new XYZ(0, 0, 0),
+                new XYZ(1000, 0, 0),
+                new XYZ(500, 1000, 0)
+            };
+            //List<XYZ> placementPoints = new List<XYZ>();
+            //for (int i = 0; i < 3; i++)
+            //{
+            //    try
+            //    {
+            //        XYZ point = uiDoc.Selection.PickPoint($"请选择第{i + 1}个放置点");
+            //        placementPoints.Add(point);
+            //    }
+            //    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //    {
+            //        TaskDialog.Show("取消", "用户取消了点选择");
+            //        return Result.Failed;
+            //    }
+            //}
+            using (Transaction trans = new Transaction(doc, "放置自适应族"))
+            {
+                trans.Start();
+                // 创建自适应族实例
+                FamilyInstance adaptiveInstance = AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(doc, adaptiveSymbol);
+                //FamilyInstance adaptiveInstance = doc.Create.NewFamilyInstance(placementPoints[0], adaptiveSymbol, StructuralType.NonStructural);
+                // 获取自适应点引用
+                IList<ElementId> adaptivePointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(adaptiveInstance);
+                // 检查自适应点数量是否匹配
+                if (adaptivePointIds.Count != 3)
+                {
+                    TaskDialog.Show("错误", $"自适应族需要3个点，但找到{adaptivePointIds.Count}个点");
+                    trans.RollBack();
+                    return Result.Failed;
+                }
+                // 移动自适应点到指定位置
+                for (int i = 0; i < 3; i++)
+                {
+                    ReferencePoint adaptivePoint = doc.GetElement(adaptivePointIds[i]) as ReferencePoint;
+                    adaptivePoint.Position = placementPoints[i];
+                }
+                trans.Commit();
+            }
+
             ////0620 房间过滤器
             //RoomManagerView roomManager = new RoomManagerView(uiApp);
             //roomManager.Show();
 
-            ////0628 门窗类型过滤器
+            ////0628 门窗类型过滤器,基本完成
             //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);
             //openningManagerView.Show();
 
