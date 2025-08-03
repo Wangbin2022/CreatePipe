@@ -59,6 +59,9 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="门数" Width="35" SortMemberPath="doorNum" 
   Binding="{Binding doorNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTextColumn Header="窗数" Width="35" SortMemberPath="windowNum" 
+  Binding="{Binding windowNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
                     <DataGridTextColumn Header="面积" Width="60" SortMemberPath="roomArea" 
   Binding="{Binding roomArea, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>

@@ -148,6 +148,7 @@
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
     <Compile Include="DrawEvacRouteFunc.cs" />
+    <Compile Include="filter\AdaptiveFamilyFilter.cs" />
     <Compile Include="filter\filterMEPFitting.cs" />
     <Compile Include="filter\filterPipeFitting.cs" />
     <Compile Include="filter\OpenningFilter.cs" />
@@ -158,6 +159,9 @@
       <DependentUpon>CopyFamilySymbolsView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\CustomComboBox.cs" />
+    <Compile Include="Form\EvacRouteManagerView.xaml.cs">
+      <DependentUpon>EvacRouteManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\ExtendedComboBox.cs" />
     <Compile Include="Form\ListboxTest.xaml.cs">
       <DependentUpon>ListboxTest.xaml</DependentUpon>
@@ -196,6 +200,7 @@
     <Compile Include="Form\ViewTemplateManagerView.xaml.cs">
       <DependentUpon>ViewTemplateManagerView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="models\AdaptiveRouteEntity.cs" />
     <Compile Include="models\OpenningEntity.cs" />
     <Compile Include="models\RoomSingleEntity.cs" />
     <Compile Include="models\ViewTemplateEntity.cs" />
@@ -438,6 +443,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\CopyFamilySymbolsView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\EvacRouteManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

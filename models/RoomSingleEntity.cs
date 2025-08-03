@@ -32,21 +32,20 @@ namespace CreatePipe.models
                     edgeNum++;
                 }
             }
-
             var bbox = singleRoom.get_BoundingBox(null);
             var outline = new Outline(bbox.Min, bbox.Max);
             // 先筛选可能在房间附近的门
-            var nearbyDoors = new FilteredElementCollector(singleRoom.Document)
-                .OfCategory(BuiltInCategory.OST_Doors)
-                .OfClass(typeof(FamilyInstance))
-                .WherePasses(new BoundingBoxIntersectsFilter(outline))
-                .Cast<FamilyInstance>();
+            var nearbyDoors = new FilteredElementCollector(singleRoom.Document).OfCategory(BuiltInCategory.OST_Doors).OfClass(typeof(FamilyInstance))
+                .WherePasses(new BoundingBoxIntersectsFilter(outline)).Cast<FamilyInstance>();
             // 再进行精确匹配
             doorNum = nearbyDoors.Count(door => (door.ToRoom?.Id == singleRoom.Id) || (door.FromRoom?.Id == singleRoom.Id));
-
+            var nearbyWindows = new FilteredElementCollector(singleRoom.Document).OfCategory(BuiltInCategory.OST_Windows).OfClass(typeof(FamilyInstance))
+                .WherePasses(new BoundingBoxIntersectsFilter(outline)).Cast<FamilyInstance>();
+            windowNum = nearbyWindows.Count(win => (win.ToRoom?.Id == singleRoom.Id) || (win.FromRoom?.Id == singleRoom.Id));
         }
         public int edgeNum { get; set; } = 0;
         public int doorNum { get; set; } = 0;
+        public int windowNum { get; set; } = 0;
         public string roomNumber { get; set; }
         public bool IsFacingOutRoom { get; set; } = true;
         public double roomHeight { get; set; }

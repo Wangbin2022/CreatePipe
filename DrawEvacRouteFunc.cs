@@ -34,6 +34,7 @@ namespace CreatePipe
             FamilySymbol selectSymbol3p = null;
             FamilySymbol selectSymbol4p = null;
             FamilySymbol selectSymbol5p = null;
+            string levelName = activeView.GenLevel.Name;
             var routeSymbols = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
             .Where(s => s.Name.Contains("确定路线")).ToList();
             if (routeSymbols.Count() != 4)
@@ -64,7 +65,6 @@ namespace CreatePipe
             Action<string> onSelected = selectedName =>
             {
                 subView.ViewModel.IsCommandRunning = true;
-                //bak
                 switch (selectedName)
                 {
                     case ("两点确定路线"):
@@ -86,33 +86,34 @@ namespace CreatePipe
                 }
                 _externalHandler.Run(app =>
                 {
-                    if (!selectSymbol.IsActive)
-                    {
-                        selectSymbol.Activate();
-                        doc.Regenerate();
-                    }
                     List<ElementId> tempLines = new List<ElementId>();
                     XYZ prevPoint = null;
                     doc.NewTransaction(() =>
                     {
+                        if (!selectSymbol.IsActive)
+                        {
+                            selectSymbol.Activate();
+                            doc.Regenerate();
+                        }
                         List<XYZ> placementPoints = new List<XYZ>();
                         for (int i = 0; i < pointNum; i++)
                         {
                             try
                             {
                                 XYZ point = app.ActiveUIDocument.Selection.PickPoint($"请选择第{i + 1}个放置点");
-                                placementPoints.Add(point);
+                                XYZ point1 = new XYZ(point.X, point.Y, point.Z + 300 / 304.8);
+                                placementPoints.Add(point1);
 
                                 if (prevPoint != null)
                                 {
-                                    Line line = Line.CreateBound(prevPoint, point);
+                                    Line line = Line.CreateBound(prevPoint, point1);
                                     DetailLine detailLine = doc.Create.NewDetailCurve(activeView, line) as DetailLine;
                                     if (detailLine != null)
                                     {
                                         tempLines.Add(detailLine.Id);
                                     }
                                 }
-                                prevPoint = point;
+                                prevPoint = point1;
                             }
                             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                             {
@@ -123,6 +124,7 @@ namespace CreatePipe
                         }
                         // 创建自适应族实例
                         FamilyInstance adaptiveInstance = AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(doc, selectSymbol);
+                        adaptiveInstance.LookupParameter("楼层标高").Set(levelName);
                         // 获取自适应点引用
                         IList<ElementId> adaptivePointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(
                             adaptiveInstance);

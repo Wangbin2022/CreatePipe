@@ -1,5 +1,7 @@
 ﻿using CreatePipe.cmd;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace CreatePipe.Form
 {
@@ -20,6 +22,13 @@ namespace CreatePipe.Form
             {
                 DialogResult = true;
                 this.Close();
+            }
+        }
+        private void TextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                btn_OK.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
     }

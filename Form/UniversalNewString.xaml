@@ -19,14 +19,14 @@
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5">新增名称：</TextBlock>
-        <TextBox Grid.Column="1" Margin="5">
+        <TextBox Grid.Column="1" Margin="5" KeyDown="TextBox_KeyDown">
             <TextBox.Text>
                 <Binding Path="NewName" UpdateSourceTrigger="PropertyChanged">
                     <Binding.ValidationRules>
                         <vr:InvalidCharacterValidationRule />
                     </Binding.ValidationRules>
                 </Binding>
-            </TextBox.Text>
+            </TextBox.Text> 
         </TextBox>
         <TextBlock Grid.Row="1" Text="{Binding DisplayText}"
            HorizontalAlignment="Center"
