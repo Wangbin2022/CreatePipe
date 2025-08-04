@@ -11,91 +11,112 @@ namespace CreatePipe.models
 {
     public class AdaptiveRouteEntity : ObserverableObject
     {
-        Document Document {  get; set; }
+        Document Document { get; set; }
         public AdaptiveRouteEntity(FamilyInstance familyInstance)
         {
-            Document= familyInstance.Document;
+            Document = familyInstance.Document;
+            AdaptiveInstance= familyInstance;
             entityName = familyInstance.Symbol.Family.Name;
             Id = familyInstance.Id;
             levelName = familyInstance.LookupParameter("楼层标高").AsString();
             totalLength = (familyInstance.LookupParameter("总长度").AsDouble() * 304.8).ToString("F2");
-            //GetIntersectRoom(familyInstance);
 
-            rooms=GetRoomsCrossFamilyInstance(familyInstance).Count();
+            IntersectRooms = GetRoomsCrossFamilyInstance(familyInstance).Count();
+            IntersectWalls = GetWallsCrossFamilyInstance(familyInstance).Count();
+            NearDoors = GetDoorsNearFamilyInstance(familyInstance);
+            if (NearDoors == null || NearDoors.Count == 0) return;
+            ElementId minWidthDoorId = ElementId.InvalidElementId;
+            double minWidth = double.MaxValue;
+            foreach (ElementId doorId in NearDoors)
+            {
+                FamilyInstance door = Document.GetElement(doorId) as FamilyInstance;
+                if (door == null) continue;
+                // 方法1：从门类型参数获取宽度（推荐）
+                if (door.Symbol.get_Parameter(BuiltInParameter.DOOR_WIDTH) is Parameter widthParam && widthParam.HasValue)
+                {
+                    double width = widthParam.AsDouble();
+                    if (width < minWidth)
+                    {
+                        minWidth = width;
+                        minWidthDoorId = doorId;
+                    }
+                    continue;
+                }
+            }
+            MinimalDoorWidth = minWidth * 304.8;
+        }
+        public FamilyInstance AdaptiveInstance { get; set; }
+        // 对外暴露只读列表
+        public IReadOnlyList<ElementId> Doors => NearDoors;
+        private List<ElementId> NearDoors = new List<ElementId>();
+        public List<ElementId> GetDoorsNearFamilyInstance(FamilyInstance familyInstance)
+        {
+            try
+            {
+                // 2. 获取选中元素的包围盒
+                var bbox = familyInstance.get_BoundingBox(null);
+                if (bbox == null) return null;
+                // 3. 创建空间筛选器
+                var bboxFilter = new BoundingBoxIntersectsFilter(new Outline(bbox.Min, bbox.Max));
+                // 4. 收集所有与包围盒相交的门窗
+                var collector = new FilteredElementCollector(Document).OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_Doors).WherePasses(bboxFilter);
+                // 5. 精确几何相交检测（可选）
+                var results = new List<ElementId>();
+                var selfSolid = GetElementSolid(familyInstance);
+                if (selfSolid != null)
+                {
+                    foreach (FamilyInstance fi in collector)
+                    {
+                        var fiSolid = GetElementSolid(fi);
+                        if (fiSolid == null) continue;
+                        try
+                        {
+                            var intersection = BooleanOperationsUtils.ExecuteBooleanOperation(selfSolid, fiSolid, BooleanOperationsType.Intersect);
+                            if (intersection?.Volume > 1e-9) results.Add(fi.Id);
+                        }
+                        catch { /* 忽略几何错误 */ }
+                    }
+                }
+                else
+                {
+                    // 如果没有有效几何体，则直接返回包围盒相交结果
+                    return results = collector.ToElementIds().ToList();
+                }
+                return results;
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return null;
+            }
         }
         public List<ElementId> GetRoomsCrossFamilyInstance(FamilyInstance familyInstance)
         {
-            List<ElementId> roomIds = new List<ElementId>();
-
-            // 获取族实例的几何体
-            Options options = new Options();
-            options.ComputeReferences = true;
-            options.DetailLevel = ViewDetailLevel.Fine;
-
-            GeometryElement geomElem = familyInstance.get_Geometry(options);
-            if (geomElem == null) return roomIds;
-
-            // 收集所有房间
-            FilteredElementCollector roomCollector = new FilteredElementCollector(Document)
-                .OfCategory(BuiltInCategory.OST_Rooms);
-
-            foreach (Room room in roomCollector)
+            List<ElementId> crossingRooms = new List<ElementId>();
+            FilteredElementCollector rooms = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Rooms);
+            foreach (Room room in rooms)
             {
-                // 获取房间的几何体
-                GeometryElement roomGeom = room.get_Geometry(options);
-                if (roomGeom == null) continue;
-
-                // 检查几何体是否相交
-                if (GeometriesIntersect(geomElem, roomGeom))
-                {
-                    roomIds.Add(room.Id);
-                }
+                Solid roomSolid = GetElementSolid(room);
+                if (roomSolid == null) continue;
+                var filter = new ElementIntersectsSolidFilter(roomSolid);
+                bool intersects = new FilteredElementCollector(Document).WhereElementIsNotElementType().OfClass(typeof(FamilyInstance))
+                    .WherePasses(filter).Any(e => e.Id == familyInstance.Id);
+                if (intersects) crossingRooms.Add(room.Id);
             }
-
-            return roomIds;
+            return crossingRooms;
         }
-
-        private bool GeometriesIntersect(GeometryElement geom1, GeometryElement geom2)
+        public List<ElementId> GetWallsCrossFamilyInstance(FamilyInstance familyInstance)
         {
-            foreach (GeometryObject obj1 in geom1)
-            {
-                Solid solid1 = obj1 as Solid;
-                if (solid1 == null || solid1.Faces.Size == 0) continue;
-
-                foreach (GeometryObject obj2 in geom2)
-                {
-                    Solid solid2 = obj2 as Solid;
-                    if (solid2 == null || solid2.Faces.Size == 0) continue;
-
-                    // 检查两个实体是否相交
-                    try
-                    {
-                        Solid intersection = BooleanOperationsUtils.ExecuteBooleanOperation(solid1, solid2, BooleanOperationsType.Intersect);
-                        if (intersection != null && intersection.Volume > 0)
-                        {
-                            return true;
-                        }
-                    }
-                    catch
-                    {
-                        // 忽略布尔运算错误
-                    }
-                }
-            }
-
-            return false;
+            // 直接使用ElementIntersectsElementFilter
+            var filter = new ElementIntersectsElementFilter(familyInstance);
+            return new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Walls).WherePasses(filter).Select(w => w.Id).ToList();
         }
-
-        public int rooms {  get; set; }
-        //找出相关房间、门，验证内部长度
-        private void GetIntersectRoom(FamilyInstance familyInstance)
+        private Solid GetElementSolid(Element element)
         {
-            //Element element = doc.GetElement(elementId);
-            //FilteredElementCollector collect = new FilteredElementCollector(doc);
-            ////冲突检查
-            //ElementIntersectsElementFilter iFilter = new ElementIntersectsElementFilter(element, false);
-            //collect.WherePasses(iFilter);
+            return element.get_Geometry(new Options())?.OfType<Solid>().FirstOrDefault(s => s?.Volume > 0);
         }
+        public double MinimalDoorWidth { get; set; } = 0;
+        public int IntersectWalls { get; set; } = 0;
+        public int IntersectRooms { get; set; } = 0;
         public string totalLength { get; set; }
         public string entityName { get; set; }
         public string levelName { get; set; }

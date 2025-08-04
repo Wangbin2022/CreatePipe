@@ -27,6 +27,7 @@
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <TextBlock Text="{Binding AllRoutes.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <Button Width="80" Margin="5" Content="选择所有实例" Command="{Binding PickRoutesCommand}"/>
                 <Button Width="80" Margin="5" Content="删除所有实例" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>
@@ -56,7 +57,7 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="长度" Width="60" SortMemberPath="totalLength" 
   Binding="{Binding totalLength, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
                     <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -65,17 +66,23 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="选择本层" CanUserResize="False" Width="66">
+                    <DataGridTextColumn Header="穿房间" Width="45" SortMemberPath="IntersectRooms" 
+  Binding="{Binding IntersectRooms, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTextColumn Header="穿墙" Width="35" SortMemberPath="IntersectWalls" 
+  Binding="{Binding IntersectWalls, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTextColumn Header="最小门宽" Width="60" SortMemberPath="MinimalDoorWidth" 
+  Binding="{Binding MinimalDoorWidth, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTemplateColumn Header="穿门距离" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="当前视图" Width="auto" Command="{Binding DataContext.PickRoutesCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                <Button Content="Detail" Width="auto" Command="{Binding DataContext.IntersectDoorDistanceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
 CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="关联房间" Width="60" SortMemberPath="rooms" 
-  Binding="{Binding rooms, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
                 </DataGrid.Columns>
             </DataGrid>                      
         </StackPanel>

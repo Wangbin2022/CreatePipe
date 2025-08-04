@@ -231,21 +231,6 @@ namespace CreatePipe
                 return null;
             }
         }
-        //public void LogAdaptivePoints(FamilyInstance adaptiveInstance)
-        //{
-        //    Document doc = adaptiveInstance.Document;
-        //    // 获取所有自适应点Id
-        //    IList<ElementId> pointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(adaptiveInstance);
-        //    List<XYZ> points = new List<XYZ>();
-        //    foreach (ElementId id in pointIds)
-        //    {
-        //        ReferencePoint rp = doc.GetElement(id) as ReferencePoint;
-        //        if (rp != null)
-        //        {
-        //            points.Add(rp.Position); // 当前实际坐标
-        //        }
-        //    }
-        //}
         public List<Line> DrawAdaptivePointLines(FamilyInstance adaptiveInstance)
         {
             Document doc = adaptiveInstance.Document;
@@ -253,16 +238,13 @@ namespace CreatePipe
             List<Line> result = new List<Line>();
             // 1. 获取自适应点序号 → 坐标字典
             IList<ElementId> pointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(adaptiveInstance);
-
             Dictionary<int, XYZ> pointDict = new Dictionary<int, XYZ>();
             for (int i = 0; i < pointIds.Count; i++)
             {
                 if (doc.GetElement(pointIds[i]) is ReferencePoint rp)
                     pointDict[i] = rp.Position;
             }
-
             //if (pointDict.Count < 2) return;
-
             // 2. 逐个连线
             using (Transaction trans = new Transaction(doc, "连线自适应点"))
             {
@@ -277,90 +259,6 @@ namespace CreatePipe
             }
             return result;
         }
-
-        ///// <summary>
-        ///// 将曲线投影到视图平面（三维转二维）
-        ///// </summary>
-        ////private Curve ProjectToViewPlane(Curve curve, XYZ planeNormal, XYZ planeOrigin)
-        ////{
-        ////    // 创建投影平面
-        ////    Plane plane = Plane.CreateByNormalAndOrigin(planeNormal, planeOrigin);
-        ////    // 获取曲线的起点和终点
-        ////    XYZ start = curve.GetEndPoint(0);
-        ////    XYZ end = curve.GetEndPoint(1);
-        ////    // 投影到平面
-        ////    XYZ projectedStart = start - planeNormal * plane.SignedDistanceTo(start);
-        ////    XYZ projectedEnd = end - planeNormal * plane.SignedDistanceTo(end);
-        ////    // 创建新的二维线段
-        ////    return Line.CreateBound(projectedStart, projectedEnd);
-        ////}
-        ///// <summary>
-        ///// 把三维 Line 投影到指定 ViewPlan 的平面，返回二维 Curve
-        ///// </summary>
-        //private Curve ProjectLineToViewPlane(Line doorLine, ViewPlan view)
-        //{
-        //    XYZ normal = view.ViewDirection;   // 平面法向量（Z 轴方向）
-        //    XYZ origin = XYZ.Zero;             // 投影原点（可设为 view.Origin，但通常 Z=0 即可）
-
-        //    // 投影两端点
-        //    XYZ p1 = ProjectPointOntoPlane(doorLine.GetEndPoint(0), normal, origin);
-        //    XYZ p2 = ProjectPointOntoPlane(doorLine.GetEndPoint(1), normal, origin);
-
-        //    return Line.CreateBound(p1, p2);
-        //}
-
-        ///// <summary>将点投影到平面</summary>
-        //private XYZ ProjectPointOntoPlane(XYZ point, XYZ planeNormal, XYZ planeOrigin)
-        //{
-        //    double dist = planeNormal.DotProduct(point - planeOrigin);
-        //    return point - planeNormal * dist;
-        //}
-        ///// <summary>
-        ///// 检测门线与自适应线的二维相交，并返回交点所在段索引、累计距离
-        ///// </summary>
-        //public (int segmentIndex, double cumulativeDist, double sumCurveLength) CheckIntersectionWithAdaptive(FamilyInstance doorInstance, FamilyInstance adaptiveInstance, ViewPlan view)
-        //{
-        //    Document doc = doorInstance.Document;
-        //    // 1. 获取门线（已考虑视图平面）
-        //    Line doorLine = GetDoorLine(doorInstance, view);
-        //    if (doorLine == null) return (-1, 0, 0);
-        //    // 2. 获取自适应点坐标
-        //    List<XYZ> points = GetAdaptivePointCoords(adaptiveInstance);
-        //    if (points.Count < 2) return (-1, 0, 0);
-        //    // 3. 投影到视图平面（二维处理）
-        //    XYZ viewNormal = view.ViewDirection;
-        //    XYZ viewOrigin = view.Origin;
-        //    // 投影门线到视图平面
-        //    Curve doorCurve = ProjectLineToViewPlane(doorLine, view);
-        //    // 4. 处理自适应线段
-        //    double sumCurve = 0;
-        //    double cumulative = 0;
-        //    for (int idx = 0; idx < points.Count - 1; idx++)
-        //    {
-        //        // 创建线段并投影到视图平面
-        //        Line seg3D = Line.CreateBound(points[idx], points[idx + 1]);
-        //        Curve seg2D = ProjectLineToViewPlane(seg3D, view);
-        //        // 二维相交检测
-        //        IntersectionResultArray results;
-        //        if (doorCurve.Intersect(seg2D, out results) == SetComparisonResult.Overlap)
-        //        {
-        //            if (results != null && results.Size > 0)
-        //            {
-        //                XYZ interPt = results.get_Item(0).XYZPoint;
-        //                // 计算在当前线段上的距离
-        //                double segDist = seg2D.Project(interPt).Parameter * seg2D.Length;
-        //                // 返回线段索引和累计距离
-        //                return (idx, cumulative + segDist, sumCurve);
-        //            }
-        //        }
-        //        // 累加当前段长度
-        //        cumulative += seg2D.Length;
-        //        sumCurve += seg3D.Length;
-        //    }
-        //    TaskDialog.Show("tt", (sumCurve * 304.8).ToString());
-        //    return (-1, 0, 0);
-        //}
-
         ///// <summary>获取自适应点坐标（按顺序）</summary>
         private List<XYZ> GetAdaptivePointPath(FamilyInstance adaptiveInstance)
         {
@@ -382,17 +280,11 @@ namespace CreatePipe
             double x2 = p2.X, y2 = p2.Y;
             double x3 = q1.X, y3 = q1.Y;
             double x4 = q2.X, y4 = q2.Y;
-
+            // 平行或共线判断
             double denominator = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
-            if (Math.Abs(denominator) < 1e-9)
-            {
-                // 平行或共线
-                return null;
-            }
-
+            if (Math.Abs(denominator) < 1e-9) return null;
             double ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator;
             double ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator;
-
             if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1)
             {
                 // 相交点
@@ -418,7 +310,7 @@ namespace CreatePipe
                 if (intersect != null)
                 {
                     // 计算从p1到交点的距离
-                    double dist= Math.Sqrt((intersect.X-p1.X) * (intersect.X - p1.X) + (intersect.Y - p1.Y) * (intersect.Y - p1.Y));
+                    double dist = Math.Sqrt((intersect.X - p1.X) * (intersect.X - p1.X) + (intersect.Y - p1.Y) * (intersect.Y - p1.Y));
                     // 计算累计长度
                     double sumDist = totalLength + dist;
                     return (i, dist, sumDist);
@@ -430,6 +322,16 @@ namespace CreatePipe
             }
             return (-1, 0, 0);
         }
+        // 辅助方法：从FamilyInstance获取Solid
+        private Solid GetSolid(FamilyInstance fi)
+        {
+            var options = new Options() { ComputeReferences = true };
+            return fi.get_Geometry(options)?.OfType<Solid>().FirstOrDefault(s => s.Volume > 0);
+        }
+        private Solid GetElementSolid(Element element)
+        {
+            return element.get_Geometry(new Options())?.OfType<Solid>().FirstOrDefault(s => s?.Volume > 0);
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -437,6 +339,67 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            ////0717 疏散路线管理
+            EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
+            evacRouteManagerView.Show();
+            ////Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, "请选择");
+            ////DetailLine detailLine=doc.GetElement(reference) as DetailLine;
+            ////TaskDialog.Show("tt", detailLine.GeometryCurve.GetEndPoint(0).X.ToString());
+
+            //////0803 过滤出族boundingbox相关的门窗 
+            //////还需要改进只过滤门即可，缩小碰撞检测的范围GetSolid看一下是否已写过
+            //try
+            //{
+            //    // 1. 让用户选择目标族实例
+            //    Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new AdaptiveFamilyFilter(), "请选择自适应族");
+            //    var selectedElement = doc.GetElement(reference) as FamilyInstance;
+            //    if (selectedElement == null)
+            //    {
+            //        TaskDialog.Show("错误", "请选择有效的族实例");
+            //        return Result.Cancelled;
+            //    }
+            //    // 2. 获取选中元素的包围盒
+            //    var bbox = selectedElement.get_BoundingBox(null);
+            //    if (bbox == null)
+            //    {
+            //        TaskDialog.Show("错误", "无法获取元素的包围盒");
+            //        return Result.Cancelled;
+            //    }
+            //    // 3. 创建空间筛选器
+            //    var bboxFilter = new BoundingBoxIntersectsFilter(new Outline(bbox.Min, bbox.Max));
+            //    // 4. 收集所有与包围盒相交的门窗
+            //    var collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_Doors).WherePasses(bboxFilter);
+            //    // 5. 精确几何相交检测（可选）
+            //    var results = new List<ElementId>();
+            //    var selfSolid = GetSolid(selectedElement);
+            //    if (selfSolid != null)
+            //    {
+            //        foreach (FamilyInstance fi in collector)
+            //        {
+            //            var fiSolid = GetSolid(fi);
+            //            if (fiSolid == null) continue;
+            //            try
+            //            {
+            //                var intersection = BooleanOperationsUtils.ExecuteBooleanOperation(selfSolid, fiSolid, BooleanOperationsType.Intersect);
+            //                if (intersection?.Volume > 1e-9) results.Add(fi.Id);
+            //            }
+            //            catch { /* 忽略几何错误 */ }
+            //        }
+            //    }
+            //    else
+            //    {
+            //        // 如果没有有效几何体，则直接返回包围盒相交结果
+            //        results = collector.ToElementIds().ToList();
+            //    }
+            //    // 6. 显示并高亮结果
+            //    uiDoc.Selection.SetElementIds(results);
+            //    TaskDialog.Show("完成", $"找到 {results.Count} 个临近门窗");
+            //    return Result.Succeeded;
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    return Result.Cancelled;
+            //}
 
             ////0803 改逻辑生成线交点距离检查
             //if (activeView == null || activeView.ViewType != ViewType.FloorPlan)
@@ -461,24 +424,14 @@ namespace CreatePipe
             //    TaskDialog.Show("结果", "门线与自适应线无二维交点");
             //}
 
-            ////0717 疏散路线管理
-            ////var routeSymbols = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().Where(s => s.Name.Contains("确定路线")).ToList();
-            ////FamilyInstance familyInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
-            ////    .FirstOrDefault(e => routeSymbols.Any(s => s.Id == e.Symbol.Id));
-            //////TaskDialog.Show("tt", familyInstance.Id.ToString());
-            ////TaskDialog.Show("tt", familyInstance.LookupParameter("楼层标高").AsString());
-            ///
-            EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
-            evacRouteManagerView.Show();
-
-            //0717 检查自适应路线是否与房间和墙冲突
+            ////0717 检查自适应路线是否与房间和墙冲突
             //Reference reference = uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, "选择要检查的对象");
             //FamilyInstance familyInstance = doc.GetElement(reference) as FamilyInstance;
             //var co = GetRoomsCrossFamilyInstance(familyInstance);
             //var walls = GetWallsCrossFamilyInstance(familyInstance);
-            ////var doors = GetDoorsCrossFamilyInstance(familyInstance);
-            ////TaskDialog.Show("tt", doors.Count().ToString());
-
+            //////var doors = GetDoorsCrossFamilyInstance(familyInstance);
+            //////TaskDialog.Show("tt", doors.Count().ToString());
+            //TaskDialog.Show("tt", walls.Count().ToString());
 
             //0709 通用textbox改造
             //UniversalNewString subView = new UniversalNewString("say something");
