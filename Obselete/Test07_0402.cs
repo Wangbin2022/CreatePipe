@@ -1,11 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.cmd;
-using System;
-using System.Collections.Generic;
-using View = Autodesk.Revit.DB.View;
-namespace CreatePipe
+﻿namespace CreatePipe
 {
     //[XmlType(TypeName = "TestRule")]
     //public class testXml

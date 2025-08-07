@@ -1,15 +1,12 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using CreatePipe.cmd;
 using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe
 {
@@ -33,6 +30,7 @@ namespace CreatePipe
             {
                 wallNames.Add(item.Name);
             }
+            UniversalComboBoxSelection subView = null;
             // 定义回调方法
             Action<string> onSelected = selectedName =>
             {
@@ -65,14 +63,13 @@ namespace CreatePipe
                             UIDoc.Document.Create.NewOpening(wall, item2.get_Item(0).GetEndPoint(0), item2.get_Item(1).GetEndPoint(1));
                         }
                     }, "创建面生面");
+                    subView.ViewModel.SetCommandCompleted();
                 });
             };
-            //待验证测试bak
-            //UniversalComboBoxSelection subView = new UniversalComboBoxSelection(wallNames, $"提示：选择面层添加的新墙体材质", onSelected);
-            //subView.IsModal = false;
-            //subView.Show();
+            subView = new UniversalComboBoxSelection(wallNames, $"提示：选择面层添加的新墙体材质", onSelected);
+            subView.IsModal = false;
+            subView.Show();
 
-            //TaskDialog.Show("tt", SelectedWallType.Name);
             ////模态窗口处理返回值bak
             //if (subView.ShowDialog() != true || !(subView.DataContext is ComboboxStringViewModel vm) || string.IsNullOrWhiteSpace(vm.SelectName))
             //{

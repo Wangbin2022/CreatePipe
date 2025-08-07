@@ -59,6 +59,9 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="门数" Width="35" SortMemberPath="doorNum" 
   Binding="{Binding doorNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTextColumn Header="最小门宽" Width="60" SortMemberPath="doorWidthMin" 
+  Binding="{Binding doorWidthMin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
                     <DataGridTextColumn Header="窗数" Width="35" SortMemberPath="windowNum" 
   Binding="{Binding windowNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
@@ -75,6 +78,17 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalArea}"/>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="选择房间" Width="auto" Command="{Binding DataContext.GotoRoomCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" Click="btn_OK_Click"
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="房间类型" Width="88" SortMemberPath="RoomType" 
+  Binding="{Binding RoomType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTemplateColumn Header="三维文字" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="布置房名" Width="auto" Command="{Binding DataContext.PlaceRoomNameCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
 CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

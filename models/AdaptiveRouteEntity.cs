@@ -1,11 +1,8 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using CreatePipe.cmd;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.models
 {
@@ -15,11 +12,12 @@ namespace CreatePipe.models
         public AdaptiveRouteEntity(FamilyInstance familyInstance)
         {
             Document = familyInstance.Document;
-            AdaptiveInstance= familyInstance;
+            AdaptiveInstance = familyInstance;
             entityName = familyInstance.Symbol.Family.Name;
             Id = familyInstance.Id;
             levelName = familyInstance.LookupParameter("楼层标高").AsString();
             totalLength = (familyInstance.LookupParameter("总长度").AsDouble() * 304.8).ToString("F2");
+            entityMark = familyInstance.get_Parameter(BuiltInParameter.ALL_MODEL_MARK).AsString();
 
             IntersectRooms = GetRoomsCrossFamilyInstance(familyInstance).Count();
             IntersectWalls = GetWallsCrossFamilyInstance(familyInstance).Count();
@@ -114,6 +112,7 @@ namespace CreatePipe.models
         {
             return element.get_Geometry(new Options())?.OfType<Solid>().FirstOrDefault(s => s?.Volume > 0);
         }
+        public string entityMark { get; set; }
         public double MinimalDoorWidth { get; set; } = 0;
         public int IntersectWalls { get; set; } = 0;
         public int IntersectRooms { get; set; } = 0;

@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.models;
@@ -8,17 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Forms;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe.Form
 {
@@ -58,8 +50,48 @@ namespace CreatePipe.Form
             QueryELement(null);
         }
 
-
-
+        public ICommand PlaceRoomNameCommand => new RelayCommand<RoomSingleEntity>(PlaceRoomName);
+        private void PlaceRoomName(RoomSingleEntity entity)
+        {
+            XYZ boundCenter = GetElementCenter(entity.Room);
+            LocationPoint locPt = (LocationPoint)entity.Room.Location;
+            XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);
+            //TaskDialog.Show("tt", roomCenter.X.ToString()+"\n"+roomCenter.Y.ToString());
+            // 1. 先查“三维文字”族是否存在
+            Family targetFamily = new FilteredElementCollector(Document).OfClass(typeof(Family)).Cast<Family>()
+                .FirstOrDefault(f => f.Name.Equals("三维文字", StringComparison.OrdinalIgnoreCase));
+            if (targetFamily == null)
+            {
+                TaskDialog.Show("提示", "项目中未找到三维文字族"); return;
+            }
+            FamilySymbol selectSymbol = Document.GetElement(targetFamily.GetFamilySymbolIds().First()) as FamilySymbol;
+            _externalHandler.Run(app =>
+            {
+                Document.NewTransaction(() =>
+            {
+                if (!selectSymbol.IsActive)
+                {
+                    selectSymbol.Activate();
+                    Document.Regenerate();
+                }
+                try
+                {
+                    FamilyInstance instance = Document.Create.NewFamilyInstance(roomCenter, selectSymbol, StructuralType.NonStructural);
+                    instance.LookupParameter("文字内容").Set(entity.roomName);
+                }
+                catch (Exception ex)
+                {
+                    TaskDialog.Show("tt", ex.Message);
+                }
+            }, "创建三维文字");
+            });
+        }
+        public XYZ GetElementCenter(Element elem)
+        {
+            BoundingBoxXYZ bounding = elem.get_BoundingBox(null);
+            XYZ center = (bounding.Max + bounding.Min) * 0.5;
+            return center;
+        }
         public ICommand GotoRoomCommand => new RelayCommand<RoomSingleEntity>(GotoRoom);
         private void GotoRoom(RoomSingleEntity entity)
         {

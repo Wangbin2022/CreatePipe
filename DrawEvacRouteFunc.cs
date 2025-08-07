@@ -1,14 +1,11 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe
 {
@@ -35,8 +32,7 @@ namespace CreatePipe
             FamilySymbol selectSymbol4p = null;
             FamilySymbol selectSymbol5p = null;
             string levelName = activeView.GenLevel.Name;
-            var routeSymbols = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
-            .Where(s => s.Name.Contains("确定路线")).ToList();
+            var routeSymbols = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().Where(s => s.Name.Contains("确定路线")).ToList();
             if (routeSymbols.Count() != 4)
             {
                 TaskDialog.Show("错误", "未找到指定的自适应族");

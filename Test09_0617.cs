@@ -1,28 +1,16 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.ExtensibleStorage;
-using Autodesk.Revit.DB.Mechanical;
-using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.models;
-using NPOI.POIFS.FileSystem;
-using OfficeOpenXml.Drawing.Chart;
-using Org.BouncyCastle.Crypto;
+using CreatePipe.Utils;
+using NPOI.SS.UserModel;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Management.Instrumentation;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Xml.Linq;
 
 
 namespace CreatePipe
@@ -332,6 +320,12 @@ namespace CreatePipe
         {
             return element.get_Geometry(new Options())?.OfType<Solid>().FirstOrDefault(s => s?.Volume > 0);
         }
+        public XYZ GetElementCenter(Element elem)
+        {
+            BoundingBoxXYZ bounding = elem.get_BoundingBox(null);
+            XYZ center = (bounding.Max + bounding.Min) * 0.5;
+            return center;
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -339,12 +333,80 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0717 疏散路线管理
-            EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
-            evacRouteManagerView.Show();
-            ////Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, "请选择");
-            ////DetailLine detailLine=doc.GetElement(reference) as DetailLine;
-            ////TaskDialog.Show("tt", detailLine.GeometryCurve.GetEndPoint(0).X.ToString());
+            ////0806 图纸管理器
+            SheetManagerView sheetManagerView = new SheetManagerView(uiApp);
+            sheetManagerView.Show();
+            //List<ViewSheet> sheets = new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>().ToList();
+            ////视口数量
+            //int viewPortCount = new FilteredElementCollector(doc, sheets.Last().Id).OfCategory(BuiltInCategory.OST_Viewports).Count();
+            //TaskDialog.Show("tt", viewPortCount.ToString());
+
+            ////0804 房间管理器.OK 还需提高效率，启动排序需要优化
+            //RoomManagerView roomManager = new RoomManagerView(uiApp);
+            //roomManager.Show();
+
+            ////0805 找房间中心点并布置房间名称
+            //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new filterRoomClass(), "请选择房间");
+            //Room room = doc.GetElement(reference) as Room;
+
+            //XYZ boundCenter = GetElementCenter(room);
+            //LocationPoint locPt = (LocationPoint)room.Location;
+            //XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);
+            ////TaskDialog.Show("tt", roomCenter.X.ToString()+"\n"+roomCenter.Y.ToString());
+            //// 1. 先查“三维文字”族是否存在
+            //Family targetFamily = new FilteredElementCollector(doc).OfClass(typeof(Family)).Cast<Family>()
+            //    .FirstOrDefault(f => f.Name.Equals("三维文字", StringComparison.OrdinalIgnoreCase));
+            //if (targetFamily == null)
+            //{
+            //    TaskDialog.Show("提示", "项目中未找到三维文字族"); return Result.Cancelled;
+            //}
+            //FamilySymbol selectSymbol = doc.GetElement(targetFamily.GetFamilySymbolIds().First()) as FamilySymbol;
+            //doc.NewTransaction(() =>
+            //{
+            //    if (!selectSymbol.IsActive)
+            //    {
+            //        selectSymbol.Activate();
+            //        doc.Regenerate();
+            //    }
+            //    try
+            //    {
+            //        FamilyInstance instance = doc.Create.NewFamilyInstance(roomCenter, selectSymbol, StructuralType.NonStructural);
+            //        instance.LookupParameter("文字内容").Set(room.Name);
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        TaskDialog.Show("tt", ex.Message);
+            //    }
+            //}, "创建三维文字");
+
+            ////0701 标高差距获取所有标高并按高程排序
+            //var levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).ToList();
+            //if (levels.Count < 2)
+            //{
+            //    TaskDialog.Show("提示", "模型中至少需要两个标高才能计算间距");
+            //    return Result.Failed;
+            //}
+            //// 计算相邻标高间距并找出最大值
+            //double maxSpacing = 0;
+            //Level lowerLevel = null;
+            //Level upperLevel = null;
+            //for (int i = 0; i < levels.Count - 1; i++)
+            //{
+            //    double spacing = levels[i + 1].Elevation - levels[i].Elevation;
+            //    if (spacing > maxSpacing)
+            //    {
+            //        maxSpacing = spacing;
+            //        lowerLevel = levels[i];
+            //        upperLevel = levels[i + 1];
+            //    }
+            //}
+            //// 显示结果
+            //string result = $"最大标高间距: {maxSpacing * 304.8:0.000} 米\n" + $"位于: {lowerLevel?.Name} 与 {upperLevel?.Name} 之间";
+            //TaskDialog.Show("标高间距分析", result);
+
+            //////0717 疏散路线管理
+            //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
+            //evacRouteManagerView.Show();
 
             //////0803 过滤出族boundingbox相关的门窗 
             //////还需要改进只过滤门即可，缩小碰撞检测的范围GetSolid看一下是否已写过
@@ -441,46 +503,11 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", vm.NewName);
 
-            //if (activeView is ViewPlan viewPlan)
-            //{
-            //    // 获取视图对应的标高
-            //    Level level = viewPlan.GenLevel;
-            //    activeView.gen
-            //    // 获取标高名称
-            //    string levelName = level.Name;
-            //    TaskDialog.Show("tt", levelName);
-            //}
-
+            //0804 通用comboBox布置详见 WallSurfaceFunc DrawEvacRouteFunc
             //0706 WallSurfaceFunc 替换原面生面功能
             //0706 测试通用列表项。OK
-            //var wallTypes = from element in new FilteredElementCollector(uiDoc.Document).OfClass(typeof(WallType))
-            //                let type = element as WallType
-            //                select type;
-            //List<string> wallNames = new List<string>();
-            //foreach (var item in wallTypes)
-            //{
-            //    wallNames.Add(item.Name);
-            //}
-            //UniversalComboBoxSelection subView = new UniversalComboBoxSelection(wallNames, $"提示：喂我花生");
-            //if (subView.ShowDialog() != true || !(subView.DataContext is ComboboxStringViewModel vm) || string.IsNullOrWhiteSpace(vm.SelectName))
-            //{
-            //    return Result.Failed;
-            //}
-            //try
-            //{
-            //    TaskDialog.Show("tt", vm.SelectName);
-            //}
-            //catch (Exception ex)
-            //{
-            //    TaskDialog.Show("tt", $"发生错误: {ex.Message}");
-            //}
-
             ////0705 自适应族放置
             //// 替换为您要放置的自适应族的族名称 
-
-            ////0620 房间管理器
-            //RoomManagerView roomManager = new RoomManagerView(uiApp);
-            //roomManager.Show();
 
             ////0628 门窗类型过滤器,基本完成
             //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);
@@ -495,31 +522,6 @@ namespace CreatePipe
             //FamilySymbol fsL = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol))
             //    .FirstOrDefault(x => x.Name == "W=1.25") as FamilySymbol;
             //uiDoc.PromptForFamilyInstancePlacement(fsL);
-
-            ////0701 标高差距获取所有标高并按高程排序
-            //var levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).ToList();
-            //if (levels.Count < 2)
-            //{
-            //    TaskDialog.Show("提示", "模型中至少需要两个标高才能计算间距");
-            //    return Result.Failed;
-            //}
-            //// 计算相邻标高间距并找出最大值
-            //double maxSpacing = 0;
-            //Level lowerLevel = null;
-            //Level upperLevel = null;
-            //for (int i = 0; i < levels.Count - 1; i++)
-            //{
-            //    double spacing = levels[i + 1].Elevation - levels[i].Elevation;
-            //    if (spacing > maxSpacing)
-            //    {
-            //        maxSpacing = spacing;
-            //        lowerLevel = levels[i];
-            //        upperLevel = levels[i + 1];
-            //    }
-            //}
-            //// 显示结果
-            //string result = $"最大标高间距: {maxSpacing * 304.8:0.000} 米\n" + $"位于: {lowerLevel?.Name} 与 {upperLevel?.Name} 之间";
-            //TaskDialog.Show("标高间距分析", result);
 
             ////0701 打开文档内部族方式
             //Document familyDoc = doc.EditFamily(family);
@@ -584,18 +586,6 @@ namespace CreatePipe
             //}
             //OpenningEntity openningEntity = new OpenningEntity(usingFamilySymbols.First(), doc);
             ////TaskDialog.Show("tt", openningEntity.entityName+"\n"+openningEntity.entityNum);
-
-            //List<ElementId> symbols = usingFamilySymbols.ToList();
-            //TaskDialog.Show("tt", symbols.Count().ToString());
-
-            //StringBuilder stringBuilder = new StringBuilder();
-            //foreach (var elementId in usingFamilySymbols)
-            //{
-            //    FamilySymbol symbol = doc.GetElement(elementId) as FamilySymbol;
-            //    stringBuilder.AppendLine(symbol.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).AsString());
-            //}
-            ////TaskDialog.Show("tt", usingFamilySymbols.Count().ToString()+"\n"+familySymbols.Count().ToString());
-            //TaskDialog.Show("tt", stringBuilder.ToString());
 
             ////0622查找线穿过的所有元素。OK
             //Selection sel = uiApp.ActiveUIDocument.Selection;
@@ -699,11 +689,9 @@ namespace CreatePipe
             //    //using (Transaction tx = new Transaction(doc, "Draw Line"))
             //    //{
             //    //    tx.Start();
-
             //    //    // 创建一条线
             //    //    Line line = Line.CreateBound(center1, center2);
             //    //    Element lineElement = doc.Create.NewDetailCurve(activeView, line);
-
             //    //    tx.Commit();
             //    //}
             //    TaskDialog.Show("距离", $"两扇门之间的直线距离: {distance * 304.8:0.00} \n射线检测距离: {hitDistance * 304.8:0.00} ");
@@ -712,10 +700,6 @@ namespace CreatePipe
             //{
             //    TaskDialog.Show("结果", "射线未直接命中第二扇门，可能被遮挡！" + hitRef.GetReference().ElementId.ToString());
             //}
-
-            //Reference r = uiDoc.Selection.PickObject(ObjectType.Element, new DoorFilter(), "Pick something");
-            //FamilyInstance fi = (FamilyInstance)doc.GetElement(r);
-
 
             //0621 通用获取输入值方法
             //UniversalNewString subView = new UniversalNewString("提示：请输入主文件名");
@@ -738,11 +722,11 @@ namespace CreatePipe
             //Connector unconnectedConnector = connectors.FirstOrDefault(c => !c.IsConnected);
             //if (unconnectedConnector == null) return Result.Failed;
 
-            ////0618 修改三通喷头问题.OK
+            //////0618 修改三通喷头问题.OK
             //SprinklerReplaceAmendView amendView = new SprinklerReplaceAmendView(uiApp);
             //amendView.ShowDialog();
 
-            ////0527 设置系统禁止后台计算 待放到功能内.OK
+            ////0527 设置系统禁止后台计算？ 有无意义是否放到功能内.好像关了之后仍存在计算的情况??
             //FilteredElementCollector elems = new FilteredElementCollector(doc).OfClass(typeof(PipingSystemType));
             //List<PipingSystemType> pipingSystemTypes = elems.OfType<PipingSystemType>().ToList();
             //FilteredElementCollector elems2 = new FilteredElementCollector(doc).OfClass(typeof(MechanicalSystemType));

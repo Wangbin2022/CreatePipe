@@ -175,6 +175,9 @@
     <Compile Include="Form\RoomManagerView.xaml.cs">
       <DependentUpon>RoomManagerView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\SheetManagerView.xaml.cs">
+      <DependentUpon>SheetManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\SprinklerReplaceAmendView.xaml.cs">
       <DependentUpon>SprinklerReplaceAmendView.xaml</DependentUpon>
     </Compile>
@@ -203,6 +206,7 @@
     <Compile Include="models\AdaptiveRouteEntity.cs" />
     <Compile Include="models\OpenningEntity.cs" />
     <Compile Include="models\RoomSingleEntity.cs" />
+    <Compile Include="models\SheetEntity.cs" />
     <Compile Include="models\ViewTemplateEntity.cs" />
     <Compile Include="NCCoding\NCCodingEntity.cs" />
     <Compile Include="NCCoding\NCCodingView.xaml.cs">
@@ -463,6 +467,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\RoomManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\SheetManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

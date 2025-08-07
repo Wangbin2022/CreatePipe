@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CreatePipe.Form
+﻿namespace CreatePipe.Form
 {
     using System.Collections.ObjectModel;
     using System.Windows;
     using System.Windows.Controls;
-    using System.Windows.Data;
 
     public class CustomComboBox : ComboBox
     {

@@ -5,17 +5,12 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
 using CreatePipe.filter;
-using NPOI.SS.Formula.Atp;
-using OfficeOpenXml.Drawing.Chart;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
-using static NPOI.HSSF.Util.HSSFColor;
-using static System.Net.WebRequestMethods;
 
 namespace CreatePipe.Form
 {
@@ -159,7 +154,7 @@ namespace CreatePipe.Form
                         ForceCoordFittingZ(targetFitting, teeFitting);
                         RotateFittingToAlignVertical(teeFitting, pipeHorizontal, targetFitting, rotationAxis);
                         //增加管件垂直旋转部分的逻辑,，对正三通侧接口到true下,false接口向上
-                        RotateFittingVertical(teeFitting, pipeHorizontal,false);
+                        RotateFittingVertical(teeFitting, pipeHorizontal, false);
                         MatchConnectorSizes(teeFitting, pipeHorizontal);
                         ProcessConnections(targetFitting, teeFitting);
                         break;

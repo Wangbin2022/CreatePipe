@@ -1,21 +1,16 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI.Selection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.filter
 {
     public class OpenningFilter : ISelectionFilter
     {
         //0627只过滤门窗
-        public bool AllowElement(Element elem) 
+        public bool AllowElement(Element elem)
         {
             //if (elem is FamilyInstance) //此句指定过滤类型，只选取指定类型构件
-            if (elem is FamilyInstance && 
-                (elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Doors|| elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Windows))
+            if (elem is FamilyInstance &&
+                (elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Doors || elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Windows))
             {
                 return true;
             }

@@ -49,7 +49,10 @@
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="名称" Width="145" SortMemberPath="entityName" 
+                    <DataGridTextColumn Header="名称标记" Width="80" SortMemberPath="entityMark" 
+  Binding="{Binding entityMark, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="类型" Width="145" SortMemberPath="entityName" 
   Binding="{Binding entityName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="楼层" Width="45" SortMemberPath="levelName" 
