@@ -125,12 +125,20 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="宽度" Width="40" SortMemberPath="entityWidthType" 
+                    <!--<DataGridTextColumn Header="宽度" Width="40" SortMemberPath="entityWidthType" 
   Binding="{Binding entityWidthType, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="类别" Width="40" SortMemberPath="entityCategoty" 
   Binding="{Binding entityCategoty, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
-IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>-->
+                    <DataGridTemplateColumn Header="内外关系" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="FromTo" Width="auto" Command="{Binding DataContext.ShowFromToCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"  
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </StackPanel>

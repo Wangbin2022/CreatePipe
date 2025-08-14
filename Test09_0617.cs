@@ -1,13 +1,10 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.Utils;
-using NPOI.SS.UserModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -79,56 +76,6 @@ namespace CreatePipe
             if (mepModel == null) return null;
 
             return mepModel.ConnectorManager?.Connectors;
-        }
-        //0622找符合条件的最近元素 还是没太明白用法 2种用途，似乎还有更多
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="doc"></param>
-        /// <param name="filter">类型</param>
-        /// <param name="targetRef">目标（枚举）</param>
-        /// <param name="center">射源</param>
-        /// <param name="direction">发射方向</param>
-        /// <param name="hitElement">被击中的元素</param>
-        /// <returns></returns>
-        public Line xRayFindNearest(Document doc, ElementFilter filter, FindReferenceTarget targetRef, XYZ center, XYZ direction, ref Element hitElement)
-        {
-            Line result = null;
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
-            Func<View3D, bool> isNotTemplate = v3 => !(v3.IsTemplate);
-            View3D view3D = collector.OfClass(typeof(View3D)).Cast<View3D>().First<View3D>(isNotTemplate);
-            ReferenceIntersector intersector = new ReferenceIntersector(filter, targetRef, view3D);
-            ReferenceWithContext rwc = intersector.FindNearest(center, direction);
-            if (rwc == null) return null;
-            Reference reference = rwc.GetReference();
-            XYZ intersection = reference.GlobalPoint;
-            hitElement = doc.GetElement(reference);
-            if (!(center.IsAlmostEqualTo(intersection)))
-            {
-                result = Line.CreateBound(center, intersection);
-            }
-            else hitElement = null;
-            return result;
-        }
-        public IList<Element> xRayFindAll(Document doc, ElementFilter filter, FindReferenceTarget targetRef, XYZ center, XYZ direction)
-        {
-            IList<Element> result = new List<Element>();
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
-            Func<View3D, bool> isNotTemplate = v3 => !(v3.IsTemplate);
-            View3D view3D = collector.OfClass(typeof(View3D)).Cast<View3D>().First<View3D>(isNotTemplate);
-            ReferenceIntersector intersector = new ReferenceIntersector(filter, targetRef, view3D);
-            IList<ReferenceWithContext> refWithContext = intersector.Find(center, direction);
-            if (refWithContext == null) return null;
-            foreach (var rwc in refWithContext)
-            {
-                Reference reference = rwc.GetReference();
-                Element hitElement = doc.GetElement(reference);
-                if (hitElement != null)
-                {
-                    result.Add(hitElement);
-                }
-            }
-            return result;
         }
         public List<ElementId> GetRoomsCrossFamilyInstance(FamilyInstance familyInstance)
         {
@@ -326,6 +273,58 @@ namespace CreatePipe
             XYZ center = (bounding.Max + bounding.Min) * 0.5;
             return center;
         }
+        /// <summary>
+        /// 执行射线检测并返回最近的碰撞图元ID
+        /// </summary>
+        /// <param name="doc">Revit文档</param>
+        /// <param name="origin">射线起点</param>
+        /// <param name="direction">射线方向</param>
+        /// <param name="view">用于检测的视图（可选）</param>
+        /// <returns>碰撞到的第一个图元的ElementId，如果没有碰撞则返回ElementId.InvalidElementId</returns>
+        public static ElementId RaycastNearest(Document doc, XYZ origin, XYZ direction, double deltaHeight, View view = null)
+        {
+            // 规范化方向向量
+            direction = direction.Normalize();
+            // 创建ReferenceIntersector
+            ReferenceIntersector intersector;
+            if (view != null)
+            {
+                intersector = new ReferenceIntersector((View3D)view);
+            }
+            else
+            {
+                // 使用3D视图设置进行检测
+                intersector = new ReferenceIntersector(Find3DView(doc) ?? throw new System.Exception("找不到可用的3D视图"));
+            }
+            // 设置查找最近的交点
+            intersector.TargetType = FindReferenceTarget.Face;
+            intersector.FindReferencesInRevitLinks = true;
+            XYZ originptWithHeight = new XYZ(origin.X, origin.Y, deltaHeight / 304.8);
+            // 执行射线检测
+            ReferenceWithContext referenceWithContext = intersector.FindNearest(originptWithHeight, direction);
+            //ReferenceWithContext referenceWithContext = intersector.FindNearest(origin, direction);
+            if (referenceWithContext == null) return ElementId.InvalidElementId;
+            // 获取碰撞图元的ElementId
+            Reference reference = referenceWithContext.GetReference();
+            return reference?.ElementId ?? ElementId.InvalidElementId;
+        }
+        /// <summary>
+        /// 查找文档中的3D视图
+        /// </summary>
+        private static View3D Find3DView(Document doc)
+        {
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            collector.OfClass(typeof(View3D));
+            foreach (View3D view in collector)
+            {
+                if (!view.IsTemplate && view.Name != "{3D}") return view;
+            }
+            return null;
+        }
+        Action<string> onSelected = selectedName =>
+        {
+            TaskDialog.Show("tt", selectedName);
+        };
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -333,9 +332,87 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0806 图纸管理器
-            SheetManagerView sheetManagerView = new SheetManagerView(uiApp);
-            sheetManagerView.Show();
+            //GuidanaceSignPlaceView placeView = new GuidanaceSignPlaceView();
+            //placeView.Show();
+            //List<string> routeNames = new List<string>() { "单标布置", "双标布置", "三标布置" };
+            //UniversalComboBoxSelection subView = new UniversalComboBoxSelection(routeNames, "test", onSelected);
+            //subView.ShowDialog();
+
+            //var guidanceSigns = new FilteredElementCollector(doc).OfClass(typeof(IndependentTag)).Cast<IndependentTag>().ToList();
+            //List<IndependentTag> fullTags = new List<IndependentTag>();
+            //foreach (var item in guidanceSigns)
+            //{
+            //    if (item.GetTypeId().IntegerValue==1253177)
+            //    {
+            //        fullTags.Add(item);
+            //    }
+            //}
+            //TaskDialog.Show("tt", fullTags.Count().ToString());
+            GuidanaceSignManagerView guidanaceSignManagerView = new GuidanaceSignManagerView(uiApp);
+            guidanaceSignManagerView.Show();
+
+            //0812 标识标签
+            //Reference r = uiDoc.Selection.PickObject(ObjectType.Element, new TagFilter(), "Pick something");
+            //IndependentTag tag = (IndependentTag)doc.GetElement(r.ElementId);
+            //TaskDialog.Show("tt", tag.Name);
+
+            ////输出标签全部内容
+            ////TaskDialog.Show("tt", tag.TagText.ToString());
+            //var elem = doc.GetElement(tag.TaggedLocalElementId);
+            //if (elem is FamilyInstance)
+            //{
+            //    FamilyInstance family = (FamilyInstance)elem;
+            //    if (family.Location is LocationPoint locationPoint)
+            //    {
+            //        XYZ point = locationPoint.Point;
+            //        TaskDialog.Show("tt", elem.Name + point.X.ToString());
+            //    }
+            //}
+            //else TaskDialog.Show("tt", "ele");
+
+            //doc.NewTransaction(() =>
+            //{ elem.LookupParameter("层高编码").Set("MM"); }
+            //, "mm");
+
+            ////0806 图纸管理器,首次启动要先等待模型内部生成视口，改为视图就可跳过
+            //SheetManagerView sheetManagerView = new SheetManagerView(uiApp);
+            //sheetManagerView.Show();
+            ////0811 检测图纸是否仅有标题块title
+            //// 获取标题块
+            //var titleBlock = new FilteredElementCollector(doc, activeView.Id).OfCategory(BuiltInCategory.OST_TitleBlocks)
+            //    .FirstOrDefault();
+            //// 如果没有标题块，则认为图纸是空的
+            //if (titleBlock == null)
+            //{
+            //    TaskDialog.Show("tt", "空白图纸");
+            //}
+            //// 获取除标题块外的其他元素
+            //else
+            //{  
+            //    var otherElements = new FilteredElementCollector(doc, activeView.Id).WhereElementIsNotElementType().Where(x => x.Id != titleBlock.Id).ToList();
+            //    //TaskDialog.Show("tt", otherElements.Count().ToString());
+            //    //获得图纸中的明细表
+            //    foreach (var item in otherElements)
+            //    {
+            //        if (item is ScheduleSheetInstance)
+            //        {
+            //            TaskDialog.Show("tt", "PASS");
+            //        }
+            //    }
+            //}
+
+            //怎么知道图纸有没有插入图框，有没有插入明细表
+            ////这样只能找出视图，没有明细表
+            //ViewSheet viewSheet = activeView as ViewSheet;
+            ////找视口和视图的Id是不一样的
+            //ICollection<ElementId> views = viewSheet.GetAllViewports();
+            ////ICollection<ElementId> views = viewSheet.GetAllPlacedViews();
+            //StringBuilder stringBuilder = new StringBuilder();
+            //foreach (var item in views)
+            //{
+            //    stringBuilder.AppendLine(item.ToString());
+            //}
+            //TaskDialog.Show("tt", stringBuilder.ToString());
             //List<ViewSheet> sheets = new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>().ToList();
             ////视口数量
             //int viewPortCount = new FilteredElementCollector(doc, sheets.Last().Id).OfCategory(BuiltInCategory.OST_Viewports).Count();
@@ -344,11 +421,89 @@ namespace CreatePipe
             ////0804 房间管理器.OK 还需提高效率，启动排序需要优化
             //RoomManagerView roomManager = new RoomManagerView(uiApp);
             //roomManager.Show();
+            //////0717 疏散路线管理
+            //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
+            //evacRouteManagerView.Show();
+            ////0628 门窗类型过滤器,基本完成
+            //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);
+            //openningManagerView.Show();
 
-            ////0805 找房间中心点并布置房间名称
-            //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new filterRoomClass(), "请选择房间");
-            //Room room = doc.GetElement(reference) as Room;
+            //////0811 射线360扫射检测碰撞.OK
+            //try
+            //{
+            //    // 获取用户选择的点作为射线起点
+            //    XYZ origin = uiDoc.Selection.PickPoint("请选择射线起点");
+            //    double deltaHeight = 200;
+            //    HashSet<ElementId> hitElementIds = new HashSet<ElementId>();
+            //    StringBuilder stringBuilder = new StringBuilder();
+            //    // 5. 在XY平面进行360度检测（每1度一次）
+            //    for (int angle = 0; angle < 360; angle++)
+            //    {
+            //        // 计算当前角度方向向量（Z=0）
+            //        double radians = angle * Math.PI / 180;
+            //        XYZ direction = new XYZ(Math.Cos(radians), Math.Sin(radians), 0);
+            //        // 执行射线检测
+            //        ElementId hitElementId = RaycastNearest(doc, origin, direction, deltaHeight);
+            //        if (hitElementId != ElementId.InvalidElementId)
+            //        {
+            //            hitElementIds.Add(hitElementId);
+            //        }
+            //    }
+            //    foreach (var item in hitElementIds)
+            //    {
+            //        stringBuilder.AppendLine(item.ToString());
+            //    }
+            //    if (hitElementIds == null)
+            //    {
+            //        TaskDialog.Show("结果", "没有检测到碰撞对象");
+            //    }
+            //    else
+            //    {
+            //        TaskDialog.Show("结果", $"检测到碰撞对象: {hitElementIds.Count}\n" + $"ID: {stringBuilder.ToString()}");
+            //        // 高亮显示碰撞到的图元
+            //        uiDoc.Selection.SetElementIds(hitElementIds);
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("tt", ex.Message.ToString());
+            //    return Result.Failed;
+            //}
 
+            ////0811 二维射线法手搓尝试，单点单方向碰撞.OK
+            //try
+            //{
+            //    // 获取用户选择的点作为射线起点
+            //    XYZ origin = uiDoc.Selection.PickPoint("请选择射线起点");
+            //    // 定义射线方向（这里使用X轴方向）
+            //    XYZ direction = XYZ.BasisX;
+            //    double deltaHeight = 200;
+            //    // 执行射线检测
+            //    ElementId hitElementId = RaycastNearest(doc, origin, direction,deltaHeight);
+            //    if (hitElementId == ElementId.InvalidElementId)
+            //    {
+            //        TaskDialog.Show("结果", "没有检测到碰撞对象");
+            //    }
+            //    else
+            //    {
+            //        Element hitElement = doc.GetElement(hitElementId);
+            //        TaskDialog.Show("结果",$"检测到碰撞对象: {hitElement.Name}\n" +$"ID: {hitElementId.IntegerValue}");
+            //        // 高亮显示碰撞到的图元
+            //        uiDoc.Selection.SetElementIds(new List<ElementId> { hitElementId });
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("tt", ex.Message.ToString());
+            //    return Result.Failed;
+            //}
+            //
+
+            //////0805 找房间中心点并布置房间名称
+            ////Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new filterRoomClass(), "请选择房间");
+            ////Room room = doc.GetElement(reference) as Room;
             //XYZ boundCenter = GetElementCenter(room);
             //LocationPoint locPt = (LocationPoint)room.Location;
             //XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);
@@ -403,10 +558,6 @@ namespace CreatePipe
             //// 显示结果
             //string result = $"最大标高间距: {maxSpacing * 304.8:0.000} 米\n" + $"位于: {lowerLevel?.Name} 与 {upperLevel?.Name} 之间";
             //TaskDialog.Show("标高间距分析", result);
-
-            //////0717 疏散路线管理
-            //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
-            //evacRouteManagerView.Show();
 
             //////0803 过滤出族boundingbox相关的门窗 
             //////还需要改进只过滤门即可，缩小碰撞检测的范围GetSolid看一下是否已写过
@@ -508,10 +659,6 @@ namespace CreatePipe
             //0706 测试通用列表项。OK
             ////0705 自适应族放置
             //// 替换为您要放置的自适应族的族名称 
-
-            ////0628 门窗类型过滤器,基本完成
-            //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);
-            //openningManagerView.Show();
 
             ////0703检验 门窗立面放置 可以互动放置但不支持直接放，缺api支持
             //if (activeView.ViewType != ViewType.Legend) return Result.Failed;

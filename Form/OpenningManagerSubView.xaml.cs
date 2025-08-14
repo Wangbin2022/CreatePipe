@@ -26,6 +26,6 @@ namespace CreatePipe.Form
         {
             FloorInstanceCount = entity.FloorInstanceCount;
         }
-        public Dictionary<string, int> FloorInstanceCount { get; set; } = new Dictionary<string, int>();
+        public Dictionary<string, string> FloorInstanceCount { get; set; } = new Dictionary<string, string>();
     }
 }

@@ -9,7 +9,7 @@
         Title="ProgressBarTest2" Height="450" Width="500"
         WindowStartupLocation="CenterScreen" Background="White">
     <Grid>
-        <f:Arc x:Name="Arc" Height="300" Width="300" Stretch="None"
+        <!--<f:Arc x:Name="Arc" Height="300" Width="300" Stretch="None"
                Fill="#FF004198" ArcThickness="15" ArcThicknessUnit="Pixel" EndAngle="36"
                HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="1">
             
@@ -20,7 +20,7 @@
             <f:Arc.Effect>
                 <DropShadowEffect ShadowDepth="5" Opacity="0.6" BlurRadius="5"/>
             </f:Arc.Effect>
-        </f:Arc>
+        </f:Arc>-->
         <TextBlock x:Name="tbk" Text="10%"
                    FontSize="60" FontWeight="Bold" Foreground="#FF004198"
                    HorizontalAlignment="Center" VerticalAlignment="Center"/>

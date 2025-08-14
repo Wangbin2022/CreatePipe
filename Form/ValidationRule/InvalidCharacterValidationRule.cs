@@ -1,6 +1,5 @@
 ﻿namespace CreatePipe.Form.ValidationRule
 {
-    using System;
     using System.Globalization;
     using System.Linq;
     using System.Windows.Controls;

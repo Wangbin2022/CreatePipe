@@ -17,7 +17,7 @@ namespace CreatePipe.Form
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var slider = (Slider)sender;
-            Arc.EndAngle = slider.Value * 3.6;
+            //Arc.EndAngle = slider.Value * 3.6;
             tbk.Text = $"{Convert.ToInt32(slider.Value).ToString()}%";
         }
     }

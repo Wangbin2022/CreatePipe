@@ -2,6 +2,7 @@
 using CreatePipe.cmd;
 using CreatePipe.Utils;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace CreatePipe.models
@@ -24,23 +25,26 @@ namespace CreatePipe.models
             entityTagName = symbol.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).AsString();
             entityHeight = symbol.get_Parameter(BuiltInParameter.FAMILY_HEIGHT_PARAM).AsDouble() * 304.8;
             entityWidth = symbol.get_Parameter(BuiltInParameter.FAMILY_WIDTH_PARAM).AsDouble() * 304.8;
-            // 按楼层统计数量
-            foreach (var instance in instances)
-            {
-                Level level = Document.GetElement(instance.LevelId) as Level;
-                if (level != null)
-                {
-                    string levelName = level.Name;
-                    if (FloorInstanceCount.ContainsKey(levelName))
-                    {
-                        FloorInstanceCount[levelName]++;
-                    }
-                    else
-                    {
-                        FloorInstanceCount[levelName] = 1;
-                    }
-                }
-            }
+            //
+            FloorInstanceCount = instances.GroupBy(fi => fi.Document.GetElement(fi.LevelId)?.Name ?? "未定义楼层").ToDictionary(g => g.Key, g => g.Count().ToString());
+            //foreach (var instance in instances)
+            //{
+            //    Level level = Document.GetElement(instance.LevelId) as Level;
+            //    if (level != null)
+            //    {
+            //        string levelName = level.Name;
+            //        if (FloorInstanceCount.ContainsKey(levelName))
+            //        {
+            //            FloorInstanceCount[levelName]++;
+            //        }
+            //        else
+            //        {
+            //            FloorInstanceCount[levelName] = 1;
+            //        }
+            //    }
+            //}
+            //relatedViews[item.Id.IntegerValue.ToString()] = item.Name;
+
             //区别类型
             if (entityTagName.Contains("FM"))
             {
@@ -118,7 +122,7 @@ namespace CreatePipe.models
         public bool isMatching { get; set; } = false;
         public string entityTagName { get; set; }
         public string entityType { get; set; }
-        public Dictionary<string, int> FloorInstanceCount { get; set; } = new Dictionary<string, int>();
+        public Dictionary<string, string> FloorInstanceCount { get; set; } = new Dictionary<string, string>();
         public int entityNum { get; set; } = 0;
         public string entityName
         {

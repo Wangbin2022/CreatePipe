@@ -103,7 +103,7 @@ namespace CreatePipe.Form
         {
             AllRooms.Clear();
             List<RoomSingleEntity> vte = rooms.Select(v => new RoomSingleEntity(v))
-                .Where(e => string.IsNullOrEmpty(obj) || e.roomName.Contains(obj) || e.roomName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                .Where(e => string.IsNullOrEmpty(obj) || e.roomName.Contains(obj) || e.roomName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0 || e.roomNumber.Contains(obj)).ToList();
             foreach (var item in vte)
             {
                 AllRooms.Add(item);

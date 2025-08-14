@@ -7,16 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe.Form
 {
@@ -57,7 +49,14 @@ namespace CreatePipe.Form
             }
             QueryELement(null);
         }
-
+        public ICommand ListViewCommand => new RelayCommand<SheetEntity>(ListViews);
+        private void ListViews(SheetEntity entity)
+        {
+            if (entity == null) return;
+            Dictionary<string, string> dataList = entity.relatedViews;
+            UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(dataList, "视图统计");
+            universalDictionaryList.ShowDialog();
+        }
         public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteELements);
         private void DeleteELements(IEnumerable<object> selectedElements)
         {
@@ -77,7 +76,7 @@ namespace CreatePipe.Form
                         Document.Delete(toRemove);
                     }, "删除多个视图");
                 });
-        } 
+        }
         public ICommand FindViewCommand => new RelayCommand<SheetEntity>(ActivateView);
         private void ActivateView(SheetEntity entity)
         {

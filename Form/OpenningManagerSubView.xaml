@@ -18,8 +18,7 @@
                AutoGenerateColumns="True" CanUserAddRows="False"
                SelectionUnit="FullRow" EnableColumnVirtualization="False"
                GridLinesVisibility="None" Width="auto" Height="325"
-               SelectionMode="Extended" ItemsSource="{Binding FloorInstanceCount}">
-                
+               SelectionMode="Extended" ItemsSource="{Binding FloorInstanceCount}">                
             </DataGrid>
         </StackPanel>
         <DockPanel Grid.Row="1" >

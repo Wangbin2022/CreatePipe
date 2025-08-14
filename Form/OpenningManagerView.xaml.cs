@@ -12,6 +12,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 
+
 namespace CreatePipe.Form
 {
     /// <summary>
@@ -44,6 +45,30 @@ namespace CreatePipe.Form
             uIApp = application;
             QueryElement(null);
         }
+        public ICommand ShowFromToCommand => new RelayCommand<OpenningEntity>(ShowFromTo);
+        private void ShowFromTo(OpenningEntity entity)
+        {
+            if (entity == null) return;
+            try
+            {
+                Dictionary<string, string> floorInstanceCount = new Dictionary<string, string>();
+                foreach (var id in entity.InstanceIds)
+                {
+                    FamilyInstance instance = Document.GetElement(id) as FamilyInstance;
+                    floorInstanceCount[id.IntegerValue.ToString()] = "From=" + (instance.FromRoom?.Name ?? "None")
+                        + "+To=" + (instance.ToRoom?.Name ?? "None");
+                }
+                //Dictionary<string, string> floorInstanceCount = entity.FloorInstanceCount;
+                UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(floorInstanceCount, "内外统计");
+                universalDictionaryList.ShowDialog();
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+
         public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteELements);
         private void DeleteELements(IEnumerable<object> selectedElements)
         {
@@ -142,12 +167,19 @@ namespace CreatePipe.Form
                 TaskDialog.Show("tt", $"选中{currentLevelInstances.Count().ToString()}个对象");
             });
         }
+        public class MyItem
+        {
+            public string Name { get; set; }
+            public int Count { get; set; }
+        }
         public ICommand SubViewCommand => new RelayCommand<OpenningEntity>(SubView);
         private static void SubView(OpenningEntity entity)
         {
             if (entity == null) return;
-            OpenningManagerSubView subView = new OpenningManagerSubView(entity);
-            subView.ShowDialog();
+            Dictionary<string, string> floorInstanceCount = entity.FloorInstanceCount;
+            UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(floorInstanceCount, "分层统计");
+            universalDictionaryList.ShowDialog();
+
             //刷新？
         }
         public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
