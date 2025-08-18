@@ -16,9 +16,9 @@ namespace CreatePipe.Form
     /// <summary>
     /// GuidanaceSignManagerView.xaml 的交互逻辑
     /// </summary>
-    public partial class GuidanaceSignManagerView : Window
+    public partial class GuidanceSignManagerView : Window
     {
-        public GuidanaceSignManagerView(UIApplication uiApp)
+        public GuidanceSignManagerView(UIApplication uiApp)
         {
             InitializeComponent();
             this.DataContext = new GuidanaceSignManagerViewModel(uiApp);
@@ -63,7 +63,7 @@ namespace CreatePipe.Form
             _externalHandler.Run(app =>
             {
                 AllSigns.Clear();
-                var guidanceSigns = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(s => s.Name == "标记_标识").ToList();
+                var guidanceSigns = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(s => s.Name.StartsWith("标记_标识")).ToList();
                 foreach (var sign in guidanceSigns)
                 {
                     if (string.IsNullOrEmpty(obj) || sign.TagText.Contains(obj) || sign.TagText.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0)

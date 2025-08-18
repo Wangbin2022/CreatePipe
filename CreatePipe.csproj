@@ -81,7 +81,8 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
-    <Compile Include="DrawEvacRouteFunc.cs" />
+    <Compile Include="Form\Behaviors\ValidationErrorToViewModelBehavior.cs" />
+    <Compile Include="Obselete\DrawEvacRouteFunc.cs" />
     <Compile Include="filter\AdaptiveFamilyFilter.cs" />
     <Compile Include="filter\filterMEPFitting.cs" />
     <Compile Include="filter\filterPipeFitting.cs" />
@@ -98,11 +99,11 @@
       <DependentUpon>EvacRouteManagerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\ExtendedComboBox.cs" />
-    <Compile Include="Form\GuidanaceSignManagerView.xaml.cs">
-      <DependentUpon>GuidanaceSignManagerView.xaml</DependentUpon>
+    <Compile Include="Form\GuidanceSignManagerView.xaml.cs">
+      <DependentUpon>GuidanceSignManagerView.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Form\GuidanaceSignPlaceView.xaml.cs">
-      <DependentUpon>GuidanaceSignPlaceView.xaml</DependentUpon>
+    <Compile Include="Form\GuidanceSignPlaceView.xaml.cs">
+      <DependentUpon>GuidanceSignPlaceView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\ListboxTest.xaml.cs">
       <DependentUpon>ListboxTest.xaml</DependentUpon>
@@ -112,6 +113,9 @@
     </Compile>
     <Compile Include="Form\OpenningManagerView.xaml.cs">
       <DependentUpon>OpenningManagerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\RangeComboBox.xaml.cs">
+      <DependentUpon>RangeComboBox.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\RoomManagerView.xaml.cs">
       <DependentUpon>RoomManagerView.xaml</DependentUpon>
@@ -321,7 +325,8 @@
     <Compile Include="Obselete\Test07_0402.cs" />
     <Compile Include="Obselete\Test5_0101.cs" />
     <Compile Include="Obselete\Test6_0213.cs" />
-    <Compile Include="Test09_0617.cs" />
+    <Compile Include="Obselete\Test09_0617.cs" />
+    <Compile Include="Test10_0818.cs" />
     <Compile Include="Utils\BaseExternalHandler.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
     <Compile Include="Utils\ValueConverter\CategoryIdToNameConverter.cs" />
@@ -380,7 +385,7 @@
     <Compile Include="Obselete\TestTreeViewModel.cs" />
     <Compile Include="Obselete\ViewTemplateManagerViewModel.cs" />
     <Compile Include="Obselete\ViewManagerViewModel.cs" />
-    <Compile Include="WallSurfaceFunc.cs" />
+    <Compile Include="Obselete\WallSurfaceFunc.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="CableConduitCreator\CableTrayPathForm.xaml">
@@ -399,11 +404,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Form\GuidanaceSignManagerView.xaml">
+    <Page Include="Form\GuidanceSignManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Form\GuidanaceSignPlaceView.xaml">
+    <Page Include="Form\GuidanceSignPlaceView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -416,6 +421,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\OpenningManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\RangeComboBox.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

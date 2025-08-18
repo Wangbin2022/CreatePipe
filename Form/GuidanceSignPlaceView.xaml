@@ -1,0 +1,245 @@
+﻿<Window x:Class="CreatePipe.Form.GuidanceSignPlaceView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="GuidanaceSignPlaceView" 
+        Height="640" Width="240" ResizeMode="NoResize" Topmost="True"
+        xmlns:vr="clr-namespace:CreatePipe.Form.ValidationRule">
+    <Window.Resources>
+        <Style x:Key="HintErrorTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        Background="{TemplateBinding Background}">
+                            <Grid>
+                                <!-- 输入区 -->
+                                <ScrollViewer x:Name="PART_ContentHost" />
+                                <!-- 水印文字 -->
+                                <TextBlock x:Name="Hint"
+                                   Text="{TemplateBinding Tag}"
+                                   Foreground="LightGray"
+                                   IsHitTestVisible="False"
+                                   Visibility="Collapsed"
+                                   Margin="4,2"/>
+                            </Grid>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <!-- 水印 -->
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Text" Value=""/>
+                                    <Condition Property="IsFocused" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Hint" Property="Visibility" Value="Visible"/>
+                            </MultiTrigger>
+
+                            <!-- 错误时边框变红（可选，与外层 ErrorStyle 保持一致） -->
+                            <Trigger Property="Validation.HasError" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="Red"/>
+                                <Setter Property="ToolTip" 
+                            Value="{Binding RelativeSource={RelativeSource Self}, 
+                            Path=(Validation.Errors)[0].ErrorContent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>            
+        </Style>
+        <!-- 按钮样式 -->
+        <Style x:Key="TransparentHoverButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="SlateGray"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="CadetBlue"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="95"/>
+        </Grid.RowDefinitions>
+        <StackPanel >
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <TextBox Loaded="ContentTb_Loaded" 
+                         Tag="\\请在此输入内容"
+                         Width="138" Height="70"
+                         VerticalAlignment="Top"
+                         TextWrapping="Wrap">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox" BasedOn="{StaticResource HintErrorTextBoxStyle}">
+                            <Style.Triggers>
+                                <Trigger Property="Validation.HasError" Value="True">
+                                    <Setter Property="local:ValidationBehaviors.HasError"
+                        Value="True"/>
+                                </Trigger>
+                                <Trigger Property="Validation.HasError" Value="False">
+                                    <Setter Property="local:ValidationBehaviors.HasError"
+                        Value="False"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                    <TextBox.Text>    
+                        <Binding Path="ContentText" UpdateSourceTrigger="PropertyChanged">
+                            <Binding.ValidationRules>
+                                <vr:GuidanceContentValidationRule />
+                            </Binding.ValidationRules>
+                        </Binding>
+                    </TextBox.Text>
+                </TextBox>
+                <Grid Width="65">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="2*"/>
+                    </Grid.RowDefinitions>
+                    <Button Content="input要求" Margin="5,0,0,0"
+                            Style="{StaticResource TransparentHoverButtonStyle}"
+                            Command="{Binding InputRuleCommand}"/>
+                    <Button Grid.Row="1" Margin="5,0,0,0"
+                            Content="牌面分划" 
+                            Command="{Binding SplitContentCommand}"
+                            CommandParameter="{Binding ContentText}"
+                            IsEnabled="{Binding isContentValidate}"/>
+                </Grid> 
+                <!--<Button Width="60" Content="内容检测" Margin="5,0"/>-->
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="首行标识内容"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="{Binding FrontSignFirst}" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="第二行标识内容"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="{Binding FrontSignSecond}" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="第三行标识内容"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="{Binding FrontSignThird}" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="首行背面内容"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="{Binding BackSignFirst}" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="第二行背面内容"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="{Binding BackSignSecond}" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="第三行背面内容"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="{Binding BackSignThird}" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="牌面长度"  VerticalAlignment="Center"/>
+                <local:RangeComboBox x:Name="SignLength" Width="115" VerticalAlignment="Center"
+                               Minimum="3000" Maximum="4000"  Step="200"
+                               SelectedValue="{Binding SignLength, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="牌面宽度"  VerticalAlignment="Center"/>
+                <local:RangeComboBox x:Name="SignWidth" Width="115" VerticalAlignment="Center"
+                               Minimum="350" Maximum="500"  Step="50"
+                               SelectedValue="{Binding SignWidth, Mode=TwoWay}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="牌面布置角度"  VerticalAlignment="Center"/>
+                <local:RangeComboBox x:Name="SignAngle" Width="115" VerticalAlignment="Center"
+                               Minimum="0" Maximum="360"  Step="45"
+                               SelectedValue="{Binding SignWidth, Mode=TwoWay}" />
+            </StackPanel>
+            <TextBlock Text="CF1-D-001" HorizontalAlignment="Center" Margin="5"/>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="位置编码"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="C" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="层高编码"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="F1" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="True" Background="LightGray"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="性质编码"  VerticalAlignment="Center"/>
+                <ComboBox Width="115" xmlns:sys="clr-namespace:System;assembly=mscorlib" 
+                          SelectedIndex="0" VerticalAlignment="Center">
+                    <ComboBox.ItemsSource>
+                        <x:Array Type="sys:String">
+                            <sys:String>D(流程信息)</sys:String>
+                            <sys:String>H(海关)</sys:String>
+                            <sys:String>S(非流程信息)</sys:String>
+                        </x:Array>
+                    </ComboBox.ItemsSource>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="88" Text="本层编号"  VerticalAlignment="Center"/>
+                <TextBox Width="115" Text="001" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                         IsReadOnly="False" />
+            </StackPanel>
+        </StackPanel>
+        <TabControl  Grid.Row="1" Margin="5">
+            <TabItem Header="吊挂标识">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Height="35" >
+                        <TextBlock Width="88" Text="首行标志顶标高" Margin="5" VerticalAlignment="Center"/>
+                        <local:RangeComboBox x:Name="HangSignHeight" Width="95" VerticalAlignment="Center"
+                               Minimum="3000" Maximum="4000"  Step="200"
+                               SelectedValue="{Binding HangSignHeight, Mode=TwoWay}" />
+                    </StackPanel>
+                    <Button  Content="放置" Height="20" Margin="5,0,5,5"
+                             Command="{Binding TestCommand}" CommandParameter="{Binding SelectedValue, ElementName=RangeBox}"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="附着标识">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Height="35" >
+                        <TextBlock Width="88" Text="首行标志底标高" Margin="5" VerticalAlignment="Center"/>
+                        <local:RangeComboBox x:Name="AlignSignHeight" Width="95" VerticalAlignment="Center"
+                               Minimum="2400" Maximum="3600"  Step="200"
+                               SelectedValue="{Binding AlignSignHeight, Mode=TwoWay}" />
+                    </StackPanel>
+                    <Button  Content="放置" Height="20" Margin="5,0,5,5"
+                             Command="{Binding TestCommand}" CommandParameter="{Binding SelectedValue, ElementName=RangeBox}"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="立柱标识">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Height="35" >
+                        <TextBlock Width="88" Text="立柱顶高" Margin="5" VerticalAlignment="Center"/>
+                        <TextBox Width="95" Text="2700" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                 IsReadOnly="True" Background="LightGray"/>
+                    </StackPanel>
+                    <Button  Content="放置" Height="20" Margin="5,0,5,5"
+                                 Command="{Binding TestCommand}" CommandParameter="{Binding SelectedValue, ElementName=RangeBox}"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
