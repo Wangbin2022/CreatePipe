@@ -1,11 +1,18 @@
-﻿using Autodesk.Revit.UI;
+﻿using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
 using CreatePipe.cmd;
+using CreatePipe.models;
+using CreatePipe.Utils;
 using System;
+using System.Drawing;
 using System.Globalization;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Controls;
+using System.Linq;
 using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+
+
 
 namespace CreatePipe.Form
 {
@@ -32,11 +39,504 @@ namespace CreatePipe.Form
     }
     public class GuidanceSignPlaceViewModel : ObserverableObject
     {
+        public static Document Document;
+        public View ActiveView;
+        public UIDocument uiDoc;
+        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
         public GuidanceSignPlaceViewModel(UIApplication uiApp)
         {
-
+            Document = uiApp.ActiveUIDocument.Document;
+            ActiveView = uiApp.ActiveUIDocument.ActiveView;
+            if (ActiveView.ViewType != ViewType.FloorPlan)
+            {
+                TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
+                canPlaceSign = false;
+                return;
+            }
+            else LevelCode = ActiveView.GenLevel.Name;
+            uiDoc = uiApp.ActiveUIDocument;
+            LocCode = GetlocCode();
+            var families = new FilteredElementCollector(Document).OfClass(typeof(Family)).Cast<Family>().Where(s => s.Name.Contains("标志标识")).ToList();
+            if (families != null)
+            {
+                foreach (var item in families)
+                {
+                    switch (item.Name)
+                    {
+                        case "标志标识 - 吊挂式":
+                            HangSignFamily = item;
+                            break;
+                        case "标志标识 - 立柱式":
+                            PillarSignFamily = item;
+                            break;
+                        case "标志标识 - 附着式":
+                            AttachSignFamily = item;
+                            break;
+                        default:
+                            TaskDialog.Show("tt", "No PASS");
+                            break;
+                    }
+                }
+            }
+            var annoFamilies = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(s => s.Name.StartsWith("标记_标识")).ToList();
+            annoSignFamily = annoFamilies.FirstOrDefault();
         }
+        public Family HangSignFamily { get; set; }
+        public Family AttachSignFamily { get; set; }
+        public Family PillarSignFamily { get; set; }
+        public IndependentTag annoSignFamily { get; set; }
+        public ICommand execPlacementCommand => new RelayCommand<object>(execPlacement);
+        private void execPlacement(object parameter)
+        {
+            if (ContentText == null)
+            {
+                TaskDialog.Show("tt", "标识输入内容为空，请重新输入");
+                return;
+            }
+            if (ActiveView.ViewType != ViewType.FloorPlan)
+            {
+                TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
+                return;
+            }
+            //处理吊挂
+            if (parameter is int intVal)
+            {
+                if (HangSignFamily == null || annoSignFamily == null)
+                {
+                    TaskDialog.Show("tt", "未找到指定的标识族");
+                    return;
+                }
+                var symbolIds = HangSignFamily.GetFamilySymbolIds();
+                foreach (var item in symbolIds)
+                {
+                    FamilySymbol symbol = Document.GetElement(item) as FamilySymbol;
+                    if (symbol.Name.Contains("非流程"))
+                    {
+                        selectNonFlowSymbol = symbol;
+                    }
+                    else if (symbol.Name.Contains("海关"))
+                    {
+                        selectCustomSymbol = symbol;
+                    }
+                    else selectFlowSymbol = symbol;
+                }
+                switch (FlowCode)
+                {
+                    case "D":
+                        PlaceDoubleSign(selectFlowSymbol, true);
+                        break;
+                    case "H":
+                        PlaceDoubleSign(selectCustomSymbol, true);
+                        break;
+                    case "S":
+                        PlaceDoubleSign(selectNonFlowSymbol, true);
+                        break;
+                    default:
+                        TaskDialog.Show("tt", "No PASS");
+                        break;
+                }
+            }
+            //处理立柱形式
+            if (parameter is string str && int.TryParse(str, out int parsed))
+            {
+                if (PillarSignFamily == null || annoSignFamily == null)
+                {
+                    TaskDialog.Show("tt", "未找到指定的标识族");
+                    return;
+                }
+                var symbolIds = PillarSignFamily.GetFamilySymbolIds();
+                foreach (var item in symbolIds)
+                {
+                    FamilySymbol symbol = Document.GetElement(item) as FamilySymbol;
+                    if (symbol.Name.Contains("非流程"))
+                    {
+                        selectNonFlowSymbol = symbol;
+                    }
+                    else if (symbol.Name.Contains("海关"))
+                    {
+                        selectCustomSymbol = symbol;
+                    }
+                    else selectFlowSymbol = symbol;
+                }
+                switch (FlowCode)
+                {
+                    case "D":
+                        PlaceDoubleSign(selectFlowSymbol, false);
+                        break;
+                    case "H":
+                        PlaceDoubleSign(selectCustomSymbol, false);
+                        break;
+                    case "S":
+                        PlaceDoubleSign(selectNonFlowSymbol, false);
+                        break;
+                    default:
+                        TaskDialog.Show("tt", "No PASS");
+                        break;
+                }
+            }
+            else
+            {
+                //TaskDialog.Show("tt", "输入值有误，请检查并重新布置。");
+                return;
+            }
+        }
+        public ICommand execAttachSignCommand => new RelayCommand<int>(execAttachSign);
+        private void execAttachSign(int obj)
+        {
+            if (ContentText == null)
+            {
+                TaskDialog.Show("tt", "标识输入内容为空，请重新输入");
+                return;
+            }
+            if (ActiveView.ViewType != ViewType.FloorPlan)
+            {
+                TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
+                return;
+            }
+            else if (AttachSignFamily == null || annoSignFamily == null)
+            {
+                TaskDialog.Show("tt", "未找到指定的标识族");
+                return;
+            }
+            var symbolIds = AttachSignFamily.GetFamilySymbolIds();
+            foreach (var item in symbolIds)
+            {
+                FamilySymbol symbol = Document.GetElement(item) as FamilySymbol;
+                if (symbol.Name.Contains("非流程"))
+                {
+                    selectNonFlowSymbol = symbol;
+                }
+                else if (symbol.Name.Contains("海关"))
+                {
+                    selectCustomSymbol = symbol;
+                }
+                else selectFlowSymbol = symbol;
+            }
+            switch (FlowCode)
+            {
+                case "D":
+                    PlaceSign(selectFlowSymbol);
+                    break;
+                case "H":
+                    PlaceSign(selectCustomSymbol);
+                    break;
+                case "S":
+                    PlaceSign(selectNonFlowSymbol);
+                    break;
+                default:
+                    TaskDialog.Show("tt", "No PASS");
+                    break;
+            }
+        }
+        private void PlaceDoubleSign(FamilySymbol symbol, bool isHang)
+        {
+            if (!symbol.IsActive)
+                symbol.Activate();
+            XYZ pt;
+            try
+            {
+                pt = uiDoc.Selection.PickPoint("请点选放置位置");
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            Level level = Document.GetElement(ActiveView.GenLevel.Id) as Level;
+            _externalHandler.Run(app =>
+            {
+                using (Transaction tx = new Transaction(Document, "放置标识实例"))
+                {
+                    tx.Start();
+                    FamilyInstance instance = Document.Create.NewFamilyInstance(pt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                    Reference refElem = new Reference(instance);
+                    IndependentTag tag = IndependentTag.Create(Document, annoSignFamily.GetTypeId(), ActiveView.Id, refElem, false, TagOrientation.Horizontal, pt);
 
+                    //牌面数量，输入牌面信息
+                    if (SignRows > 3) return;
+                    switch (SignRows)
+                    {
+                        case 2:
+                            //instance.LookupParameter("推荐数量").Set(SignRows);
+                            instance.LookupParameter("推荐数量 1块").Set(1);
+                            instance.LookupParameter("推荐数量 2块").Set(1);
+                            instance.LookupParameter("推荐数量 3块").Set(0);
+                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                            instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+                            instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+                            break;
+                        case 1:
+                            //instance.LookupParameter("推荐数量").Set(SignRows);
+                            instance.LookupParameter("推荐数量 1块").Set(1);
+                            instance.LookupParameter("推荐数量 2块").Set(0);
+                            instance.LookupParameter("推荐数量 3块").Set(0);
+                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                            instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                            break;
+                        default:
+                            //instance.LookupParameter("推荐数量").Set(SignRows);
+                            instance.LookupParameter("推荐数量 1块").Set(1);
+                            instance.LookupParameter("推荐数量 2块").Set(1);
+                            instance.LookupParameter("推荐数量 3块").Set(1);
+                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                            instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+                            instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+                            instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
+                            instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
+                            break;
+                    }
+                    //输入几何信息
+                    instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
+                    instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
+                    if (isHang)
+                    {
+                        instance.Symbol.LookupParameter("标识高度").Set(HangSignHeight / 304.8);
+                    }
+                    else { }
+                    //旋转
+                    if (SignAngle != 0)
+                    {
+                        // 1. 构造旋转轴：过插入点、沿 Z 轴
+                        XYZ axisOrigin = pt;
+                        XYZ axisDir = XYZ.BasisZ;
+                        Line axis = Line.CreateBound(axisOrigin, axisOrigin + axisDir);
+                        double angleRad = SignAngle * Math.PI / 180.0;
+                        instance.Location.Rotate(axis, angleRad);
+                    }
+                    if (SignAngle == 90 || SignAngle == 270)
+                    {
+                        tag.TagOrientation = TagOrientation.Vertical;
+                    }
+                    //输入标签信息
+                    instance.Symbol.LookupParameter("位置编码").Set(LocCode);
+                    instance.LookupParameter("层高编码").Set(LevelCode);
+                    instance.Symbol.LookupParameter("性质编码").Set(FlowCode);
+                    instance.LookupParameter("本层编号").Set(SignNum);
+                    int.TryParse(SignNum, out int parsed);
+                    SignNum = (parsed + 1).ToString("D3");
+                    tx.Commit();
+                }
+            });
+        }
+        private void PlaceSign(FamilySymbol symbol)
+        {
+            if (!symbol.IsActive)
+                symbol.Activate();
+            XYZ pt;
+            try
+            {
+                pt = uiDoc.Selection.PickPoint("请点选放置位置");
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            Level level = Document.GetElement(ActiveView.GenLevel.Id) as Level;
+            _externalHandler.Run(app =>
+            {
+                using (Transaction tx = new Transaction(Document, "放置标识实例"))
+                {
+                    tx.Start();
+                    FamilyInstance instance = Document.Create.NewFamilyInstance(pt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                    Reference refElem = new Reference(instance);
+                    IndependentTag tag = IndependentTag.Create(Document, annoSignFamily.GetTypeId(), ActiveView.Id, refElem, false, TagOrientation.Horizontal, pt);
+
+                    //牌面数量，输入牌面信息
+                    if (SignRows > 3) return;
+                    switch (SignRows)
+                    {
+                        case 2:
+                            //instance.LookupParameter("推荐数量").Set(SignRows);
+                            instance.LookupParameter("推荐数量 1块").Set(1);
+                            instance.LookupParameter("推荐数量 2块").Set(1);
+                            instance.LookupParameter("推荐数量 3块").Set(0);
+                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+                            break;
+                        case 1:
+                            //instance.LookupParameter("推荐数量").Set(SignRows);
+                            instance.LookupParameter("推荐数量 1块").Set(1);
+                            instance.LookupParameter("推荐数量 2块").Set(0);
+                            instance.LookupParameter("推荐数量 3块").Set(0);
+                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                            break;
+                        default:
+                            //instance.LookupParameter("推荐数量").Set(SignRows);
+                            instance.LookupParameter("推荐数量 1块").Set(1);
+                            instance.LookupParameter("推荐数量 2块").Set(1);
+                            instance.LookupParameter("推荐数量 3块").Set(1);
+                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                            //instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+                            //instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+                            instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
+                            //instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
+                            break;
+                    }
+                    //输入几何信息
+                    instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
+                    instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
+                    instance.LookupParameter("悬挂标高").Set(AttachSignHeight / 304.8);
+                    //旋转
+                    if (SignAngle != 0)
+                    {
+                        // 1. 构造旋转轴：过插入点、沿 Z 轴
+                        XYZ axisOrigin = pt;
+                        XYZ axisDir = XYZ.BasisZ;
+                        Line axis = Line.CreateBound(axisOrigin, axisOrigin + axisDir);
+                        double angleRad = SignAngle * Math.PI / 180.0;
+                        instance.Location.Rotate(axis, angleRad);
+                    }
+                    if (SignAngle == 90 || SignAngle == 270)
+                    {
+                        tag.TagOrientation = TagOrientation.Vertical;
+                    }
+                    //输入标签信息
+                    instance.Symbol.LookupParameter("位置编码").Set(LocCode);
+                    instance.LookupParameter("层高编码").Set(LevelCode);
+                    instance.Symbol.LookupParameter("性质编码").Set(FlowCode);
+                    instance.LookupParameter("本层编号").Set(SignNum);
+                    int.TryParse(SignNum, out int parsed);
+                    SignNum = (parsed + 1).ToString("D3");
+                    tx.Commit();
+                }
+            });
+        }
+        public FamilySymbol selectFlowSymbol = null;
+        public FamilySymbol selectCustomSymbol = null;
+        public FamilySymbol selectNonFlowSymbol = null;
+
+        public ICommand ChangeViewScaleCommand => new RelayCommand<string>(ChangeViewScale);
+        private void ChangeViewScale(string obj)
+        {
+            int.TryParse(obj, out int parsed);
+            _externalHandler.Run(app =>
+            {
+                using (Transaction tx = new Transaction(Document, "改视图比例"))
+                {
+                    tx.Start();
+                    if (ActiveView.Scale != parsed)
+                    {
+                        ActiveView.Scale = parsed;
+                    }
+                    tx.Commit();
+                }
+            });
+        }
+        public bool canPlaceSign { get; set; } = true;
+        private string GetlocCode()
+        {
+            try
+            {
+                // 使用更简洁的查询方式
+                var guidanceSign = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>()
+                    .FirstOrDefault(s => s.Name?.StartsWith("标记_标识") == true);
+                if (guidanceSign == null)
+                    return "未找到标识标记";
+                // 获取被标记的元素
+                FamilyInstance familyInstance = (FamilyInstance)Document.GetElement(guidanceSign.TaggedLocalElementId);
+                // 安全获取参数值
+                Parameter locParam = familyInstance.Symbol?.LookupParameter("位置编码");
+                if (locParam == null || !locParam.HasValue)
+                    return "未找到位置编码参数";
+                string locTag = locParam.AsString();
+                return string.IsNullOrEmpty(locTag) ? "位置编码为空" : locTag;
+            }
+            catch (Exception ex)
+            {
+                return $"获取位置编码失败: {ex.Message}";
+            }
+        }
+        private string locCode;
+        public string LocCode
+        {
+            get => locCode;
+            set { locCode = value; OnPropertyChanged(); UpdateSignNum(); }
+        }
+        public string levelCode;
+        public string LevelCode
+        {
+            get => levelCode;
+            set { levelCode = value; OnPropertyChanged(); UpdateSignNum(); }
+        }
+        private string flowCode = "D";
+        public string FlowCode
+        {
+            get => flowCode;
+            set
+            {
+                flowCode = value;
+                OnPropertyChanged();              // 通知 FlowCode 变化
+                OnPropertyChanged(nameof(previewCode)); // 同时通知依赖它的属性
+                UpdateSignNum();
+            }
+        }
+        private string _selectedFlow = "D(流程信息)";
+        public string SelectedFlow
+        {
+            get => _selectedFlow;
+            set
+            {
+                _selectedFlow = value;
+                OnPropertyChanged();
+                HandleFlowChange(value);
+            }
+        }
+        private void HandleFlowChange(string flow)
+        {
+            switch (flow)
+            {
+                case "D(流程信息)":
+                    FlowCode = "D";
+                    break;
+                case "H(海关)":
+                    FlowCode = "H";
+                    break;
+                case "S(非流程信息)":
+                    FlowCode = "S";
+                    break;
+                default:
+                    // 未匹配
+                    break;
+            }
+        }
+        private string _signNum = "001";
+        public string SignNum
+        {
+            get => _signNum;
+            private set
+            {
+                if (_signNum == value) return;
+                _signNum = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(previewCode));
+            }
+        }
+        private void UpdateSignNum()
+        {
+            if (string.IsNullOrWhiteSpace(LocCode) || string.IsNullOrWhiteSpace(LevelCode) || string.IsNullOrWhiteSpace(FlowCode))
+            {
+                SignNum = "001";
+                return;
+            }
+            string key = $"{LocCode}|{LevelCode}|{FlowCode}";
+
+            int exist = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>()
+                .Count(tag =>
+                {
+                    var fi = Document.GetElement(tag.TaggedLocalElementId) as FamilyInstance;
+                    if (fi == null) return false;
+
+                    string loc = fi.Symbol.LookupParameter("位置编码")?.AsString() ?? "";
+                    string lvl = fi.LookupParameter("层高编码")?.AsString() ?? "";
+                    string type = fi.Symbol.LookupParameter("性质编码")?.AsString() ?? "";
+                    return loc == LocCode && lvl == LevelCode && type == FlowCode;
+                });
+            SignNum = (exist + 1).ToString("D3");
+            OnPropertyChanged(nameof(SignNum));
+        }
+        public string previewCode => $"编码预览：{LocCode}{LevelCode}-{FlowCode}-{SignNum}";
         public ICommand SplitContentCommand => new RelayCommand<string>(SplitContent);
         private void SplitContent(string obj)
         {
@@ -74,8 +574,8 @@ namespace CreatePipe.Form
                 BackSignSecond = "-";
                 BackSignThird = "-";
             }
-                // 确定行数（取正反面中较大的数量）
-                SignRows = Math.Max(frontCount, backCount);
+            // 确定行数（取正反面中较大的数量）
+            SignRows = Math.Max(frontCount, backCount);
             //TaskDialog.Show("tt", SignRows.ToString());
         }
         private string RemovePrefix(string input)
@@ -108,11 +608,7 @@ namespace CreatePipe.Form
             stringBuilder.AppendLine("4.输入字符串中不得包含半角逗号 ,");
             TaskDialog.Show("tt", stringBuilder.ToString());
         }
-        public ICommand TestCommand => new RelayCommand<int>(test);
-        private void test(int obj)
-        {
-            TaskDialog.Show("tt", obj.ToString());
-        }
+
         private bool _hasError = true;   // 初始置 true，空内容即报错
         public bool HasError
         {
@@ -121,7 +617,8 @@ namespace CreatePipe.Form
         }
         // 供按钮 IsEnabled 绑定
         public bool isContentValidate => !HasError;
-        public int AlignSignHeight { get; set; } = 2800;
+        public int PillarSignHeight { get; set; } = 2800;
+        public int AttachSignHeight { get; set; } = 2800;
         public int HangSignHeight { get; set; } = 3400;
         public int SignLength { get; set; } = 3000;
         public int SignWidth { get; set; } = 350;

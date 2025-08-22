@@ -70,7 +70,7 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="序列码" Width="45" SortMemberPath="serialCode" 
   Binding="{Binding serialCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="安装码" Width="45" SortMemberPath="installCode" 
+                    <DataGridTextColumn Header="安装 " Width="45" SortMemberPath="installCode" 
   Binding="{Binding installCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="实体内容"

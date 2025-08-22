@@ -70,6 +70,19 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            //0822 改视图比例
+            //TaskDialog.Show("tt", activeView.Scale.ToString());
+            //using (Transaction tx = new Transaction(doc, "改视图比例"))
+            //{
+            //    tx.Start();
+            //    if (activeView.Scale != 200)
+            //    {
+            //        activeView.Scale = 300;
+            //    }
+            //    tx.Commit();
+            //}
+            //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
+            //evacRouteManagerView.Show();
             ////0818 字符串分割测试。先检测空字符串，非法字符（半角逗号，多个分割），限制长度
             ////切分正反字符串，移除前标
             ////根据标点检测是否符合数量，统计牌面数
@@ -101,7 +114,6 @@ namespace CreatePipe
 
             //GuidanceSignManagerView guidanceSignManagerView = new GuidanceSignManagerView(uiApp);
             //guidanceSignManagerView.Show();
-
             //0815 布置功能原型
             GuidanceSignPlaceView placeView = new GuidanceSignPlaceView(uiApp);
             placeView.Show();

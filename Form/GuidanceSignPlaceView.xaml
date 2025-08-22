@@ -6,7 +6,8 @@
         xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
         Title="GuidanaceSignPlaceView" 
-        Height="640" Width="240" ResizeMode="NoResize" Topmost="True"
+        Height="700" Width="240" ResizeMode="NoResize" Topmost="True"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:vr="clr-namespace:CreatePipe.Form.ValidationRule">
     <Window.Resources>
         <Style x:Key="HintErrorTextBoxStyle" TargetType="TextBox">
@@ -50,7 +51,7 @@
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
-            </Setter>            
+            </Setter>
         </Style>
         <!-- 按钮样式 -->
         <Style x:Key="TransparentHoverButtonStyle" TargetType="{x:Type Button}">
@@ -72,11 +73,27 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="ScaleToggleButtonStyle"
+      TargetType="ToggleButton"
+      BasedOn="{StaticResource {x:Type ToggleButton}}">
+            <!-- 默认外观 -->
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="Gray"/>
+            <Setter Property="BorderBrush" Value="#FFCCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4"/>
+            <!-- 选中外观 -->
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Foreground" Value="Black"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
     <Grid Margin="5">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="95"/>
+            <RowDefinition Height="155"/>
         </Grid.RowDefinitions>
         <StackPanel >
             <StackPanel Orientation="Horizontal" Margin="5">
@@ -99,7 +116,7 @@
                             </Style.Triggers>
                         </Style>
                     </TextBox.Style>
-                    <TextBox.Text>    
+                    <TextBox.Text>
                         <Binding Path="ContentText" UpdateSourceTrigger="PropertyChanged">
                             <Binding.ValidationRules>
                                 <vr:GuidanceContentValidationRule />
@@ -120,7 +137,7 @@
                             Command="{Binding SplitContentCommand}"
                             CommandParameter="{Binding ContentText}"
                             IsEnabled="{Binding isContentValidate}"/>
-                </Grid> 
+                </Grid>
                 <!--<Button Width="60" Content="内容检测" Margin="5,0"/>-->
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
@@ -169,23 +186,25 @@
                 <TextBlock Width="88" Text="牌面布置角度"  VerticalAlignment="Center"/>
                 <local:RangeComboBox x:Name="SignAngle" Width="115" VerticalAlignment="Center"
                                Minimum="0" Maximum="360"  Step="45"
-                               SelectedValue="{Binding SignWidth, Mode=TwoWay}" />
+                               SelectedValue="{Binding SignAngle, Mode=TwoWay}" />
             </StackPanel>
-            <TextBlock Text="CF1-D-001" HorizontalAlignment="Center" Margin="5"/>
+            <TextBlock Text="{Binding previewCode}"
+                       HorizontalAlignment="Center" Margin="5"/>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
                 <TextBlock Width="88" Text="位置编码"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="C" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                <TextBox Width="115" Text="{Binding LocCode}" HorizontalAlignment="Right" VerticalAlignment="Center" 
                          IsReadOnly="True" Background="LightGray"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
                 <TextBlock Width="88" Text="层高编码"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="F1" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                <TextBox Width="115" Text="{Binding LevelCode}" HorizontalAlignment="Right" VerticalAlignment="Center" 
                          IsReadOnly="True" Background="LightGray"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
                 <TextBlock Width="88" Text="性质编码"  VerticalAlignment="Center"/>
-                <ComboBox Width="115" xmlns:sys="clr-namespace:System;assembly=mscorlib" 
-                          SelectedIndex="0" VerticalAlignment="Center">
+                <ComboBox Width="115"  
+                          SelectedIndex="0" VerticalAlignment="Center"
+                          SelectedItem="{Binding SelectedFlow, Mode=TwoWay}">
                     <ComboBox.ItemsSource>
                         <x:Array Type="sys:String">
                             <sys:String>D(流程信息)</sys:String>
@@ -197,49 +216,87 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
                 <TextBlock Width="88" Text="本层编号"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="001" HorizontalAlignment="Right" VerticalAlignment="Center" 
+                <TextBox Width="115" Text="{Binding SignNum,Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"                          
+                         HorizontalAlignment="Right" VerticalAlignment="Center" 
                          IsReadOnly="False" />
             </StackPanel>
         </StackPanel>
-        <TabControl  Grid.Row="1" Margin="5">
-            <TabItem Header="吊挂标识">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal" Height="35" >
-                        <TextBlock Width="88" Text="首行标志顶标高" Margin="5" VerticalAlignment="Center"/>
-                        <local:RangeComboBox x:Name="HangSignHeight" Width="95" VerticalAlignment="Center"
+        <StackPanel Grid.Row="1">
+            <TabControl  Margin="5">
+                <TabItem Header="吊挂标识">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Height="35" >
+                            <TextBlock Width="88" Text="首行标志顶标高" Margin="5" VerticalAlignment="Center"/>
+                            <local:RangeComboBox x:Name="HangSignHeight" Width="95" VerticalAlignment="Center"
                                Minimum="3000" Maximum="4000"  Step="200"
                                SelectedValue="{Binding HangSignHeight, Mode=TwoWay}" />
+                        </StackPanel>
+                        <Button  Content="放置" Height="20" Margin="5,0,5,5"
+                             Command="{Binding execPlacementCommand}" CommandParameter="{Binding SelectedValue, ElementName=HangSignHeight}"
+                     HorizontalAlignment="Stretch"  
+                                  IsEnabled="{Binding canPlaceSign}"/>
                     </StackPanel>
-                    <Button  Content="放置" Height="20" Margin="5,0,5,5"
-                             Command="{Binding TestCommand}" CommandParameter="{Binding SelectedValue, ElementName=RangeBox}"
-                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="附着标识">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal" Height="35" >
-                        <TextBlock Width="88" Text="首行标志底标高" Margin="5" VerticalAlignment="Center"/>
-                        <local:RangeComboBox x:Name="AlignSignHeight" Width="95" VerticalAlignment="Center"
+                </TabItem>
+                <TabItem Header="附着标识">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Height="35" >
+                            <TextBlock Width="88" Text="首行标志底标高" Margin="5" VerticalAlignment="Center"/>
+                            <local:RangeComboBox x:Name="AttachSignHeight" Width="95" VerticalAlignment="Center"
                                Minimum="2400" Maximum="3600"  Step="200"
-                               SelectedValue="{Binding AlignSignHeight, Mode=TwoWay}" />
+                               SelectedValue="{Binding AttachSignHeight, Mode=TwoWay}" />
+                        </StackPanel>
+                        <Button  Content="放置" Height="20" Margin="5,0,5,5"
+                             Command="{Binding execAttachSignCommand}" CommandParameter="{Binding SelectedValue, ElementName=AttachSignHeight}"
+                     HorizontalAlignment="Stretch" 
+                                  IsEnabled="{Binding canPlaceSign}"/>
                     </StackPanel>
-                    <Button  Content="放置" Height="20" Margin="5,0,5,5"
-                             Command="{Binding TestCommand}" CommandParameter="{Binding SelectedValue, ElementName=RangeBox}"
-                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="立柱标识">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal" Height="35" >
-                        <TextBlock Width="88" Text="立柱顶高" Margin="5" VerticalAlignment="Center"/>
-                        <TextBox Width="95" Text="2700" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                 IsReadOnly="True" Background="LightGray"/>
+                </TabItem>
+                <TabItem Header="立柱标识">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Height="35" >
+                            <TextBlock Width="88" Text="立柱顶高" Margin="5" VerticalAlignment="Center"/>
+                            <TextBox Width="95" Text="{Binding PillarSignHeight}" 
+                                 x:Name="tb_Pillar"
+                                 HorizontalAlignment="Right" VerticalAlignment="Center"
+                                 IsReadOnly="False" Background="LightGray"/>
+                        </StackPanel>
+                        <Button  Content="放置" Height="20" Margin="5,0,5,5"
+                                 Command="{Binding execPlacementCommand}" CommandParameter="{Binding Text, ElementName=tb_Pillar}"
+                     HorizontalAlignment="Stretch" 
+                                 IsEnabled="{Binding canPlaceSign}"/>
                     </StackPanel>
-                    <Button  Content="放置" Height="20" Margin="5,0,5,5"
-                                 Command="{Binding TestCommand}" CommandParameter="{Binding SelectedValue, ElementName=RangeBox}"
-                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
-                </StackPanel>
-            </TabItem>
-        </TabControl>
+                </TabItem>
+            </TabControl>
+            <GroupBox  Header="视图比例"  Margin="4" >
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <RadioButton Content="200"
+                      Style="{StaticResource ScaleToggleButtonStyle}"
+                      GroupName="ScaleGroup"
+                      Command="{Binding ChangeViewScaleCommand}"
+                      CommandParameter="200"/>
+                    <RadioButton Grid.Column="1" Content="300"
+                      Style="{StaticResource ScaleToggleButtonStyle}"
+                      GroupName="ScaleGroup"
+                      Command="{Binding ChangeViewScaleCommand}"
+                      CommandParameter="300"/>
+                    <RadioButton Grid.Column="2" Content="400"
+                      Style="{StaticResource ScaleToggleButtonStyle}"
+                      GroupName="ScaleGroup"
+                      Command="{Binding ChangeViewScaleCommand}"
+                      CommandParameter="400"/>
+                    <RadioButton Grid.Column="3" Content="500"
+                      Style="{StaticResource ScaleToggleButtonStyle}"
+                      GroupName="ScaleGroup"
+                      Command="{Binding ChangeViewScaleCommand}"
+                      CommandParameter="500"/>
+                </Grid>
+            </GroupBox>
+        </StackPanel>
     </Grid>
 </Window>

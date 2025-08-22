@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.DB;
 using CreatePipe.cmd;
 using CreatePipe.Utils;
+using System.Linq;
 
 namespace CreatePipe.models
 {
@@ -18,17 +19,20 @@ namespace CreatePipe.models
             FamilyInstance entity = Document.GetElement(entityId) as FamilyInstance;
             entityName = entity.Name;
             entityLevelName = Document.GetElement(entity.LevelId).Name;
-            entityContent= entity.LookupParameter("标识内容").AsString(); 
+            entityContent = entity.LookupParameter("标识内容").AsString();
 
             locationCode = entity.Symbol.LookupParameter("位置编码").AsString();
             levelCode = entity.LookupParameter("层高编码").AsString();
             typeCode = entity.Symbol.LookupParameter("性质编码").AsString();
             serialCode = entity.LookupParameter("本层编号").AsString();
-            installCode = entity.LookupParameter("悬挂方式编码").AsString();
+            //installCode = entity.LookupParameter("悬挂方式").AsString();
+            string fullName = entity.Symbol.Family.Name;
+            installCode = fullName.Length <= 3 
+                ? fullName : new string(fullName.Skip(fullName.Length - 3).Take(3).ToArray());
 
             //tagName = tag.TagText;
             //直接取值不可靠，最好通过字符串组合
-            tagName = locationCode+levelCode+"-"+typeCode+"-"+serialCode;
+            tagName = locationCode + levelCode + "-" + typeCode + "-" + serialCode;
         }
 
         public ElementId entityId { get; set; }
