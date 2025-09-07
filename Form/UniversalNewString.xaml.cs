@@ -11,10 +11,10 @@ namespace CreatePipe.Form
     public partial class UniversalNewString : Window
     {
         public NewStringViewModel ViewModel => (NewStringViewModel)DataContext;
-        public UniversalNewString(string prompt)
+        public UniversalNewString(string prompt, string optionalText = "")
         {
             InitializeComponent();
-            DataContext = new NewStringViewModel(prompt);
+            DataContext = new NewStringViewModel(prompt, optionalText);
         }
         private void Button_Click(object sender, RoutedEventArgs e)
         {
@@ -42,8 +42,9 @@ namespace CreatePipe.Form
         }
         public string DisplayText { get; set; } = "提示：其它属性请建立后自行更改";
         public bool IsValid = true;
-        public NewStringViewModel(string prompt)
+        public NewStringViewModel(string prompt, string optionalText = "")
         {
+            NewName = optionalText;
             DisplayText = prompt;
         }
     }

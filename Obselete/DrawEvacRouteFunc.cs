@@ -1,13 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.Form;
-using CreatePipe.Utils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace CreatePipe
+﻿namespace CreatePipe
 {
     //[Transaction(TransactionMode.Manual)]
     //public class DrawEvacRouteFunc : IExternalCommand

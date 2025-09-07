@@ -1,15 +1,11 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
-using CreatePipe.models;
 using CreatePipe.Utils;
 using System;
-using System.Drawing;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 
 
@@ -88,7 +84,7 @@ namespace CreatePipe.Form
         public ICommand execPlacementCommand => new RelayCommand<object>(execPlacement);
         private void execPlacement(object parameter)
         {
-            if (ContentText == null)
+            if (string.IsNullOrEmpty(ContentText))
             {
                 TaskDialog.Show("tt", "标识输入内容为空，请重新输入");
                 return;
@@ -98,315 +94,175 @@ namespace CreatePipe.Form
                 TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
                 return;
             }
-            //处理吊挂
-            if (parameter is int intVal)
+            bool isHang = false;
+            bool isDouble = false;
+            Family baseFamily = null;
+            if (parameter is int)
             {
-                if (HangSignFamily == null || annoSignFamily == null)
-                {
-                    TaskDialog.Show("tt", "未找到指定的标识族");
-                    return;
-                }
-                var symbolIds = HangSignFamily.GetFamilySymbolIds();
-                foreach (var item in symbolIds)
-                {
-                    FamilySymbol symbol = Document.GetElement(item) as FamilySymbol;
-                    if (symbol.Name.Contains("非流程"))
-                    {
-                        selectNonFlowSymbol = symbol;
-                    }
-                    else if (symbol.Name.Contains("海关"))
-                    {
-                        selectCustomSymbol = symbol;
-                    }
-                    else selectFlowSymbol = symbol;
-                }
-                switch (FlowCode)
-                {
-                    case "D":
-                        PlaceDoubleSign(selectFlowSymbol, true);
-                        break;
-                    case "H":
-                        PlaceDoubleSign(selectCustomSymbol, true);
-                        break;
-                    case "S":
-                        PlaceDoubleSign(selectNonFlowSymbol, true);
-                        break;
-                    default:
-                        TaskDialog.Show("tt", "No PASS");
-                        break;
-                }
+                baseFamily = HangSignFamily;
+                isHang = true;
+                isDouble = true;
             }
-            //处理立柱形式
-            if (parameter is string str && int.TryParse(str, out int parsed))
+            else if (parameter is string && int.TryParse(parameter.ToString(), out _))
             {
-                if (PillarSignFamily == null || annoSignFamily == null)
-                {
-                    TaskDialog.Show("tt", "未找到指定的标识族");
-                    return;
-                }
-                var symbolIds = PillarSignFamily.GetFamilySymbolIds();
-                foreach (var item in symbolIds)
-                {
-                    FamilySymbol symbol = Document.GetElement(item) as FamilySymbol;
-                    if (symbol.Name.Contains("非流程"))
-                    {
-                        selectNonFlowSymbol = symbol;
-                    }
-                    else if (symbol.Name.Contains("海关"))
-                    {
-                        selectCustomSymbol = symbol;
-                    }
-                    else selectFlowSymbol = symbol;
-                }
-                switch (FlowCode)
-                {
-                    case "D":
-                        PlaceDoubleSign(selectFlowSymbol, false);
-                        break;
-                    case "H":
-                        PlaceDoubleSign(selectCustomSymbol, false);
-                        break;
-                    case "S":
-                        PlaceDoubleSign(selectNonFlowSymbol, false);
-                        break;
-                    default:
-                        TaskDialog.Show("tt", "No PASS");
-                        break;
-                }
+                baseFamily = PillarSignFamily;
+                isHang = false;
+                isDouble = true;
             }
             else
             {
-                //TaskDialog.Show("tt", "输入值有误，请检查并重新布置。");
                 return;
             }
-        }
-        public ICommand execAttachSignCommand => new RelayCommand<int>(execAttachSign);
-        private void execAttachSign(int obj)
-        {
-            if (ContentText == null)
-            {
-                TaskDialog.Show("tt", "标识输入内容为空，请重新输入");
-                return;
-            }
-            if (ActiveView.ViewType != ViewType.FloorPlan)
-            {
-                TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
-                return;
-            }
-            else if (AttachSignFamily == null || annoSignFamily == null)
+            if (baseFamily == null || annoSignFamily == null)
             {
                 TaskDialog.Show("tt", "未找到指定的标识族");
                 return;
             }
-            var symbolIds = AttachSignFamily.GetFamilySymbolIds();
-            foreach (var item in symbolIds)
+            LoadSymbols(baseFamily);
+            var symbol = GetSymbolByFlowCode();
+            if (symbol == null)
             {
-                FamilySymbol symbol = Document.GetElement(item) as FamilySymbol;
-                if (symbol.Name.Contains("非流程"))
-                {
-                    selectNonFlowSymbol = symbol;
-                }
-                else if (symbol.Name.Contains("海关"))
-                {
-                    selectCustomSymbol = symbol;
-                }
-                else selectFlowSymbol = symbol;
-            }
-            switch (FlowCode)
-            {
-                case "D":
-                    PlaceSign(selectFlowSymbol);
-                    break;
-                case "H":
-                    PlaceSign(selectCustomSymbol);
-                    break;
-                case "S":
-                    PlaceSign(selectNonFlowSymbol);
-                    break;
-                default:
-                    TaskDialog.Show("tt", "No PASS");
-                    break;
-            }
-        }
-        private void PlaceDoubleSign(FamilySymbol symbol, bool isHang)
-        {
-            if (!symbol.IsActive)
-                symbol.Activate();
-            XYZ pt;
-            try
-            {
-                pt = uiDoc.Selection.PickPoint("请点选放置位置");
-            }
-            catch (OperationCanceledException)
-            {
+                TaskDialog.Show("tt", "No PASS");
                 return;
             }
-            Level level = Document.GetElement(ActiveView.GenLevel.Id) as Level;
-            _externalHandler.Run(app =>
-            {
-                using (Transaction tx = new Transaction(Document, "放置标识实例"))
-                {
-                    tx.Start();
-                    FamilyInstance instance = Document.Create.NewFamilyInstance(pt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-                    Reference refElem = new Reference(instance);
-                    IndependentTag tag = IndependentTag.Create(Document, annoSignFamily.GetTypeId(), ActiveView.Id, refElem, false, TagOrientation.Horizontal, pt);
-
-                    //牌面数量，输入牌面信息
-                    if (SignRows > 3) return;
-                    switch (SignRows)
-                    {
-                        case 2:
-                            //instance.LookupParameter("推荐数量").Set(SignRows);
-                            instance.LookupParameter("推荐数量 1块").Set(1);
-                            instance.LookupParameter("推荐数量 2块").Set(1);
-                            instance.LookupParameter("推荐数量 3块").Set(0);
-                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                            instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
-                            instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
-                            break;
-                        case 1:
-                            //instance.LookupParameter("推荐数量").Set(SignRows);
-                            instance.LookupParameter("推荐数量 1块").Set(1);
-                            instance.LookupParameter("推荐数量 2块").Set(0);
-                            instance.LookupParameter("推荐数量 3块").Set(0);
-                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                            instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                            break;
-                        default:
-                            //instance.LookupParameter("推荐数量").Set(SignRows);
-                            instance.LookupParameter("推荐数量 1块").Set(1);
-                            instance.LookupParameter("推荐数量 2块").Set(1);
-                            instance.LookupParameter("推荐数量 3块").Set(1);
-                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                            instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
-                            instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
-                            instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
-                            instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
-                            break;
-                    }
-                    //输入几何信息
-                    instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
-                    instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
-                    if (isHang)
-                    {
-                        instance.Symbol.LookupParameter("标识高度").Set(HangSignHeight / 304.8);
-                    }
-                    else { }
-                    //旋转
-                    if (SignAngle != 0)
-                    {
-                        // 1. 构造旋转轴：过插入点、沿 Z 轴
-                        XYZ axisOrigin = pt;
-                        XYZ axisDir = XYZ.BasisZ;
-                        Line axis = Line.CreateBound(axisOrigin, axisOrigin + axisDir);
-                        double angleRad = SignAngle * Math.PI / 180.0;
-                        instance.Location.Rotate(axis, angleRad);
-                    }
-                    if (SignAngle == 90 || SignAngle == 270)
-                    {
-                        tag.TagOrientation = TagOrientation.Vertical;
-                    }
-                    //输入标签信息
-                    instance.Symbol.LookupParameter("位置编码").Set(LocCode);
-                    instance.LookupParameter("层高编码").Set(LevelCode);
-                    instance.Symbol.LookupParameter("性质编码").Set(FlowCode);
-                    instance.LookupParameter("本层编号").Set(SignNum);
-                    int.TryParse(SignNum, out int parsed);
-                    SignNum = (parsed + 1).ToString("D3");
-                    tx.Commit();
-                }
-            });
+            PlaceSignCommon(symbol, isDouble, isHang);
         }
-        private void PlaceSign(FamilySymbol symbol)
+        public ICommand execAttachSignCommand => new RelayCommand<int>(execAttachSign);
+        private void execAttachSign(int obj)
         {
-            if (!symbol.IsActive)
-                symbol.Activate();
-            XYZ pt;
-            try
+            if (string.IsNullOrEmpty(ContentText))
             {
-                pt = uiDoc.Selection.PickPoint("请点选放置位置");
-            }
-            catch (OperationCanceledException)
-            {
+                TaskDialog.Show("tt", "标识输入内容为空，请重新输入");
                 return;
             }
-            Level level = Document.GetElement(ActiveView.GenLevel.Id) as Level;
-            _externalHandler.Run(app =>
+            if (ActiveView.ViewType != ViewType.FloorPlan)
             {
-                using (Transaction tx = new Transaction(Document, "放置标识实例"))
-                {
-                    tx.Start();
-                    FamilyInstance instance = Document.Create.NewFamilyInstance(pt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-                    Reference refElem = new Reference(instance);
-                    IndependentTag tag = IndependentTag.Create(Document, annoSignFamily.GetTypeId(), ActiveView.Id, refElem, false, TagOrientation.Horizontal, pt);
-
-                    //牌面数量，输入牌面信息
-                    if (SignRows > 3) return;
-                    switch (SignRows)
-                    {
-                        case 2:
-                            //instance.LookupParameter("推荐数量").Set(SignRows);
-                            instance.LookupParameter("推荐数量 1块").Set(1);
-                            instance.LookupParameter("推荐数量 2块").Set(1);
-                            instance.LookupParameter("推荐数量 3块").Set(0);
-                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
-                            break;
-                        case 1:
-                            //instance.LookupParameter("推荐数量").Set(SignRows);
-                            instance.LookupParameter("推荐数量 1块").Set(1);
-                            instance.LookupParameter("推荐数量 2块").Set(0);
-                            instance.LookupParameter("推荐数量 3块").Set(0);
-                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                            break;
-                        default:
-                            //instance.LookupParameter("推荐数量").Set(SignRows);
-                            instance.LookupParameter("推荐数量 1块").Set(1);
-                            instance.LookupParameter("推荐数量 2块").Set(1);
-                            instance.LookupParameter("推荐数量 3块").Set(1);
-                            instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                            //instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
-                            //instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
-                            instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
-                            //instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
-                            break;
-                    }
-                    //输入几何信息
-                    instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
-                    instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
-                    instance.LookupParameter("悬挂标高").Set(AttachSignHeight / 304.8);
-                    //旋转
-                    if (SignAngle != 0)
-                    {
-                        // 1. 构造旋转轴：过插入点、沿 Z 轴
-                        XYZ axisOrigin = pt;
-                        XYZ axisDir = XYZ.BasisZ;
-                        Line axis = Line.CreateBound(axisOrigin, axisOrigin + axisDir);
-                        double angleRad = SignAngle * Math.PI / 180.0;
-                        instance.Location.Rotate(axis, angleRad);
-                    }
-                    if (SignAngle == 90 || SignAngle == 270)
-                    {
-                        tag.TagOrientation = TagOrientation.Vertical;
-                    }
-                    //输入标签信息
-                    instance.Symbol.LookupParameter("位置编码").Set(LocCode);
-                    instance.LookupParameter("层高编码").Set(LevelCode);
-                    instance.Symbol.LookupParameter("性质编码").Set(FlowCode);
-                    instance.LookupParameter("本层编号").Set(SignNum);
-                    int.TryParse(SignNum, out int parsed);
-                    SignNum = (parsed + 1).ToString("D3");
-                    tx.Commit();
-                }
-            });
+                TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
+                return;
+            }
+            if (AttachSignFamily == null || annoSignFamily == null)
+            {
+                TaskDialog.Show("tt", "未找到指定的标识族");
+                return;
+            }
+            LoadSymbols(AttachSignFamily);
+            var symbol = GetSymbolByFlowCode();
+            if (symbol == null)
+            {
+                TaskDialog.Show("tt", "No PASS");
+                return;
+            }
+            PlaceSignCommon(symbol, false, false);
         }
         public FamilySymbol selectFlowSymbol = null;
         public FamilySymbol selectCustomSymbol = null;
         public FamilySymbol selectNonFlowSymbol = null;
+        private void LoadSymbols(Family family)
+        {
+            selectFlowSymbol = null;
+            selectCustomSymbol = null;
+            selectNonFlowSymbol = null;
+            foreach (var id in family.GetFamilySymbolIds())
+            {
+                var symbol = Document.GetElement(id) as FamilySymbol;
+                if (symbol.Name.Contains("非流程")) selectNonFlowSymbol = symbol;
+                else if (symbol.Name.Contains("海关")) selectCustomSymbol = symbol;
+                else selectFlowSymbol = symbol;
+            }
+        }
+        private FamilySymbol GetSymbolByFlowCode()
+        {
+            switch (FlowCode)
+            {
+                case "D":
+                    return selectFlowSymbol;
+                case "H":
+                    return selectCustomSymbol;
+                default:
+                    return selectNonFlowSymbol;
+            }
+        }
+        private void PlaceSignCommon(FamilySymbol symbol, bool isDouble, bool isHang)
+        {
+            if (!symbol.IsActive) symbol.Activate();
 
+            XYZ pt;
+            try { pt = uiDoc.Selection.PickPoint("请点选放置位置"); }
+            catch (OperationCanceledException) { return; }
+
+            var level = Document.GetElement(ActiveView.GenLevel.Id) as Level;
+            _externalHandler.Run(app =>
+            {
+                using (Transaction tx = new Transaction(Document, "放置标识实例"))
+                {
+                    tx.Start();
+                    var instance = Document.Create.NewFamilyInstance(pt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                    var tag = IndependentTag.Create(Document, annoSignFamily.GetTypeId(), ActiveView.Id, new Reference(instance), false, TagOrientation.Horizontal, pt);
+                    SetSignParameters(instance, isDouble, isHang);
+                    // 旋转
+                    if (SignAngle != 0)
+                    {
+                        var axis = Line.CreateBound(pt, pt + XYZ.BasisZ);
+                        instance.Location.Rotate(axis, SignAngle * Math.PI / 180.0);
+                    }
+                    if (SignAngle == 90 || SignAngle == 270)
+                        tag.TagOrientation = TagOrientation.Vertical;
+                    instance.Symbol.LookupParameter("位置编码").Set(LocCode);
+                    instance.LookupParameter("层高编码").Set(LevelCode);
+                    instance.Symbol.LookupParameter("性质编码").Set(FlowCode);
+                    instance.LookupParameter("本层编号").Set(SignNum);
+
+                    if (int.TryParse(SignNum, out int parsed))
+                        SignNum = (parsed + 1).ToString("D3");
+                    tx.Commit();
+                }
+            });
+        }
+        private void SetSignParameters(FamilyInstance instance, bool isDouble, bool isHang)
+        {
+            // 设置牌面数量和文字
+            if (SignRows > 3) return;
+            switch (SignRows)
+            {
+                case 1:
+                    instance.LookupParameter("推荐数量 1块").Set(1);
+                    instance.LookupParameter("推荐数量 2块").Set(0);
+                    instance.LookupParameter("推荐数量 3块").Set(0);
+                    instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                    if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                    break;
+                case 2:
+                    instance.LookupParameter("推荐数量 1块").Set(1);
+                    instance.LookupParameter("推荐数量 2块").Set(1);
+                    instance.LookupParameter("推荐数量 3块").Set(0);
+                    instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                    if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                    instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+                    if (isDouble) instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+                    break;
+                default:
+                    instance.LookupParameter("推荐数量 1块").Set(1);
+                    instance.LookupParameter("推荐数量 2块").Set(1);
+                    instance.LookupParameter("推荐数量 3块").Set(1);
+                    instance.LookupParameter("文字转换").Set(FrontSignFirst);
+                    if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+                    instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+                    if (isDouble) instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+                    instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
+                    if (isDouble) instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
+                    break;
+            }
+            // 设置几何
+            instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
+            instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
+            if (isHang)
+                instance.Symbol.LookupParameter("标识高度").Set(HangSignHeight / 304.8);
+            else if (instance.Symbol.Family.Name == "标志标识 - 附着式")
+            {
+                instance.LookupParameter("悬挂标高").Set(AttachSignHeight / 304.8);
+            }
+            //暂时没有考虑立柱式的高度设置，高度设置无效
+        }
         public ICommand ChangeViewScaleCommand => new RelayCommand<string>(ChangeViewScale);
         private void ChangeViewScale(string obj)
         {
@@ -429,7 +285,6 @@ namespace CreatePipe.Form
         {
             try
             {
-                // 使用更简洁的查询方式
                 var guidanceSign = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>()
                     .FirstOrDefault(s => s.Name?.StartsWith("标记_标识") == true);
                 if (guidanceSign == null)

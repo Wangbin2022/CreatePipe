@@ -81,7 +81,11 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="filter\StairsFilter.cs" />
     <Compile Include="Form\Behaviors\ValidationErrorToViewModelBehavior.cs" />
+    <Compile Include="Form\UniversalComboBoxMultiSelection.xaml.cs">
+      <DependentUpon>UniversalComboBoxMultiSelection.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Obselete\DrawEvacRouteFunc.cs" />
     <Compile Include="filter\AdaptiveFamilyFilter.cs" />
     <Compile Include="filter\filterMEPFitting.cs" />
@@ -449,6 +453,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\TableTemplateViewHorizon.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\UniversalComboBoxMultiSelection.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

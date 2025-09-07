@@ -115,7 +115,7 @@ namespace CreatePipe.models
         {
             return element.get_Geometry(new Options())?.OfType<Solid>().FirstOrDefault(s => s?.Volume > 0);
         }
-        private string entityMark {  get; set; }
+        private string entityMark { get; set; }
         public double MinimalDoorWidth { get; set; } = 0;
         public int IntersectWalls { get; set; } = 0;
         public int IntersectRooms { get; set; } = 0;

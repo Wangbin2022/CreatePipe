@@ -1,16 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
-using CreatePipe.Form;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-
-namespace CreatePipe
+﻿namespace CreatePipe
 {
     //[Transaction(TransactionMode.Manual)]
     //public class Test09_0617 : IExternalCommand

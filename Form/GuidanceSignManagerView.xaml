@@ -31,7 +31,7 @@
             </StackPanel>
         </Grid>
         <StackPanel  Grid.Row="1">
-            <DataGrid x:Name="dataGrid" RowHeight="30"  Margin="5"
+            <DataGrid x:Name="dataGrid" RowHeight="35"  Margin="5"
                    HorizontalAlignment="Stretch"
                    AutoGenerateColumns="False" CanUserAddRows="False"
                    SelectionUnit="FullRow" EnableColumnVirtualization="False"
@@ -47,8 +47,8 @@
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="名称" Width="90" SortMemberPath="tagName" 
-  Binding="{Binding tagName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    <DataGridTextColumn Header="名称" Width="90" SortMemberPath="TagName" 
+  Binding="{Binding TagName, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
@@ -58,7 +58,7 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="位置码" Width="45" SortMemberPath="locationCode" 
+                    <!--<DataGridTextColumn Header="位置码" Width="45" SortMemberPath="locationCode" 
   Binding="{Binding locationCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="层码" Width="35" SortMemberPath="levelCode" 
@@ -66,37 +66,64 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="性质码" Width="45" SortMemberPath="typeCode" 
   Binding="{Binding typeCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>-->
+                    <DataGridTextColumn Header="序列码" Width="45" SortMemberPath="SerialCode" 
+  Binding="{Binding SerialCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="序列码" Width="45" SortMemberPath="serialCode" 
-  Binding="{Binding serialCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    <DataGridTemplateColumn Header="重码" Width="45"
+                                       SortMemberPath="HasSameSerial" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" >
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Path= HasSameSerial}" Value="true">
+                                                    <Setter Property="Text"  Value="是">
+                                                    </Setter>
+                                                    <Setter Property="Foreground" Value="Red">
+                                                    </Setter>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Path= HasSameSerial}" Value="false">
+                                                    <Setter Property="Text"  Value="否">
+                                                    </Setter>
+                                                    <Setter Property="Foreground" Value="Green">
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="安装 " Width="45" SortMemberPath="InstallCode" 
+  Binding="{Binding InstallCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="安装 " Width="45" SortMemberPath="installCode" 
-  Binding="{Binding installCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    <DataGridTemplateColumn Header="实体内容" Width="220"
+                                            SortMemberPath="EntityContent">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding DataContext.EditContentCommand,
+                              RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                    CommandParameter="{Binding}"
+                    Height="auto"
+                    HorizontalAlignment="Stretch"
+                                        Background="Transparent">
+                                    <TextBlock Text="{Binding EntityContent,UpdateSourceTrigger=PropertyChanged}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Left"
+                           VerticalAlignment="Center"
+                           Padding="2"/>
+                                </Button>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="所在标高" Width="60" SortMemberPath="EntityLevelName" 
+  Binding="{Binding EntityLevelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="实体内容"
-                    Width="220"
-                    SortMemberPath="entityContent"
-                    Binding="{Binding entityContent,
-                                      Mode=TwoWay,
-                                      UpdateSourceTrigger=PropertyChanged}"
-                    IsReadOnly="False">
-                        <!-- 普通展示状态 -->
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextVerticalCenter}">
-                                <Setter Property="TextWrapping" Value="Wrap"/>
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                        <!-- 编辑状态 -->
-                        <DataGridTextColumn.EditingElementStyle>
-                            <Style TargetType="TextBox">
-                                <Setter Property="TextWrapping" Value="Wrap"/>
-                                <Setter Property="AcceptsReturn" Value="True"/>
-                                <!-- 按需限制高度 -->
-                            </Style>
-                        </DataGridTextColumn.EditingElementStyle>
-                    </DataGridTextColumn>
-                    <DataGridTextColumn Header="实体标高" Width="60" SortMemberPath="entityLevelName" 
-  Binding="{Binding entityLevelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    <DataGridTextColumn Header="长度" Width="45" SortMemberPath="EntityLength" 
+  Binding="{Binding EntityLength, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                 </DataGrid.Columns>
             </DataGrid>

@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace CreatePipe.Form
@@ -40,14 +41,17 @@ namespace CreatePipe.Form
             Document = uiApp.ActiveUIDocument.Document;
             uIDoc = uiApp.ActiveUIDocument;
             ActiveView = Document.ActiveView;
-            rooms = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Rooms).Cast<Room>()
-                .Where(room => room.Area > 0).ToList();
-            if (rooms.Count() == 0)
-            {
-                TaskDialog.Show("tt", "当前模型中没有找到房间");
-                return;
-            }
-            QueryELement(null);
+            //rooms = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Rooms).Cast<Room>()
+            //    .Where(room => room.Area > 0).ToList();
+            //if (rooms.Count() == 0)
+            //{
+            //    TaskDialog.Show("tt", "当前模型中没有找到房间");
+            //    return;
+            //}
+            rooms = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Rooms)
+                .WhereElementIsNotElementType().Cast<Room>().ToList();
+            PrecacheRoomData(Document);
+            QueryELement(string.Empty);
         }
 
         public ICommand PlaceRoomNameCommand => new RelayCommand<RoomSingleEntity>(PlaceRoomName);
@@ -102,13 +106,75 @@ namespace CreatePipe.Form
         private void QueryELement(string obj)
         {
             AllRooms.Clear();
-            List<RoomSingleEntity> vte = rooms.Select(v => new RoomSingleEntity(v))
-                .Where(e => string.IsNullOrEmpty(obj) || e.roomName.Contains(obj) || e.roomName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0 || e.roomNumber.Contains(obj)).ToList();
-            foreach (var item in vte)
+            //List<RoomSingleEntity> vte = rooms.Select(v => new RoomSingleEntity(v))
+            //    .Where(e => string.IsNullOrEmpty(obj) || e.roomName.Contains(obj) || e.roomName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0 || e.roomNumber.Contains(obj)).ToList();
+            //foreach (var item in vte)
+            //{
+            //    AllRooms.Add(item);
+            //}
+            //  优化核心：先对轻量的 Room 对象进行过滤 
+            var filteredRooms = rooms.Where(r => r.IsValidObject && r.Location != null).Where(r => string.IsNullOrEmpty(obj) ||
+            (r.Name != null && r.Name.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0) ||
+            (r.Number != null && r.Number.Contains(obj))).ToList();
+
+            // 只为过滤后的结果创建 RoomSingleEntity 对象
+            foreach (var room in filteredRooms)
             {
-                AllRooms.Add(item);
+                // 从缓存中获取这个房间的门和窗
+                List<FamilyInstance> doorsForThisRoom = _doorsByRoomId.ContainsKey(room.Id) ? _doorsByRoomId[room.Id] : new List<FamilyInstance>();
+                List<FamilyInstance> windowsForThisRoom = _windowsByRoomId.ContainsKey(room.Id) ? _windowsByRoomId[room.Id] : new List<FamilyInstance>();
+                // 创建对象时传入缓存数据
+                var entity = new RoomSingleEntity(room, doorsForThisRoom, windowsForThisRoom);
+                AllRooms.Add(entity);
             }
         }
+        /// <summary>
+        /// 一次性收集所有门窗，并按房间ID进行分组缓存。
+        /// 这是性能优化的核心。
+        /// </summary>
+        private void PrecacheRoomData(Document doc)
+        {
+            _doorsByRoomId = new Dictionary<ElementId, List<FamilyInstance>>();
+            _windowsByRoomId = new Dictionary<ElementId, List<FamilyInstance>>();
+            // 一次性获取文档中所有的门
+            var allDoors = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors)
+                .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
+            foreach (var door in allDoors)
+            {
+                // 处理 ToRoom
+                if (door.ToRoom != null)
+                {
+                    if (!_doorsByRoomId.ContainsKey(door.ToRoom.Id))
+                        _doorsByRoomId[door.ToRoom.Id] = new List<FamilyInstance>();
+                    _doorsByRoomId[door.ToRoom.Id].Add(door);
+                }
+                // 处理 FromRoom
+                if (door.FromRoom != null)
+                {
+                    if (!_doorsByRoomId.ContainsKey(door.FromRoom.Id))
+                        _doorsByRoomId[door.FromRoom.Id] = new List<FamilyInstance>();
+                    // 防止重复添加（门可能同时是两个房间的From/To）
+                    if (!_doorsByRoomId[door.FromRoom.Id].Contains(door))
+                        _doorsByRoomId[door.FromRoom.Id].Add(door);
+                }
+            }
+            // 一次性获取文档中所有的窗
+            var allWindows = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows)
+                .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
+            foreach (var window in allWindows)
+            {
+                // 窗户通常只有一个 ToRoom 或 FromRoom
+                var room = window.ToRoom ?? window.FromRoom;
+                if (room != null)
+                {
+                    if (!_windowsByRoomId.ContainsKey(room.Id))
+                        _windowsByRoomId[room.Id] = new List<FamilyInstance>();
+                    _windowsByRoomId[room.Id].Add(window);
+                }
+            }
+        }
+        private Dictionary<ElementId, List<FamilyInstance>> _doorsByRoomId;
+        private Dictionary<ElementId, List<FamilyInstance>> _windowsByRoomId;
         public List<Room> rooms = new List<Room>();
         private ObservableCollection<RoomSingleEntity> allRooms = new ObservableCollection<RoomSingleEntity>();
         public ObservableCollection<RoomSingleEntity> AllRooms

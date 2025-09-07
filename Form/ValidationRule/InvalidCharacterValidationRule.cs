@@ -6,7 +6,7 @@
 
     public class InvalidCharacterValidationRule : ValidationRule
     {
-        private char[] invalidFileChars = { '\\', '/', ':', '{', '}', '[', ']', '|', ';', '<', '>', '?', '\'', '~' };
+        private char[] invalidFileChars = { '\\', '/', ':', '{', '}', '[', ']', ';', '<', '>', '?', '\'', '~' };
         public override ValidationResult Validate(object value, CultureInfo cultureInfo)
         {
             string input = (string)value;

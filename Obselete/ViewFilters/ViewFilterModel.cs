@@ -114,6 +114,8 @@ namespace CreatePipe.ViewFilters
         {
             StringBuilder stringBuilder = new StringBuilder();
             ElementLogicalFilter elf = pfe.GetElementFilter() as ElementLogicalFilter;
+            if (elf == null) return null;
+
             string combine = GetCombineType(pfe);
             if (elf is LogicalAndFilter)
             {
@@ -307,9 +309,12 @@ namespace CreatePipe.ViewFilters
             CategoryItems.Clear();
             List<string> categoryList = new List<string>();
             List<ElementId> categoryIds = pfe.GetCategories().ToList();
+
+
             foreach (ElementId item in categoryIds)
             {
                 Category category = Category.GetCategory(Document, item);
+                if (category == null) return null;
                 string categoryName = category.Name;
                 categoryList.Add(categoryName);
             }
