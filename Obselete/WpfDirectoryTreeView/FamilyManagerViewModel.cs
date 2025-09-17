@@ -22,6 +22,7 @@ namespace CreatePipe.WpfDirectoryTreeView
         public DirectoryInfo Info { get; set; }
         public ObservableCollection<Dirs> RootDirectories { get; set; }
         public ObservableCollection<FileSingle> FilesView { get; set; } = new ObservableCollection<FileSingle>();
+        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
         public FamilyManagerViewModel(UIApplication uiApp)
         {
             application = uiApp;
@@ -78,21 +79,40 @@ namespace CreatePipe.WpfDirectoryTreeView
                 familyThumbExportForm.Show();
             }
         }
-        public ICommand LoadFamilyCommand => new RelayCommand<FileSingle>(LoadFamily);
+        public ICommand LoadFamilyCommand => new RelayCommand<FileSingle>(LoadFamily, canExecute: obj => obj != null && obj.Version != "版本太高" && obj.Version != "读取失败");
         private void LoadFamily(FileSingle file)
         {
-            XmlDoc.Instance.Task.Run(app =>
+            try
             {
-                application.ActiveUIDocument.Document.NewTransaction(() =>
+                _externalHandler.Run(app =>
                 {
-                    application.ActiveUIDocument.Document.LoadFamily(file.fullName);
-                }, "载入族");
-            });
+                    application.ActiveUIDocument.Document.NewTransaction(() =>
+                    {
+                        application.ActiveUIDocument.Document.LoadFamily(file.fullName);
+                    }, "载入族");
+                });
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
-        public ICommand OpenFamilyCommand => new RelayCommand<FileSingle>(OpenFile);
+        public ICommand OpenFamilyCommand => new RelayCommand<FileSingle>(OpenFile, canExecute: obj => obj != null && obj.Version != "版本太高" && obj.Version != "读取失败");
         private void OpenFile(FileSingle file)
         {
-            application.OpenAndActivateDocument(file.fullName);
+            try
+            {
+                _externalHandler.Run(app =>
+                {
+                    application.OpenAndActivateDocument(file.fullName);
+                });
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
         public ICommand OpenThumbCommand => new RelayCommand<FileSingle>(OpenView);
         private void OpenView(FileSingle file)

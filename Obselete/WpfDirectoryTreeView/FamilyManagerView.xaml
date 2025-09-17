@@ -84,7 +84,7 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <Button Content="打开族" Width="50"
                             Command="{Binding DataContext.OpenFamilyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                             CommandParameter="{Binding}" 
-                            IsEnabled="{Binding IsHighVerFile}" 
+                            IsEnabled="{Binding canOpenFile}" 
                             Height="auto" HorizontalAlignment="Stretch" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -95,7 +95,7 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <Button Content="加载" Width="50"
                             Command="{Binding DataContext.LoadFamilyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                             CommandParameter="{Binding}" 
-                            IsEnabled="{Binding IsHighVerFile}" 
+                            IsEnabled="{Binding canOpenFile}" 
                             Height="auto" HorizontalAlignment="Stretch" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>

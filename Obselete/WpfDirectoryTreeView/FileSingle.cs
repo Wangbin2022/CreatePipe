@@ -15,24 +15,32 @@ namespace CreatePipe.WpfDirectoryTreeView
         public string name { get; set; }
         public string directoryName { get; set; }
         public double length { get; set; }
-        public string Version { get; set; }
+        public string Version { get; set; } = "读取失败";
         public bool HasJpgFile { get; set; } = false;
-        public bool IsHighVerFile { get; set; } = false;
+        //public bool canOpenFile { get; set; } = false;
+        public string CategoryName { get; set; }
         public FileSingle(FileInfo fileInfo)
         {
-            fullName = fileInfo.FullName;
+            fullName = fileInfo.FullName.ToLower();
             name = fileInfo.Name;
             directoryName = fileInfo.Directory.Name;
             length = fileInfo.Length;
             try
             {
                 BasicFileInfo basicFileInfo = BasicFileInfo.Extract(fileInfo.FullName);
-                Version = basicFileInfo.Format;
-                IsHighVerFile = true;
+                Version = basicFileInfo.IsSavedInLaterVersion ? "版本太高" : basicFileInfo.Format;
+                //if (basicFileInfo.IsSavedInLaterVersion)
+                //{
+                //    Version = "版本太高";
+                //}
+                //else
+                //{
+                //    Version = basicFileInfo.Format;
+                //    canOpenFile = true;
+                //}
             }
             catch (Exception)
             {
-                Version = "版本太高";
             }
             string jpgPath = System.IO.Path.ChangeExtension(fileInfo.FullName, ".jpg");
             if (File.Exists(jpgPath))
