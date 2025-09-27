@@ -16,7 +16,7 @@
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <StackPanel Margin="10,15,10,0">
-            <ComboBox ItemsSource="{Binding Items}"   SelectedItem="{Binding SelectedPipeSystem}"
+            <ComboBox ItemsSource="{Binding SystemNames}"   SelectedItem="{Binding SelectedPipeSystem}"
                       HorizontalAlignment="Stretch" IsEditable="False"/>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="已选中系统="/>

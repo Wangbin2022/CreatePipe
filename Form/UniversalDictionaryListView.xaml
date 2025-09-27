@@ -27,7 +27,7 @@
                 <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
-        <Button Grid.Row="1" Content="关闭" Margin="5"
+        <Button Grid.Row="1" Content="关闭" Margin="5" IsCancel="True" IsDefault="True"
                 HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
     </Grid>
 </Window>

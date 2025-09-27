@@ -30,7 +30,8 @@
            HorizontalAlignment="Center"
            VerticalAlignment="Center"
            Grid.ColumnSpan="2" Width="180"/>
-        <Button Grid.Row="2" Content="确认" x:Name="btn_OK" Command="{Binding ResultExportCommand}" Margin="5" Grid.ColumnSpan="2"
+        <Button Grid.Row="2" Content="确认" x:Name="btn_OK" IsDefault="True"
+                Command="{Binding ResultExportCommand}" Margin="5" Grid.ColumnSpan="2"
                 IsEnabled="{Binding IsCommandRunning, Converter={StaticResource InverseBooleanConverter}}"/>
     </Grid>
 </Window>

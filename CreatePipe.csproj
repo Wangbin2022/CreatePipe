@@ -81,11 +81,17 @@
   <ItemGroup>
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
+    <Compile Include="DrawAdaptiveCircle.cs" />
+    <Compile Include="ElementCount.cs" />
     <Compile Include="filter\StairsFilter.cs" />
     <Compile Include="Form\Behaviors\ValidationErrorToViewModelBehavior.cs" />
+    <Compile Include="Form\CircleGaugePlaceView.xaml.cs">
+      <DependentUpon>CircleGaugePlaceView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\UniversalComboBoxMultiSelection.xaml.cs">
       <DependentUpon>UniversalComboBoxMultiSelection.xaml</DependentUpon>
     </Compile>
+    <Compile Include="models\PlacementInfo.cs" />
     <Compile Include="Obselete\DrawEvacRouteFunc.cs" />
     <Compile Include="filter\AdaptiveFamilyFilter.cs" />
     <Compile Include="filter\filterMEPFitting.cs" />
@@ -397,6 +403,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="CableConduitCreator\OutOfCableListForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\CircleGaugePlaceView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -44,6 +44,7 @@
                 </Style>
             </TextBlock.Style>
         </TextBlock>
-        <Button Grid.Row="2" Content="确认并退出" x:Name="btn_OK" Click="Button_Click" Margin="5" Grid.ColumnSpan="2"/>
+        <Button Grid.Row="2" Content="确认并退出" x:Name="btn_OK" IsDefault="True"
+                Click="Button_Click" Margin="5" Grid.ColumnSpan="2"/>
     </Grid>
 </Window>

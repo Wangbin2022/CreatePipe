@@ -16,37 +16,14 @@ namespace CreatePipe.models
         public List<Element> pipes = new List<Element>();
         public List<Element> pipefittings = new List<Element>();
         public ElementId insulationID;
-        //public string selectedDN;
-        //public string SelectedDN
-        //{
-        //    get { return selectedDN; }
-        //    set
-        //    {
-        //        selectedDN = value;
-        //        OnPropertyChanged(nameof(SelectedDN));
-        //    }
-        //}
-
-        private List<string> items = new List<string>();
-        private List<string> selectedItems = new List<string>();
-        public List<string> SelectedItems
-        {
-            get => selectedItems;
-            set
-            {
-                selectedItems = value;
-                OnPropertyChanged();
-            }
-        }
-        public List<string> Items
-        {
-            get => items;
-            set
-            {
-                items = value;
-                OnPropertyChanged();
-            }
-        }
+        private ObservableCollection<string> items = new ObservableCollection<string>();
+        private ObservableCollection<string> selectedItems = new ObservableCollection<string>();
+        public ObservableCollection<string> SelectedItems { get => selectedItems; set => SetProperty(ref selectedItems, value); }
+        public ObservableCollection<string> Items { get => items; set => SetProperty(ref items, value); }
+        //private List<string> items = new List<string>();
+        //private List<string> selectedItems = new List<string>();
+        //public List<string> SelectedItems { get => selectedItems; set => SetProperty(ref selectedItems, value); }
+        //public List<string> Items { get => items; set => SetProperty(ref items, value); }
         public PipeSystemViewModel(Document document)
         {
             Doc = document;
@@ -54,29 +31,20 @@ namespace CreatePipe.models
             FilteredElementCollector elements = new FilteredElementCollector(_doc).OfClass(typeof(PipingSystemType));
             List<PipingSystemType> pipingSystemTypes = elements.OfType<PipingSystemType>().ToList();
             //// 使用 OfType 直接过滤并转换类型转换为 List
-            pipeSystemEntitys = new ObservableCollection<PipeSystemEntity>
-                (pipingSystemTypes
-                .ConvertAll(new Converter<PipingSystemType, PipeSystemEntity>
-                (pipingSystemType => new PipeSystemEntity(pipingSystemType)))
-                .ToList());
+            pipeSystemEntitys = new ObservableCollection<PipeSystemEntity>(pipingSystemTypes.ConvertAll(new Converter<PipingSystemType, PipeSystemEntity>(pipingSystemType => new PipeSystemEntity(pipingSystemType))).ToList());
             foreach (var item in pipeSystemEntitys)
             {
                 string sysName = item.SystemName;
                 systemNames.Add(sysName);
                 //items.Add(sysName);
             }
-            TestCommand = new BaseBindingCommand(Test);
-
-            AddInsulationCommand = new RelayCommand<string>(AddInsulation);
         }
-        public BaseBindingCommand TestCommand { get; set; }
+        public BaseBindingCommand TestCommand => new BaseBindingCommand(Test);
         public void Test(Object para)
         {
             TaskDialog.Show("tt", SelectedItems.Count().ToString());
         }
-
-        public RelayCommand<string> AddInsulationCommand { get; set; }
-
+        public RelayCommand<string> AddInsulationCommand => new RelayCommand<string>(AddInsulation);
         public void AddInsulation(string pipingSystem)
         {
             foreach (var SelectedDN in SelectedItems)
@@ -90,15 +58,11 @@ namespace CreatePipe.models
             //参数：文档、构件id集，保温id，厚度double)
             AddInsulationFunc(thick);
         }
-
         public void GetInstancesFunc(string pipingSystem, string singleDN)
         {
-            ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory
-   .CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), pipingSystem, false));
-            IList<Element> allpipes = new FilteredElementCollector(Doc)
-                .WhereElementIsNotElementType()
-                .OfCategory(BuiltInCategory.OST_PipeCurves)
-                .WherePasses(filter)
+            ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), pipingSystem, false));
+            IList<Element> allpipes = new FilteredElementCollector(Doc).WhereElementIsNotElementType()
+                .OfCategory(BuiltInCategory.OST_PipeCurves).WherePasses(filter)
                 .ToElements();
             foreach (Element p in allpipes) if (p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString() == singleDN)
                 {
@@ -131,18 +95,10 @@ namespace CreatePipe.models
                 }
             }
         }
-        //public double GetThickness()
-        //{
-        //    UnitType unitType = UnitType.UT_PipeInsulationThickness;
-        //    double pipethickness = UnitUtils.ConvertToInternalUnits(60,
-        //        Doc.GetUnits().GetFormatOptions(unitType).DisplayUnits);
-        //    return pipethickness;
-        //}
         public ElementId GetInsulationID()
         {
-            FilteredElementCollector elems = new FilteredElementCollector(Doc)
-    .WhereElementIsElementType()
-    .OfCategory(BuiltInCategory.OST_PipeInsulations);
+            FilteredElementCollector elems = new FilteredElementCollector(Doc).WhereElementIsElementType()
+                .OfCategory(BuiltInCategory.OST_PipeInsulations);
             ElementId id = elems.FirstOrDefault().Id;
             return id;
         }
@@ -153,14 +109,43 @@ namespace CreatePipe.models
             get => selectedSYS;
             set
             {
-                selectedSYS = value;
-                OnPropertyChanged();
-                // 只有在 selectedSYS 不为空时才更新 items
+
+                // 1. 更新 selectedSYS 字段并触发对 "SelectedSYS" 的通知
+                SetProperty(ref selectedSYS, value);
+                // 2. 这是最关键的一步：根据新的 SelectedSYS 来更新 Items 集合。
+                //    这个赋值操作会调用 Items 属性的 setter，从而通知UI刷新 MultiSelectComboBox。
                 if (selectedSYS != null)
                 {
-                    items = selectedSYS.DNList;
-                    OnPropertyChanged(nameof(Items));
+                    Items = new ObservableCollection<string>(selectedSYS.DNList);
                 }
+                else
+                {
+                    // 如果没有选中的系统，就清空 Items 列表
+                    // 确保 Items 不为 null，或者使用 Items?.Clear()
+                    if (Items != null)
+                    {
+                        Items.Clear();
+                    }
+                }
+                //selectedSYS = value;
+                //OnPropertyChanged();
+                //// 只有在 selectedSYS 不为空时才更新 items
+                //if (selectedSYS != null)
+                //{
+                //    // --- 修改前 ---
+                //    //items = selectedSYS.DNList;
+                //    items = new ObservableCollection<string>(selectedSYS.DNList);
+                //    OnPropertyChanged(nameof(Items));
+
+                //    //// --- 修改后 (最小化修改) ---
+                //    //// 用 DNList 的内容来创建一个新的 ObservableCollection 并赋给 Items 属性
+                //    //Items = new ObservableCollection<string>(selectedSYS.DNList);
+                //}
+                //else
+                //{
+                //    // (建议) 当没有选中系统时，清空列表
+                //    //Items.Clear();
+                //}
             }
         }
         private string selectedPipeSystem;
@@ -169,11 +154,17 @@ namespace CreatePipe.models
             get => selectedPipeSystem;
             set
             {
-                selectedPipeSystem = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(AllowDNSelect));//有效可用更新
-                // 查找匹配的PipeSystemEntity对象
+                // 1. 使用您的 void SetProperty 来更新字段并触发对 "SelectedPipeSystem" 的通知
+                SetProperty(ref selectedPipeSystem, value);
+                // 2. 手动触发任何依赖此属性的其他属性的通知
+                OnPropertyChanged(nameof(AllowDNSelect));
+                // 3. 更新下一个关联的属性，这将触发它的 setter
                 SelectedSYS = PipeSystemEntitys.FirstOrDefault(pse => pse.SystemName == selectedPipeSystem);
+                //selectedPipeSystem = value;
+                //OnPropertyChanged();
+                //OnPropertyChanged(nameof(AllowDNSelect));//有效可用更新
+                //// 查找匹配的PipeSystemEntity对象
+                //SelectedSYS = PipeSystemEntitys.FirstOrDefault(pse => pse.SystemName == selectedPipeSystem);
             }
         }
         private List<string> systemNames = new List<string>();
@@ -181,17 +172,9 @@ namespace CreatePipe.models
         private ObservableCollection<PipeSystemEntity> pipeSystemEntitys;
         public ObservableCollection<PipeSystemEntity> PipeSystemEntitys
         {
-            get
-            {
-                return pipeSystemEntitys;
-            }
-            set
-            {
-                pipeSystemEntitys = value;
-                OnPropertyChanged();
-            }
+            get => pipeSystemEntitys;
+            set => SetProperty(ref pipeSystemEntitys, value);
         }
-
         List<ElementId> pinsidtodelete = new List<ElementId>();
         List<ElementId> ptoreinsulate = new List<ElementId>();
         public List<ElementId> Pinsidtodelete { get => pinsidtodelete; set => pinsidtodelete = value; }
