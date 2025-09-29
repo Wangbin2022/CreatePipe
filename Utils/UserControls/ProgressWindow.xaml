@@ -1,0 +1,22 @@
+﻿<Window x:Class="CreatePipe.Utils.UserControls.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Utils.UserControls"
+        mc:Ignorable="d"
+        Title="处理中..." Height="150" Width="500"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="ToolWindow" ShowInTaskbar="False" ResizeMode="NoResize">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <ProgressBar x:Name="MainProgressBar" Height="25" Minimum="0" Maximum="100" Grid.Row="0"/>
+
+        <TextBlock x:Name="StatusLabel" Text="准备开始..." Grid.Row="1" 
+                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+    </Grid>
+</Window>

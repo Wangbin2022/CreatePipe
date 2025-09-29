@@ -138,6 +138,7 @@ namespace CreatePipe.Form
                                 if (info.GeometryCurve != null)
                                 {
                                     newInstance = Document.Create.NewFamilyInstance(info.GeometryCurve, symbolToPlace, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                                    newInstance.LookupParameter("width1").Set(GaugeWidth / 304.8);
                                 }
                             }
                             else // 角点族
@@ -145,14 +146,22 @@ namespace CreatePipe.Form
                                 newInstance = Document.Create.NewFamilyInstance(info.Position, symbolToPlace, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
                                 Line rotationAxis = Line.CreateBound(info.Position, info.Position + XYZ.BasisZ);
                                 ElementTransformUtils.RotateElement(Document, newInstance.Id, rotationAxis, info.RotationInRadians);
+                                newInstance.LookupParameter("width1").Set(GaugeWidth / 304.8);
+                                newInstance.LookupParameter("width2").Set(GaugeWidth / 304.8);
                             }
-                            newInstance.LookupParameter("depth").Set(600 / 304.8);
+                            newInstance.LookupParameter("depth").Set(GaugeHeight / 304.8);
+                            newInstance.LookupParameter("d").Set(GaugeWallThick / 304.8);
+                            if (HasBase)
+                            {
+                                newInstance.LookupParameter("hasBase").Set(1);
+                            }
+                            else newInstance.LookupParameter("hasBase").Set(0);
                             createdInstances[i] = newInstance;
                         }
                         Document.Regenerate();
                         //根据角点类型，设置相邻直线的 d0/d1 参数
-                        const double d_mm = 150.0;
-                        const double width1_mm = 800.0;
+                        double d_mm = GaugeWallThick;
+                        double width1_mm = GaugeWidth;
                         double smallRetraction = (d_mm) / 304.8;
                         double largeRetraction = (width1_mm + d_mm) / 304.8;
                         // placementPlan 的结构是 [角0, 直线0, 角1, 直线1, ...]
@@ -201,25 +210,25 @@ namespace CreatePipe.Form
                 }
             });
         }
-        private void GetAdaptiveCircle(object obj)
-        {
-            TaskDialog.Show("tt", HasBase.ToString());
-        }
         //private void GetAdaptiveCircle(object obj)
         //{
-        //    try
-        //    {
-        //        var selectedRef = uiDoc.Selection.PickObject(ObjectType.Element, new AdaptiveFamilyFilter(), "请选择一个自适应构件进行检查");
-        //        FamilyInstance inst = Document.GetElement(selectedRef) as FamilyInstance;
-        //        //canPlaceGauge = true;
-        //        this.Instance = inst;
-        //        TaskDialog.Show("tt", "PASS");
-        //    }
-        //    catch (Exception)
-        //    {
-        //        throw;
-        //    }
+        //    TaskDialog.Show("tt", HasBase.ToString());
         //}
+        private void GetAdaptiveCircle(object obj)
+        {
+            try
+            {
+                var selectedRef = uiDoc.Selection.PickObject(ObjectType.Element, new AdaptiveFamilyFilter(), "请选择一个自适应构件进行检查");
+                FamilyInstance inst = Document.GetElement(selectedRef) as FamilyInstance;
+                //canPlaceGauge = true;
+                this.Instance = inst;
+                //TaskDialog.Show("tt", "PASS");
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
         public FamilyInstance _instance;
         public FamilyInstance Instance // 建议属性名大写开头
         {

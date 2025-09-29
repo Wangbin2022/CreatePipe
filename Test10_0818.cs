@@ -1,6 +1,9 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.Electrical;
+using Autodesk.Revit.DB.Mechanical;
+using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
@@ -15,14 +18,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-//using Autodesk.Windows;
-//using adWin = Autodesk.Windows;
+
 
 namespace CreatePipe
 {
     [Transaction(TransactionMode.Manual)]
     public class Test10_0818 : IExternalCommand
     {
+
         /// <summary>
         /// 执行射线检测并返回最近的碰撞图元ID
         /// </summary>
@@ -130,7 +133,41 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0926 批量按选择项写面积属性
+
+            ////0404 切换连接顺序抄网上代码，初步实现柱切板和梁，梁切板。
+            //FilteredElementCollector list_column = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns).OfClass(typeof(FamilyInstance));
+            //FilteredElementCollector list_beam = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming).OfClass(typeof(FamilyInstance));
+            ////TaskDialog.Show("tt", $"柱{list_column.Count().ToString()}个,梁{list_beam.Count().ToString()}个");
+            //Transaction transaction = new Transaction(doc, "连接几何关系");
+            //transaction.Start();
+            //foreach (Element column in list_column)
+            //{
+            //    List<Element> column_box_eles = Get_Boundingbox_eles(doc, column, 1.01);
+            //    //TaskDialog.Show("柱子", column_box_eles.Count.ToString());
+            //    foreach (Element ele in column_box_eles)
+            //    {
+            //        if (ele.Category.GetHashCode().ToString() == "-2001320" || ele.Category.GetHashCode().ToString() == "-2000032")
+            //        {
+            //            JudgeConnection(doc, column, ele);
+            //        }
+            //    }
+            //}
+            //foreach (Element beam in list_beam)
+            //{
+            //    List<Element> beam_box_eles = Get_Boundingbox_eles(doc, beam, 1.01);
+            //    //TaskDialog.Show("梁", beam_box_eles.Count.ToString());
+            //    foreach (Element ele in beam_box_eles)
+            //    {
+            //        //if (ele.Category.Name == "楼板")
+            //        if (ele.Category.GetHashCode().ToString() == "-2000032")
+            //        {
+            //            JudgeConnection(doc, beam, ele);
+            //        }
+            //    }
+            //}
+
+
+            ////0926 批量按选择项写面积属性,临时工具
             //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
             //using (Transaction trans = new Transaction(doc, "设置面积"))
             //{
@@ -143,8 +180,7 @@ namespace CreatePipe
             //        Parameter areaParam = element.LookupParameter("面积1");
             //        if (areaParam != null && !areaParam.IsReadOnly)
             //        {
-
-            //            areaParam.Set(((areaValue* 304.8 * 304.8)/(1000 * 1000)).ToString("F2"));
+            //            areaParam.Set(((areaValue * 304.8 * 304.8) / (1000 * 1000)).ToString("F2"));
             //        }
             //        else
             //        {
@@ -153,58 +189,6 @@ namespace CreatePipe
             //    }
             //    trans.Commit();
             //}
-
-
-            ////0925 布置沟代码
-            CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
-            circleGaugePlaceView.Show();
-            //0922 用标高切分墙，柱，机电管线的程序合并界面
-            //0922 柱切板和梁，梁切板深化界面
-            //0913 拾取自适应环(通用)
-
-            //0925 改multiComboBox控件测试
-            //PipeSystemTest pipeSystemTest = new PipeSystemTest(doc);
-            //pipeSystemTest.ShowDialog();
-            //////0925 修改
-            //List<string> test = new List<string>();
-            //// 假设 doc 是有效的 Document 对象
-            ////test = new List<string> { "1", "22", "33", "44" };
-            //test = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().Select(item => item.Name).ToList();
-            //// 2. 创建并配置对话框实例
-            //UniversalComboBoxMultiSelection boxMultiSelection = new UniversalComboBoxMultiSelection(test, "请选择一个或多个标高：");
-            //boxMultiSelection.Title = "标高选择";
-            //// 3. 以模态方式显示对话框，程序会在此暂停
-            //bool? dialogResult = boxMultiSelection.ShowDialog();
-            //// 4. 对话框关闭后，检查返回结果
-            //if (dialogResult == true)
-            //{
-            //    // 如果用户点击了 "确认"，从公共属性中获取选择的列表
-            //    List<string> selectedLevels = boxMultiSelection.SelectedResult;
-            //    // 5. 处理结果
-            //    if (selectedLevels.Any())
-            //    {
-            //        // 将选择的标高名称拼接成一个字符串用于显示
-            //        string resultText = "您选择了: " + string.Join(", ", selectedLevels);
-            //        TaskDialog.Show("选择结果", resultText);
-            //    }
-            //    else
-            //    {
-            //        TaskDialog.Show("提示", "您点击了确认，但没有选择任何项。");
-            //    }
-            //}
-            //else
-            //{
-            //    // 用户点击了取消、关闭按钮，或者按了 Esc 键
-            //    TaskDialog.Show("操作取消", "用户已取消操作。");
-            //}
-            ////0903 通用多选窗口实现验证
-            ////List<string> test =new List<string> { "1", "22", "33", "44" };
-            //List<string> test = new List<string>();
-            //test = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().Select(item => item.Name).ToList();
-            //UniversalComboBoxMultiSelection boxMultiSelection = new UniversalComboBoxMultiSelection(test, "test0903");
-            //boxMultiSelection.Title = "验证";
-            //boxMultiSelection.ShowDialog();
-
             ////0909 取楼梯中心几何点
             //var columnRef = uiDoc.Selection.PickObject(ObjectType.Element, new StairsFilter(), "选择楼梯");
             //Stairs stair = doc.GetElement(columnRef.ElementId) as Stairs;
@@ -307,13 +291,6 @@ namespace CreatePipe
             //例程结束
             ////检查楼梯中心点是否在房间内也可以
             ////var stair = doc.GetElement(new ElementId(1926218)) as Stairs;
-            ////var stair = doc.GetElement(new ElementId(1929002)) as Stairs;
-            //var stair = doc.GetElement(new ElementId(1928367)) as Stairs;
-            ////var stair = doc.GetElement(new ElementId(2193116)) as Stairs;
-            ////var stair = doc.GetElement(new ElementId(2520656)) as Stairs;
-            ////var stair = doc.GetElement(new ElementId(2521425)) as Stairs;
-            ////var stair = doc.GetElement(new ElementId(2191119)) as Stairs;
-            ////var stair = doc.GetElement(new ElementId(2187406)) as Stairs;
             //bool isStairInRoom = IsAnyPartOfStairInRoom(stair, room, doc);
             //if (isStairInRoom)
             //{  TaskDialog.Show("检查结果", $"楼梯 '{stair.Id}' 至少有一部分在房间 '{room.Name}' 内部。"); }
@@ -398,38 +375,48 @@ namespace CreatePipe
             //}
             //例程结束
             //0520 遗留测试
-            ////0404 切换连接顺序抄网上代码，初步实现柱切板和梁，梁切板。
-            //FilteredElementCollector list_column = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns).OfClass(typeof(FamilyInstance));
-            //FilteredElementCollector list_beam = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming).OfClass(typeof(FamilyInstance));
-            ////TaskDialog.Show("tt", $"柱{list_column.Count().ToString()}个,梁{list_beam.Count().ToString()}个");
-            //Transaction transaction = new Transaction(doc, "连接几何关系");
-            //transaction.Start();
-            //foreach (Element column in list_column)
-            //{
-            //    List<Element> column_box_eles = Get_Boundingbox_eles(doc, column, 1.01);
-            //    //TaskDialog.Show("柱子", column_box_eles.Count.ToString());
-            //    foreach (Element ele in column_box_eles)
-            //    {
-            //        if (ele.Category.GetHashCode().ToString() == "-2001320" || ele.Category.GetHashCode().ToString() == "-2000032")
-            //        {
-            //            JudgeConnection(doc, column, ele);
-            //        }
-            //    }
-            //}
-            //foreach (Element beam in list_beam)
-            //{
-            //    List<Element> beam_box_eles = Get_Boundingbox_eles(doc, beam, 1.01);
-            //    //TaskDialog.Show("梁", beam_box_eles.Count.ToString());
-            //    foreach (Element ele in beam_box_eles)
-            //    {
-            //        //if (ele.Category.Name == "楼板")
-            //        if (ele.Category.GetHashCode().ToString() == "-2000032")
-            //        {
-            //            JudgeConnection(doc, beam, ele);
-            //        }
-            //    }
-            //}
             //——————————————————
+            ////0929 多选样例模板
+            //List<string> test = new List<string>();
+            //test = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().Select(item => item.Name).ToList();
+            //// 2. 创建并配置对话框实例
+            //UniversalComboBoxMultiSelection boxMultiSelection = new UniversalComboBoxMultiSelection(test, "请选择一个或多个标高：");
+            //boxMultiSelection.Title = "标高选择";
+            //// 3. 以模态方式显示对话框，程序会在此暂停
+            //bool? dialogResult = boxMultiSelection.ShowDialog();
+            //// 4. 对话框关闭后，检查返回结果
+            //if (dialogResult == true)
+            //{
+            //    // 如果用户点击了 "确认"，从公共属性中获取选择的列表
+            //    List<string> selectedLevels = boxMultiSelection.SelectedResult;
+            //    // 5. 处理结果
+            //    if (selectedLevels.Any())
+            //    {
+            //        // 将选择的标高名称拼接成一个字符串用于显示
+            //        string resultText = "您选择了: " + string.Join(", ", selectedLevels);
+            //        TaskDialog.Show("选择结果", resultText);
+            //    }
+            //    else
+            //    {
+            //        TaskDialog.Show("提示", "您点击了确认，但没有选择任何项。");
+            //    }
+            //}
+            //else
+            //{
+            //    // 用户点击了取消、关闭按钮，或者按了 Esc 键
+            //    TaskDialog.Show("操作取消", "用户已取消操作。");
+            //}
+            //0925 改multiComboBox控件测试
+            //PipeSystemTest pipeSystemTest = new PipeSystemTest(doc);
+            //pipeSystemTest.ShowDialog();
+            //////0925 修改
+            ////0903 通用多选窗口实现验证
+            //////0925 布置沟代码OK
+            //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
+            //circleGaugePlaceView.Show();
+            //0922 用标高切分墙，柱，机电管线的程序合并界面
+            //0922 柱切板和梁，梁切板深化界面
+            //0913 拾取自适应环(通用)
             //0913 族管理器增加类别
             //FamilyManagerView familyManagerView = new FamilyManagerView(uiApp);
             //familyManagerView.Show();
@@ -494,7 +481,6 @@ namespace CreatePipe
             //{
             //    if (item.Name == "地沟结构填充")
             //    {
-            //        //TaskDialog.Show("tt", "PASS");
             //        pfe= item;
             //    }
             //}
@@ -546,122 +532,13 @@ namespace CreatePipe
 
             ////0222 用标高切分结构柱，初步完成 在结构柱分层的高度上仍有问题。。要考虑柱的顶底偏移再设置切分逻辑
             ////新的柱子虽然不用考虑开洞但仍需手动考虑偏移的各种情况给赋值。
-            ////斜柱如何处理
+            ////斜柱如何处理  
             //var columnRef = uiDoc.Selection.PickObject(ObjectType.Element, new ColumnFilter(), "选择结构柱");
             //FamilyInstance column = doc.GetElement(columnRef.ElementId) as FamilyInstance;
-            //List<Level> levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).ToList();
-            //using (Transaction trans = new Transaction(doc, "切分结构柱"))
-            //{
-            //    trans.Start();
-            //    // 获取柱的顶底标高
-            //    Level baseLevel = doc.GetElement(column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId()) as Level;
-            //    double baseElevation = baseLevel.Elevation;
-            //    Level topLevel = doc.GetElement(column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId()) as Level;
-            //    double topElevation = topLevel.Elevation;
-            //    // 获取柱的底部偏移和顶部偏移
-            //    double baseOffset = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM).AsDouble();
-            //    double topOffset = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM).AsDouble();
-            //    // 计算柱的实际高度
-            //    double columnHeight = topElevation + topOffset - (baseElevation + baseOffset);
-            //    //// 筛选出与柱相关的标高
-            //    List<Level> relevantLevels = levels.Where(l => l.Elevation > (baseElevation + baseOffset) && l.Elevation < (topElevation + topOffset)).OrderBy(l => l.Elevation).ToList();
-            //    //TaskDialog.Show("tt", relevantLevels.Count().ToString());
-            //    if (relevantLevels.Count == 0)
-            //    {
-            //        Autodesk.Revit.UI.TaskDialog.Show("提示", "没有合适的标高用于切分结构柱！");
-            //        trans.RollBack();
-            //        return Result.Failed;
-            //    }
-            //    // 获取柱的位置
-            //    LocationPoint columnLocation = column.Location as LocationPoint;
-            //    //// 标高初始化
-            //    Level previousLevel = baseLevel;
-            //    foreach (Level level in relevantLevels)
-            //    {
-            //        // 创建新结构柱
-            //        FamilyInstance newColumn = doc.Create.NewFamilyInstance(columnLocation.Point, column.Symbol, previousLevel, StructuralType.Column);
-            //        // 设置新柱的顶部标高
-            //        //newColumn.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).Set(level.Elevation);
-            //        //newColumn.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).Set((level.Elevation-previousLevel.Elevation));
-            //        newColumn.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM).Set((level.Elevation - previousLevel.Elevation));
-            //        newColumn.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).Set(previousLevel.Id);
-            //        // 更新底部标高
-            //        previousLevel = level;
-            //    }
-            //    // 删除原始柱
-            //    doc.Delete(column.Id);
-            //    trans.Commit();
-            //}
-            //Autodesk.Revit.UI.TaskDialog.Show("提示", "结构柱切分成功！");
-
             //0222 用标高切分墙的程序，初步完成。倒是切分柱子似乎更合理
             //还需改进的问题：如果有顶标高但顶部偏移更高的话会导致错误逻辑优先
             //还需改进的问题：新建墙的话原有的窗洞口需要考虑放到哪层，工作量可能要判断是否值得
-            //var wall = uiDoc.Selection.PickObject(ObjectType.Element, new filterWallClass(), "选墙");
-            //Wall elem = doc.GetElement(wall.ElementId) as Wall;
-            //// 获取所有标高
-            //List<Level> levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).ToList();
-            //// 开始事务
-            //using (Transaction trans = new Transaction(doc, "切分墙"))
-            //{
-            //    trans.Start();
-            //    LocationCurve wallCurve = elem.Location as LocationCurve;
-            //    XYZ startPoint = wallCurve.Curve.GetEndPoint(0);
-            //    XYZ endPoint = wallCurve.Curve.GetEndPoint(1);
-            //    // 获取墙的底部和顶部标高
-            //    Level baseLevel = doc.GetElement(elem.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT).AsElementId()) as Level;
-            //    Level topLevel = doc.GetElement(elem.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE).AsElementId()) as Level;
-            //    double topElevation;
-            //    List<Level> relevantLevels = new List<Level>();
-            //    if (topLevel == null)
-            //    {
-            //        // 如果顶部标高未设置，使用底部标高和顶部偏移计算顶部高度
-            //        double baseElevation = baseLevel.Elevation;
-            //        double topOffset = elem.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble();
-            //        topElevation = baseElevation + topOffset;
-            //        relevantLevels = levels.Where(l => l.Elevation > baseElevation && l.Elevation < topElevation).ToList();
-            //    }
-            //    else 
-            //    {
-            //        relevantLevels = levels.Where(l => l.Elevation > baseLevel.Elevation && l.Elevation < topLevel.Elevation).ToList();
-            //    }
-            //    if (relevantLevels.Count == 0)
-            //    {
-            //        TaskDialog.Show("提示", "没有合适的标高用于切分墙！");
-            //        return Result.Failed;
-            //    }
-            //    // 按标高切分墙
-            //    XYZ previousPoint = startPoint;
-            //    Level previousLevel = baseLevel;
-            //    foreach (Level level in relevantLevels)
-            //    {
-            //        // 计算切分点的高度
-            //        double elevation = level.Elevation - baseLevel.Elevation;
-            //        XYZ splitPoint = startPoint + (endPoint - startPoint).Normalize() * elevation;
-            //        // 创建新墙
-            //        Wall newWall = Wall.Create(doc, wallCurve.Curve, elem.WallType.Id, previousLevel.Id, level.Elevation - previousLevel.Elevation, 0, false, false);
-            //        // 更新起点和底部标高
-            //        previousPoint = splitPoint;
-            //        previousLevel = level;
-            //    }
-            //    //// 创建最后一段墙（从最后一个切分点到终点）
-            //    if (topLevel == null)
-            //    {
-            //        // 如果顶部标高未设置，使用底部标高和顶部偏移计算顶部高度
-            //        double baseElevation = baseLevel.Elevation;
-            //        double topOffset = elem.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble();
-            //        topElevation = baseElevation + topOffset;
-            //        Wall lastWall = Wall.Create(doc, wallCurve.Curve, elem.WallType.Id, previousLevel.Id, topElevation - previousLevel.Elevation, 0, false, false);
-            //    }
-            //    else
-            //    {
-            //        Wall lastWall = Wall.Create(doc, wallCurve.Curve, elem.WallType.Id, previousLevel.Id, topLevel.Elevation - previousLevel.Elevation, 0, false, false);
-            //    }
-            //    //// 删除原墙
-            //    doc.Delete(elem.Id);
-            //    trans.Commit();
-            //}
-            //TaskDialog.Show("提示", "墙切分成功！");
+            ////0929 改前代码，门窗会丢失版本 
             //例程结束
             //0822 改视图比例
             //TaskDialog.Show("tt", activeView.Scale.ToString());
