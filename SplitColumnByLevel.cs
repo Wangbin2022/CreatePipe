@@ -2,7 +2,9 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using CreatePipe.CableConduitCreator;
 using CreatePipe.Form;
+using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,7 +35,6 @@ namespace CreatePipe
                 UniversalComboBoxMultiSelection boxMultiSelection = new UniversalComboBoxMultiSelection(uniqueLevelNames, "请选择要切分标高，实体不要成组");
                 boxMultiSelection.Title = "标高选择";
                 bool? dialogResult = boxMultiSelection.ShowDialog();
-
                 if (dialogResult != true || !boxMultiSelection.SelectedResult.Any())
                 {
                     TaskDialog.Show("操作取消", "用户已取消或未选择任何标高。");
@@ -42,22 +43,21 @@ namespace CreatePipe
                 List<string> selectedLevelNames = boxMultiSelection.SelectedResult;
                 List<Level> selectedLevels = allLevelsInModel.Where(level => selectedLevelNames.Contains(level.Name))
                     .GroupBy(l => l.Elevation).Select(g => g.First()).OrderBy(l => l.Elevation).ToList();
-
                 var structuralColumnFilter = new ElementCategoryFilter(BuiltInCategory.OST_StructuralColumns);
                 var architecturalColumnFilter = new ElementCategoryFilter(BuiltInCategory.OST_Columns);
                 var columnFilter = new LogicalOrFilter(structuralColumnFilter, architecturalColumnFilter);
-
                 List<FamilyInstance> allColumns = new FilteredElementCollector(doc).WherePasses(columnFilter)
                     .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
-
                 // 筛选出垂直柱
                 List<FamilyInstance> verticalColumns = allColumns.Where(c => IsVerticalColumn(c)).ToList();
                 int processedColumnCount = 0;
                 int newSegmentsCreated = 0;
 
+                var failureHandler = new RobustFailureProcessor();
                 using (TransactionGroup transGroup = new TransactionGroup(doc, "批量切分柱子"))
                 {
                     transGroup.Start();
+
                     foreach (var column in verticalColumns)
                     {
                         if (!column.IsValidObject) continue;
@@ -71,22 +71,25 @@ namespace CreatePipe
                         if (!relevantLevels.Any()) continue;
                         using (Transaction trans = new Transaction(doc, "切分单个柱"))
                         {
+                            //FailureHandlingOptions fho = trans.GetFailureHandlingOptions();
+                            //fho.SetFailuresPreprocessor(new FailurePreProcessor());
+                            //trans.SetFailureHandlingOptions(fho);
+                            FailureHandlingOptions options = trans.GetFailureHandlingOptions();
+                            options.SetFailuresPreprocessor(failureHandler);
+                            trans.SetFailureHandlingOptions(options);
                             trans.Start();
                             try
                             {
                                 LocationPoint columnLocation = column.Location as LocationPoint;
                                 FamilySymbol columnSymbol = column.Symbol;
-
                                 // 获取原始柱的完整约束信息
                                 Level originalBaseLevel = doc.GetElement(column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId()) as Level;
                                 double originalBaseOffset = column.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM).AsDouble();
                                 Level originalTopLevel = doc.GetElement(column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId()) as Level;
                                 double originalTopOffset = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM).AsDouble();
-
                                 // 初始化循环变量
                                 Level currentBaseLevel = originalBaseLevel;
                                 double currentBaseOffset = originalBaseOffset;
-
                                 // 循环创建中间的柱段
                                 foreach (Level splitLevel in relevantLevels)
                                 {
@@ -99,12 +102,10 @@ namespace CreatePipe
                                     newSegment.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).Set(splitLevel.Id);
                                     newSegment.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM).Set(0);
                                     newSegmentsCreated++;
-
                                     // 更新下一个柱段的基准
                                     currentBaseLevel = splitLevel;
                                     currentBaseOffset = 0; // 中间段的底部偏移总是0
                                 }
-
                                 // **关键：创建最后一个柱段 (从最后一个切分标高到原始柱顶)**
                                 FamilyInstance finalSegment = doc.Create.NewFamilyInstance(columnLocation.Point, columnSymbol, currentBaseLevel, StructuralType.Column);
                                 finalSegment.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).Set(currentBaseLevel.Id);
@@ -112,7 +113,6 @@ namespace CreatePipe
                                 finalSegment.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).Set(originalTopLevel.Id);
                                 finalSegment.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM).Set(originalTopOffset);
                                 newSegmentsCreated++;
-
                                 // 删除原始柱子
                                 doc.Delete(column.Id);
                                 processedColumnCount++;

@@ -1,0 +1,24 @@
+﻿<Window x:Class="CreatePipe.Form.SequentialSelectorTest"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        Title="主窗口 (MVVM)" Height="250" Width="400"
+        Closed="Window_Closed">
+    <Grid Margin="15">
+        <StackPanel>
+            <TextBlock Text="请使用下面的控件选择构件：" FontWeight="Bold" Margin="0,0,0,10"/>
+
+            <!-- 
+            通过数据绑定将 RevitApp 和 命令 传递给 UserControl
+            RevitApplication -> 绑定到父ViewModel的RevitApp属性
+            SelectionFinishedCommand -> 绑定到父ViewModel的ProcessSelectionResultCommand命令
+            -->
+            <local:SequentialSelector x:Name="MyElementSelector" 
+                                      RevitApplication="{Binding RevitApp}"
+                                      SelectionFinishedCommand="{Binding ProcessSelectionResultCommand}"/>
+
+            <TextBlock Text="选择完成后，结果会通过绑定的命令在ViewModel中处理。" 
+                       Margin="0,15,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+    </Grid>
+</Window>

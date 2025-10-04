@@ -1,0 +1,40 @@
+﻿<Window x:Class="CreatePipe.Form.FamilyInstanceSerializeView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="FamilyInstanceSerializeView" Height="360" Width="250">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="38"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Margin="5">
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="80" Text="序号前缀"  VerticalAlignment="Center"/>
+                <TextBox Width="133" Text="{Binding BeforeCode}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="80" Text="起始序号"  VerticalAlignment="Center"/>
+                <TextBox Width="133" Text="{Binding SerialCode}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="80" Text="序号后缀"  VerticalAlignment="Center"/>
+                <TextBox Width="133" Text="{Binding BackCode}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="80" Text="属性字段"  VerticalAlignment="Center"/>
+                <TextBox Width="133" Text="{Binding InstanceAttr}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </StackPanel>
+            <Button Content="开始选择" Height="22"
+                    Margin="5,10,5,5" Command="{Binding StartSelectionCommand}"/>
+            <TextBlock Text="已选中构件数量：" HorizontalAlignment="Center" Margin="0,10,0,5"/>
+            <TextBlock Text="{Binding SelectedCount, UpdateSourceTrigger=PropertyChanged}" 
+                       HorizontalAlignment="Center" Margin="5" FontSize="18" FontWeight="Bold"/>
+        </StackPanel>
+        <Button Grid.Row="1" Content="完成" HorizontalAlignment="Stretch" Margin="10,5,10,8"  Command="{Binding ExecuteWriteCommand}"
+                Click="Button_Click"/>
+    </Grid>
+</Window>

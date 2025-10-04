@@ -11,53 +11,6 @@
     //[Transaction(TransactionMode.Manual)]
     //public class Test07_0402 : IExternalCommand
     //{
-    //    private static void JudgeConnection(Document doc, Element ele1st, Element ele2st)
-    //    {
-    //        try
-    //        {
-    //            //尝试连接几何
-    //            JoinGeometryUtils.JoinGeometry(doc, ele1st, ele2st);
-    //        }
-    //        catch
-    //        {
-    //            Boolean ifJoined = JoinGeometryUtils.AreElementsJoined(doc, ele1st, ele2st);
-    //            if (ifJoined)
-    //            {
-    //                //判断连接关系是否正确，若不正确切换连接关系
-    //                Boolean if1stCut2st = JoinGeometryUtils.IsCuttingElementInJoin(doc, ele1st, ele2st);
-    //                if (if1stCut2st != true)
-    //                {
-    //                    try
-    //                    {
-    //                        JoinGeometryUtils.SwitchJoinOrder(doc, ele2st, ele1st);
-    //                    }
-    //                    catch
-    //                    {
-    //                        //跳过----小帅帅呆了
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
-    //    private static List<Element> Get_Boundingbox_eles(Document doc, Element element, double offset)
-    //    {
-    //        //获取元素boundingbox相交的元素
-    //        List<Element> eles_list = new List<Element>();
-    //        XYZ element_max_boundingBox = element.get_BoundingBox(doc.ActiveView).Max;
-    //        XYZ element_min_boundingBox = element.get_BoundingBox(doc.ActiveView).Min;
-    //        Outline element_Outline = new Outline(element_min_boundingBox, element_max_boundingBox);
-    //        //element_Outline.Scale(offset);
-    //        FilteredElementCollector element_collector = new FilteredElementCollector(doc);
-    //        ElementClassFilter elementClassFilter_beam = new ElementClassFilter(typeof(FamilyInstance));
-    //        ElementClassFilter elementClassFilter_floor = new ElementClassFilter(typeof(Floor));
-    //        LogicalOrFilter logicalOr = new LogicalOrFilter(elementClassFilter_beam, elementClassFilter_floor);
-    //        element_collector.WherePasses(logicalOr).WherePasses(new BoundingBoxIntersectsFilter(element_Outline, offset));
-    //        foreach (Element near_ele in element_collector)
-    //        {
-    //            eles_list.Add(near_ele as Element);
-    //        }
-    //        return eles_list;
-    //    }
     //    static bool ViewHasTemplate(View v)
     //    {
     //        return !v.IsTemplate

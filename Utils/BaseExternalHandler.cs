@@ -17,6 +17,13 @@ namespace CreatePipe.Utils
             Handler.Action = action;
             ExternalEvent.Raise();
         }
+        // 实现了IDisposable，以便在窗口关闭时可以安全地释放ExternalEvent资源
+        public void Dispose()
+        {
+            ExternalEvent?.Dispose();
+            ExternalEvent = null;
+            Handler = null;
+        }
         public class ExternalEventHandler : IExternalEventHandler
         {
             public Action<UIApplication> Action { get; set; }

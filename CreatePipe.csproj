@@ -79,6 +79,26 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="filter\FloorSelectionFilter.cs" />
+    <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
+    <Compile Include="Form\FamilyInstanceSerializeView.xaml.cs">
+      <DependentUpon>FamilyInstanceSerializeView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\GapWidthWindow.xaml.cs">
+      <DependentUpon>GapWidthWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\OverView1.xaml.cs">
+      <DependentUpon>OverView1.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\OverView2.xaml.cs">
+      <DependentUpon>OverView2.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\SequentialSelector.xaml.cs">
+      <DependentUpon>SequentialSelector.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\SequentialSelectorTest.xaml.cs">
+      <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
+    </Compile>
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
     <Compile Include="cmd\RevitContext.cs" />
@@ -341,9 +361,11 @@
     <Compile Include="SplitWallByLevel.cs" />
     <Compile Include="Test10_0818.cs" />
     <Compile Include="Utils\BaseExternalHandler.cs" />
+    <Compile Include="Utils\FailurePreProcessor.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
     <Compile Include="Utils\RevitProgressBar.cs" />
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
+    <Compile Include="Utils\RobustFailureProcessor.cs" />
     <Compile Include="Utils\UserControls\ProgressWindow.xaml.cs">
       <DependentUpon>ProgressWindow.xaml</DependentUpon>
     </Compile>
@@ -426,6 +448,14 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\FamilyInstanceSerializeView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\GapWidthWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\GuidanceSignManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -446,11 +476,27 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\OverView1.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\OverView2.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\RangeComboBox.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\RoomManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\SequentialSelector.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\SequentialSelectorTest.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

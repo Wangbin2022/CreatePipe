@@ -2,6 +2,7 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using CreatePipe.Form;
+using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -76,55 +77,62 @@ namespace CreatePipe
                     int verticalPipeCount = verticalPipes.Count;
                     int breakCount = 0;
                     double basePointZ = GetProjectBasePointZ(doc);
-                    using (TransactionGroup transGroup = new TransactionGroup(doc, "批量打断立管"))
-                    {
-                        transGroup.Start();
 
-                        // 外层循环：遍历每一根需要处理的垂直管线
-                        foreach (var pipe in verticalPipes)
+                    var failureHandler = new RobustFailureProcessor();
+                    //using (var progressBar = new RevitWpfProgressBar(uiApp, "正在切分...", verticalPipes.Count))
+                    //{
+                        using (TransactionGroup transGroup = new TransactionGroup(doc, "批量打断立管"))
                         {
-                            if (!pipe.IsValidObject) continue;
-
-                            // 为当前管线找出所有需要打断的点，并从低到高排序
-                            List<XYZ> breakPointsForThisPipe = selectedLevels.Select(level => level.Elevation + basePointZ)
-                                .Where(breakZ => IsPointOnCurve(pipe, breakZ)).OrderBy(breakZ => breakZ)
-                                .Select(breakZ => new XYZ((pipe.Location as LocationCurve).Curve.GetEndPoint(0).X, (pipe.Location as LocationCurve).Curve.GetEndPoint(0).Y, breakZ))
-                                .ToList();
-
-                            if (breakPointsForThisPipe.Any())
+                            transGroup.Start();
+                            // 外层循环：遍历每一根需要处理的垂直管线
+                            foreach (var pipe in verticalPipes)
                             {
-                                using (Transaction trans = new Transaction(doc, "打断单个MEPCurve"))
-                                {
-                                    trans.Start();
-                                    try
-                                    {
-                                        // **核心：递归式循环**
-                                        MEPCurve segmentToBreak = pipe; // 初始目标为原始管线
-                                        foreach (var breakPoint in breakPointsForThisPipe)
-                                        {
-                                            if (segmentToBreak == null || !segmentToBreak.IsValidObject)
-                                            {
-                                                // 如果上一步打断失败，则终止对该管线的后续操作
-                                                break;
-                                            }
-                                            // 调用您的自定义打断逻辑
-                                            MEPCurve newUpperSegment = BreakPipeWithCustomLogic(doc, segmentToBreak, breakPoint);
+                                if (!pipe.IsValidObject) continue;
 
-                                            // **关键步骤**：将下一次操作的目标更新为新生成的“上半部分”
-                                            segmentToBreak = newUpperSegment;
-                                        }
-                                        breakCount += breakPointsForThisPipe.Count;
-                                        trans.Commit();
-                                    }
-                                    catch (Exception)
+                                // 为当前管线找出所有需要打断的点，并从低到高排序
+                                List<XYZ> breakPointsForThisPipe = selectedLevels.Select(level => level.Elevation + basePointZ)
+                                    .Where(breakZ => IsPointOnCurve(pipe, breakZ)).OrderBy(breakZ => breakZ)
+                                    .Select(breakZ => new XYZ((pipe.Location as LocationCurve).Curve.GetEndPoint(0).X, (pipe.Location as LocationCurve).Curve.GetEndPoint(0).Y, breakZ))
+                                    .ToList();
+
+                                if (breakPointsForThisPipe.Any())
+                                {
+                                    using (Transaction trans = new Transaction(doc, "打断单个MEPCurve"))
                                     {
-                                        trans.RollBack();
+                                        FailureHandlingOptions options = trans.GetFailureHandlingOptions();
+                                        options.SetFailuresPreprocessor(failureHandler);
+                                        trans.SetFailureHandlingOptions(options);
+                                        trans.Start();
+                                        try
+                                        {
+                                            // **核心：递归式循环**
+                                            MEPCurve segmentToBreak = pipe; // 初始目标为原始管线
+                                            foreach (var breakPoint in breakPointsForThisPipe)
+                                            {
+                                                if (segmentToBreak == null || !segmentToBreak.IsValidObject)
+                                                {
+                                                    // 如果上一步打断失败，则终止对该管线的后续操作
+                                                    break;
+                                                }
+                                                // 调用您的自定义打断逻辑
+                                                MEPCurve newUpperSegment = BreakPipeWithCustomLogic(doc, segmentToBreak, breakPoint);
+
+                                                // **关键步骤**：将下一次操作的目标更新为新生成的“上半部分”
+                                                segmentToBreak = newUpperSegment;
+                                            }
+                                            breakCount += breakPointsForThisPipe.Count;
+                                            trans.Commit();
+                                        }
+                                        catch (Exception)
+                                        {
+                                            trans.RollBack();
+                                        }
                                     }
                                 }
                             }
+                            transGroup.Assimilate();
                         }
-                        transGroup.Assimilate();
-                    }
+                    //}
                     string summaryMessage = $"已处理 {verticalPipeCount} 根机电立管/桥架。" +
                                           $"在 {selectedLevels.Count} 个选定标高上，共执行了 {breakCount} 次打断操作。";
                     if (slopedPipeCount > 0)
