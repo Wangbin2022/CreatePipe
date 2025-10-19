@@ -1,11 +1,6 @@
 ﻿using Autodesk.Revit.DB;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static CreatePipe.Form.CircleGaugePlaceViewModel;
-using static CreatePipe.Test10_0818;
 
 namespace CreatePipe.models
 {

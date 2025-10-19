@@ -1,9 +1,6 @@
 ﻿using Autodesk.Revit.DB;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.Utils
 {
@@ -26,22 +23,22 @@ namespace CreatePipe.Utils
 
         public FailureProcessingResult PreprocessFailures(FailuresAccessor fa)
         {
-            IList<FailureMessageAccessor> lstFma=fa.GetFailureMessages();
+            IList<FailureMessageAccessor> lstFma = fa.GetFailureMessages();
             if (lstFma.Count() == 0) return FailureProcessingResult.Continue;
             foreach (FailureMessageAccessor item in lstFma)
             {
-                if (item.GetSeverity()==FailureSeverity.Warning)
+                if (item.GetSeverity() == FailureSeverity.Warning)
                 {
                     _error = false;
                     fa.DeleteWarning(item);
                 }
-                else if (item.GetSeverity()==FailureSeverity.Error)
+                else if (item.GetSeverity() == FailureSeverity.Error)
                 {
                     if (item.HasResolutions())
                     {
                         fa.ResolveFailure(item);
                         failureMessage = item.GetDescriptionText();
-                        _error=true;
+                        _error = true;
                         return FailureProcessingResult.ProceedWithRollBack;
                     }
                 }

@@ -6,8 +6,6 @@ using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe
 {
@@ -116,14 +114,14 @@ namespace CreatePipe
                                     // 用户按下了ESC
                                     TaskDialog.Show("取消", "操作已由用户取消。");
                                     isCancelled = true;
-                                    break; 
+                                    break;
                                 }
                                 catch (Exception ex)
                                 {
                                     // 4. 捕获所有其他异常，例如“线太短”
                                     TaskDialog.Show("错误", $"创建时发生错误: {ex.Message}请重新选择所有点。");
                                     hasError = true;
-                                    break; 
+                                    break;
                                 }
                             }
                             if (isCancelled || hasError)
@@ -141,7 +139,7 @@ namespace CreatePipe
                         if (isCancelled)
                         {
                             // 用户取消，跳出 while 循环，结束命令
-                            break; 
+                            break;
                         }
                         if (hasError)
                         {
@@ -169,7 +167,7 @@ namespace CreatePipe
                                 adaptivePoint.Position = placementPoints[i];
                             }
                             // 删除临时线
-                            if (tempLines.Any())                                doc.Delete(tempLines);
+                            if (tempLines.Any()) doc.Delete(tempLines);
                             finalTrans.Commit();
                         }
                         break; // 成功创建，跳出 while 循环，结束命令

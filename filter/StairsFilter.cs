@@ -2,10 +2,6 @@
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI.Selection;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.filter
 {

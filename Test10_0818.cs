@@ -2,27 +2,13 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.Electrical;
-using Autodesk.Revit.DB.Mechanical;
-using Autodesk.Revit.DB.Plumbing;
-using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-
-using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.models;
-using CreatePipe.Utils;
-using CreatePipe.ViewFilters;
-using CreatePipe.WpfDirectoryTreeView;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Windows.Input;
 
 
 namespace CreatePipe
@@ -533,6 +519,47 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
             Application = uiApp.Application;
 
+            //1018 改拾取元素递增值代码，1002 通用编码
+            FamilyInstanceSerializeView instanceSerializeView = new FamilyInstanceSerializeView(uiApp);
+            instanceSerializeView.Show();
+
+
+
+            //////1014 补充沟体替换
+            //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
+            //circleGaugePlaceView.Show();
+
+            //var instance = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new AdaptiveFamilyFilter()).ElementId) as FamilyInstance;
+            //var loc = instance.Location;
+            //if (loc is LocationPoint locationPoint && activeView.ViewType is ViewType.FloorPlan)
+            //{
+            //    XYZ xYZ = locationPoint.Point;
+            //    using (Transaction trans = new Transaction(doc, "绘制基准点圆圈"))
+            //    {
+            //        trans.Start();
+            //        // 创建草图平面（使用当前视图的草图平面）
+            //        SketchPlane sketchPlane = activeView.SketchPlane;
+            //        if (sketchPlane == null)
+            //        {
+            //            // 如果没有草图平面，创建一个基于水平面的
+            //            Plane plane = Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ.Zero);
+            //            sketchPlane = SketchPlane.Create(doc, plane);
+            //        }
+            //        // 圆的半径（100毫米转换为英尺）
+            //        double radius = 100 / 304.8;
+            //        // 创建圆
+            //        Arc circle = Arc.Create(xYZ, radius, 0, 2 * Math.PI, XYZ.BasisX, XYZ.BasisY);
+            //        // 创建详细线
+            //        DetailLine detailCircle = doc.Create.NewDetailCurve(activeView, circle) as DetailLine;
+            //        trans.Commit();
+            //        TaskDialog.Show("完成", "已在基准点位置绘制半径为100mm的圆");
+            //    }
+            //}
+
+            ////1010 字符串长度
+            //string aa = "Audit_DesignRole//Audit_CheckRole//Audit_DspAppRole//Audit_ReviewRole//Audit_ApproveRole";
+            //TaskDialog.Show("tt", aa.Length.ToString());
+
             ////1003 SplitElementsCommand 变形缝、后浇带打断板、梁
             //// 检查当前视图是否为平面、立面或剖面
             //if (!(doc.ActiveView is ViewPlan || doc.ActiveView is ViewSection || doc.ActiveView is ViewElevation))
@@ -886,9 +913,7 @@ namespace CreatePipe
             //    // ... 其他方法 ...
             //}
 
-            ////1002 通用编码
-            //FamilyInstanceSerializeView instanceSerializeView = new FamilyInstanceSerializeView(uiApp);
-            //instanceSerializeView.Show();
+
 
             ////1002 拆分楼板，读取出所有轮廓并分别保存多个楼板。注意存在逻辑问题，未处理环嵌套的问题，无法维持板内部开洞
             //// 1. 提示用户选择一个楼板

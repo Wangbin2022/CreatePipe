@@ -1,20 +1,15 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
+using CreatePipe.filter;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe.Form
 {
@@ -35,158 +30,224 @@ namespace CreatePipe.Form
     }
     public class FamilyInstanceSerializeViewModel : ObserverableObject
     {
-        #region 私有字段
-        private readonly UIApplication _uiapp;
-        private readonly UIDocument _uidoc;
-        private bool _isSelecting = false;
-        private readonly List<ElementId> _orderedSelection = new List<ElementId>();
+        public Document Doc { get; set; }
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-
-        // 将命令声明为私有只读字段
-        private readonly BaseBindingCommand _startSelectionCommand;
-        private readonly BaseBindingCommand _executeWriteCommand;
-        #endregion
-
-        #region 公开属性
-        public string BeforeCode { get => _beforeCode; set => SetProperty(ref _beforeCode, value); }
-        private string _beforeCode = "";
-
-        public string SerialCode { get => _serialCode; set => SetProperty(ref _serialCode, value); }
-        private string _serialCode = "1";
-
-        public string BackCode { get => _backCode; set => SetProperty(ref _backCode, value); }
-        private string _backCode = "";
-
-        public string InstanceAttr { get => _instanceAttr; set => SetProperty(ref _instanceAttr, value); }
-        private string _instanceAttr = "编号";
-
-        public int SelectedCount { get => _selectedCount; private set => SetProperty(ref _selectedCount, value); }
-        private int _selectedCount = 0;
-
-        public string SelectionButtonText { get => _selectionButtonText; private set => SetProperty(ref _selectionButtonText, value); }
-        private string _selectionButtonText = "开始选择";
-
-        // 将属性直接指向已创建的命令实例
-        public ICommand StartSelectionCommand => _startSelectionCommand;
-        public ICommand ExecuteWriteCommand => _executeWriteCommand;
-        #endregion
-
-        #region 构造与析构
         public FamilyInstanceSerializeViewModel(UIApplication uIApp)
         {
-            _uiapp = uIApp;
-            _uidoc = uIApp.ActiveUIDocument;
-
-            // 在构造函数中只创建一次命令实例
-            _startSelectionCommand = new BaseBindingCommand(ToggleSelectionMode);
-            _executeWriteCommand = new BaseBindingCommand(ExecuteWrite, obj => SelectedCount > 0);
+            Doc = uIApp.ActiveUIDocument.Document;
         }
-
-        public void Dispose()
-        {
-            StopSelectionMode();
-            _externalHandler?.Dispose();
-        }
-        #endregion
-
-        #region 命令方法
+        public ICommand StartSelectionCommand => new BaseBindingCommand(ToggleSelectionMode);
         private void ToggleSelectionMode(object obj)
         {
-            _isSelecting = !_isSelecting;
-            if (_isSelecting)
-            {
-                StartSelectionMode();
-            }
-            else
-            {
-                StopSelectionMode();
-            }
-        }
-
-        private void ExecuteWrite(object obj)
-        {
-            if (_isSelecting)
-            {
-                StopSelectionMode();
-            }
-
-            if (!int.TryParse(SerialCode, out int startNumber))
-            {
-                TaskDialog.Show("错误", "起始序号必须是一个有效的整数。");
-                return;
-            }
-
-            var elementsToProcess = new List<ElementId>(_orderedSelection);
-            string prefix = this.BeforeCode;
-            string suffix = this.BackCode;
-            string parameterName = this.InstanceAttr;
-
             _externalHandler.Run(app =>
             {
-                Document doc = app.ActiveUIDocument.Document;
-                int currentNumber = startNumber;
+                IsSelectionMode = true;
+                var reference0 = app.ActiveUIDocument.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), $"选择第一个待编号构件");
+                var firstElement = app.ActiveUIDocument.Document.GetElement(reference0.ElementId) as FamilyInstance;
+                Parameter param;
+                if (IsBuiltInParameter(InstanceAttr))
+                {
+                    TaskDialog.Show("tt", $" 参数'{InstanceAttr}'可能是系统内置参数，请重新选择");
+                    return;
+                    //var dialogResult = TaskDialog.Show("内置参数警告",
+                    //    $"您指定的参数 '{InstanceAttr}' 可能是内置参数。\n\n" +
+                    //    "内置参数可能受到系统保护，修改时可能会遇到以下问题：\n" +
+                    //    "• 参数为只读\n" +
+                    //    "• 修改被系统拒绝\n" +
+                    //    "• 产生意外行为\n\n" +
+                    //    "是否继续使用此参数？",
+                    //    TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                    //if (dialogResult == TaskDialogResult.No)
+                    //{
+                    //    return;
+                    //}
+                }
+                if (firstElement.LookupParameter(InstanceAttr) == null)
+                {
+                    TaskDialog.Show("tt", $" 元素不存在属性 '{InstanceAttr}'，请重新选择");
+                    return;
+                }
+                else param = firstElement.LookupParameter(InstanceAttr);
+                if (param.IsReadOnly)
+                {
+                    TaskDialog.Show("tt", $" 属性 '{InstanceAttr}'设置为不可写入，请修改后选择");
+                    return;
+                }
+                Family family = firstElement.Symbol.Family;
+                var familyFilter = new FamilyFilterClass(family);
+                _collectedElementIds.Add(_currentIndex, reference0.ElementId);
+                _currentIndex++;
+                // 更新UI状态
+                SelectedCount++;
 
-                using (Transaction trans = new Transaction(doc, "批量构件编号"))
+                while (IsSelectionMode)
+                {
+                    try
+                    {
+                        var reference = app.ActiveUIDocument.Selection.PickObject(ObjectType.Element,
+                            familyFilter, $"选择构件 (已选择 {SelectedCount} 个, ESC退出)");
+                        if (reference != null)
+                        {
+                            //// 检查是否已存在会导致循环出错，建议允许重复，以最终排序号为准
+                            //if (_collectedElementIds.Values.Contains(reference.ElementId))
+                            //{
+                            //    break;
+                            //}
+                            // 获取元素信息
+                            var element = app.ActiveUIDocument.Document.GetElement(reference.ElementId);
+                            if (element == null) return;
+                            // 添加到字典
+                            _collectedElementIds.Add(_currentIndex, reference.ElementId);
+                            _currentIndex++;
+                            // 更新UI状态
+                            SelectedCount++;
+                        }
+                    }
+                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                    {
+                        // 用户按ESC取消选择，退出循环
+                        CanExecute = true;
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        // 其他异常，显示错误但继续选择
+                        TaskDialog.Show("选择错误", $"选择过程中出错: {ex.Message}");
+                    }
+                }
+                IsSelectionMode = false;
+            });
+        }
+        private bool IsBuiltInParameter(string parameterName)
+        {
+            if (string.IsNullOrEmpty(parameterName)) return false;
+            try
+            {
+                var builtInParameters = Enum.GetValues(typeof(BuiltInParameter)).Cast<BuiltInParameter>()
+                    .Where(bip => bip != BuiltInParameter.INVALID).ToList();
+                return builtInParameters.Any(bip =>
+                {
+                    try
+                    {
+                        string builtInName = LabelUtils.GetLabelFor(bip);
+                        return string.Equals(builtInName, parameterName, StringComparison.CurrentCultureIgnoreCase) ||
+                               string.Equals(bip.ToString(), parameterName, StringComparison.CurrentCultureIgnoreCase);
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        public ICommand ExecuteWriteCommand => new BaseBindingCommand(ExecuteWrite);
+        private void ExecuteWrite(object obj)
+        {
+            //// 直接点选赋码，检查状态退出，功能无效待处理，但收集值是正确的
+            _externalHandler.Run(app =>
+            {
+                using (Transaction trans = new Transaction(Doc, "批量构件编号"))
                 {
                     trans.Start();
-                    foreach (var id in elementsToProcess)
+                    int successCount = 0;
+                    int failCount = 0;
+                    StringBuilder failMessage = new StringBuilder();
+                    // 按序号顺序处理
+                    for (int i = 1; i <= _collectedElementIds.Count; i++)
                     {
-                        Element elem = doc.GetElement(id);
-                        if (elem == null) continue;
-
-                        Parameter param = elem.LookupParameter(parameterName);
-                        if (param != null && !param.IsReadOnly)
+                        if (!_collectedElementIds.TryGetValue(i, out ElementId elementId))
+                            continue;
+                        var element = Doc.GetElement(elementId);
+                        try
                         {
-                            param.Set($"{prefix}{currentNumber++}{suffix}");
+                            // 生成编码：BeforeCode + SerialCode + BackCode
+                            // SerialCode 根据循环序号递增
+                            string serialNumber = (SerialCode + i - 1).ToString(); // i从1开始，所以减1
+                            string fullCode = BeforeCode + serialNumber + BackCode;
+
+                            // 设置参数值
+                            Parameter param = element.LookupParameter(InstanceAttr);
+                            if (param.StorageType == StorageType.String)
+                            {
+                                param.Set(fullCode);
+                                successCount++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            failCount++;
+                            failMessage.AppendLine($"序号 {i}: 设置属性时出错 - {ex.Message}");
                         }
                     }
                     trans.Commit();
+                    // 显示结果
+                    string resultMessage = $"成功为 {successCount} 个构件编号。";
+                    if (failCount > 0)
+                    {
+                        resultMessage += $"\n失败 {failCount} 个构件:\n{failMessage}";
+                    }
+                    TaskDialog.Show("批量编号结果", resultMessage);
                 }
-                TaskDialog.Show("成功", $"已成功为 {elementsToProcess.Count} 个构件编号。");
             });
-
-            _orderedSelection.Clear();
-            SelectedCount = 0;
         }
-        #endregion
-
-        #region 私有辅助方法
-        private void StartSelectionMode()
+        public string InstanceAttr { get; set; } = "本层编号";
+        private string codePreview;
+        public string CodePreview
         {
-            SelectionButtonText = "停止选择";
-            _orderedSelection.Clear();
-            UpdateSelection();
-            _uiapp.Idling += OnIdling;
+            get => BeforeCode + SerialCode + BackCode;
+            set => SetProperty(ref codePreview, value);
         }
-
-        private void StopSelectionMode()
+        public string BackCode
         {
-            SelectionButtonText = "开始选择";
-            if (_isSelecting) // 避免重复取消订阅
+            get => _backCode;
+            set
             {
-                _isSelecting = false;
-                _uiapp.Idling -= OnIdling;
+                _backCode = value;
+                OnPropertyChanged(nameof(CodePreview));
             }
         }
-
-        private void OnIdling(object sender, Autodesk.Revit.UI.Events.IdlingEventArgs e) => UpdateSelection();
-
-        private void UpdateSelection()
+        private string _backCode;
+        public string BeforeCode
         {
-            ICollection<ElementId> currentSelectionIds = _uidoc.Selection.GetElementIds();
-            _orderedSelection.RemoveAll(id => !currentSelectionIds.Contains(id));
-            foreach (var id in currentSelectionIds)
+            get => _beforeCode;
+            set
             {
-                if (!_orderedSelection.Contains(id))
-                {
-                    _orderedSelection.Add(id);
-                }
+                _beforeCode = value;
+                OnPropertyChanged(nameof(CodePreview));
             }
-
-            SelectedCount = _orderedSelection.Count;
-            // 现在这行代码可以正常工作了，因为它操作的是唯一的命令实例
-            _executeWriteCommand.RaiseCanExecuteChanged();
         }
-        #endregion
+        private string _beforeCode;
+        public int SerialCode
+        {
+            get => _serialCode;
+            set
+            {
+                _serialCode = value;
+                OnPropertyChanged(nameof(CodePreview));
+            }
+        }
+        private int _serialCode = 1;
+        // 选择模式状态
+        public bool IsSelectionMode
+        {
+            get => _isSelectionMode;
+            set => SetProperty(ref _isSelectionMode, value);
+        }
+        private int _currentIndex = 1;
+        private bool _isSelectionMode = false;
+        // 存储收集的ElementId，key为序号，value为ElementId
+        private Dictionary<int, ElementId> _collectedElementIds = new Dictionary<int, ElementId>();
+        private int selectedCount = 0;
+        public int SelectedCount
+        {
+            get => selectedCount;
+            set => SetProperty(ref selectedCount, value);
+        }
+        private bool canExecute = false;
+        public bool CanExecute { get => canExecute; set => SetProperty(ref canExecute, value); }
     }
 }

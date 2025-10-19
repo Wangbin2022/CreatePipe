@@ -661,7 +661,7 @@ namespace CreatePipe
             //    }
             //}
 
-        
+
 
             //0222 视图批量修改 界面.OK  
             //ModifyViewDisplayForm displayForm = new ModifyViewDisplayForm(uiApp);

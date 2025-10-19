@@ -1,6 +1,5 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI.Selection;
-using System.Management.Instrumentation;
 
 namespace CreatePipe.filter
 {
@@ -9,7 +8,7 @@ namespace CreatePipe.filter
         public bool AllowElement(Element elem)
         {
             if (elem is FamilyInstance instance && AdaptiveComponentInstanceUtils.IsAdaptiveComponentInstance(instance))
-            {                
+            {
                 return true;
             }
             return false;

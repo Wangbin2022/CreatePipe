@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
-        Title="FamilyInstanceSerializeView" Height="360" Width="250">
+        Title="FamilyInstanceSerializeView" 
+        Height="360" Width="250" Topmost="True">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -25,16 +26,20 @@
                 <TextBox Width="133" Text="{Binding BackCode}" HorizontalAlignment="Right" VerticalAlignment="Center" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="80" Text="属性字段"  VerticalAlignment="Center"/>
+                <TextBlock Width="80" Text="编号预览"  VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding CodePreview}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="80" Text="写入属性"  VerticalAlignment="Center"/>
                 <TextBox Width="133" Text="{Binding InstanceAttr}" HorizontalAlignment="Right" VerticalAlignment="Center" />
             </StackPanel>
-            <Button Content="开始选择" Height="22"
+            <Button Content="开始选择，ESC结束选择" Height="22"
                     Margin="5,10,5,5" Command="{Binding StartSelectionCommand}"/>
             <TextBlock Text="已选中构件数量：" HorizontalAlignment="Center" Margin="0,10,0,5"/>
             <TextBlock Text="{Binding SelectedCount, UpdateSourceTrigger=PropertyChanged}" 
                        HorizontalAlignment="Center" Margin="5" FontSize="18" FontWeight="Bold"/>
         </StackPanel>
-        <Button Grid.Row="1" Content="完成" HorizontalAlignment="Stretch" Margin="10,5,10,8"  Command="{Binding ExecuteWriteCommand}"
-                Click="Button_Click"/>
+        <Button Grid.Row="1" Content="为已选中构件编号" HorizontalAlignment="Stretch" Margin="10,5,10,8"  Command="{Binding ExecuteWriteCommand}"
+                Click="Button_Click" IsEnabled="{Binding CanExecute}"/>
     </Grid>
 </Window>
