@@ -1,4 +1,15 @@
-﻿namespace CreatePipe.PipeSystemManager.Cmd
+﻿using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Plumbing;
+using Autodesk.Revit.UI;
+using CreatePipe.PipeSystemManager.Entity;
+using CreatePipe.PipeSystemManager.Form;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+
+namespace CreatePipe.PipeSystemManager.Cmd
 {
     /// <summary>
     /// 管道系统管理功能

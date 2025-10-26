@@ -68,9 +68,9 @@ namespace CreatePipe.Form
                     return;
                 }
                 else param = firstElement.LookupParameter(InstanceAttr);
-                if (param.IsReadOnly)
+                if (param.IsReadOnly || param.StorageType != StorageType.String)
                 {
-                    TaskDialog.Show("tt", $" 属性 '{InstanceAttr}'设置为不可写入，请修改后选择");
+                    TaskDialog.Show("tt", $" 属性 '{InstanceAttr}'非文本或设置为不可写入，请修改后选择");
                     return;
                 }
                 Family family = firstElement.Symbol.Family;

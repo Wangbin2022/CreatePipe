@@ -100,6 +100,7 @@
     <Compile Include="Form\SequentialSelectorTest.xaml.cs">
       <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ProjectParameterData.cs" />
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
     <Compile Include="cmd\RevitContext.cs" />

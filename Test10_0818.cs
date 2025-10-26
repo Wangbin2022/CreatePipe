@@ -2,13 +2,18 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.Electrical;
+using Autodesk.Revit.DB.ExtensibleStorage;
+using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
+using CreatePipe.filter;
 using CreatePipe.Form;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Windows.Media.Media3D;
 
 
 namespace CreatePipe
@@ -511,6 +516,7 @@ namespace CreatePipe
             }
             return null;
         }
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -519,11 +525,211 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
             Application = uiApp.Application;
 
-            //1018 改拾取元素递增值代码，1002 通用编码
-            FamilyInstanceSerializeView instanceSerializeView = new FamilyInstanceSerializeView(uiApp);
-            instanceSerializeView.Show();
+            ////1026 按构件机电类别选择
+            //FamilyInstance familyInstance;
+            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds.Count() == 0)
+            //{
+            //    var reference = uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
+            //    familyInstance = doc.GetElement(reference) as FamilyInstance;
+            //}
+            //else familyInstance = doc.GetElement(selectedIds.FirstOrDefault()) as FamilyInstance;
+            //if (familyInstance.MEPModel.ConnectorManager != null)
+            //{
+            //    var para = familyInstance.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
+            //    if (para == null)
+            //    {
+            //        para = familyInstance.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM);
+            //    }
+            //    var paramName = para.AsValueString();
+            //    if (!(paramName == "Undefined" || paramName == "未定义"))
+            //    {
+            //        //TaskDialog.Show("tt", paramName);
+            //        ElementId systemTypeId = para.AsElementId();
+            //        ElementId familySymbolId = familyInstance.Symbol.Family.Id;
+            //        List<ElementId> selectedElementIds = new List<ElementId>();
+            //        // 使用FilteredElementCollector获取所有FamilyInstance
+            //        FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
+            //        // 根据参数名称确定是管道系统还是风管系统
+            //        BuiltInParameter targetParameter;
+            //        if (paramName.Contains("PIPING"))
+            //        {
+            //            targetParameter = BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM;
+            //        }
+            //        else
+            //        {
+            //            targetParameter = BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
+            //        }
+            //        foreach (FamilyInstance instance in collector)
+            //        {
+            //            // 检查是否有MEP连接
+            //            if (instance.MEPModel?.ConnectorManager != null)
+            //            {
+            //                // 获取系统类型参数
+            //                Parameter systemParam = instance.get_Parameter(targetParameter);
+            //                if (systemParam != null && systemParam.AsElementId() == systemTypeId && instance.Symbol.Family.Id == familySymbolId)
+            //                {
+            //                    selectedElementIds.Add(instance.Id);
+            //                }
+            //            }
+            //        }
+            //        uiDoc.Selection.SetElementIds(selectedElementIds);
+            //        TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
+            //    }
+            //    else
+            //    {
+            //        TaskDialog.Show("提示", "该构件系统类型未定义");
+            //    }
+            //}
+            //else TaskDialog.Show("tt", "该构件没有MEP连接管理器");
+            //例程结束
+       
+            ////0926 批量按选择项写楼板面积属性,临时工具
+            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            //using (Transaction trans = new Transaction(doc, "设置面积"))
+            //{
+            //    trans.Start();
+            //    foreach (var item in selectedIds)
+            //    {
+            //        Element element = doc.GetElement(item);
+            //        double areaValue = element.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED).AsDouble();
+            //        // 检查自定义参数是否存在
+            //        Parameter areaParam = element.LookupParameter("面积1");
+            //        if (areaParam != null && !areaParam.IsReadOnly)
+            //        {
+            //            areaParam.Set(((areaValue * 304.8 * 304.8) / (1000 * 1000)).ToString("F2"));
+            //        }
+            //        else
+            //        {
+            //            TaskDialog.Show("提示", "元素ID " + item.IntegerValue + " 不存在'面积1'参数或参数为只读");
+            //        }
+            //    }
+            //    trans.Commit();
+            //}
+            //例程结束
 
 
+            ////1025 找项目参数并删除
+            //// 检查是否允许全局参数
+            //if (GlobalParametersManager.AreGlobalParametersAllowed(doc))
+            //{
+            //    List<ProjectParameterData> result = new List<ProjectParameterData>();
+            //    // 获取文档的BindingMap
+            //    BindingMap map = doc.ParameterBindings;
+            //    DefinitionBindingMapIterator iterator = map.ForwardIterator();
+            //    while (iterator.MoveNext())
+            //    {
+            //        Definition definition = iterator.Key;
+            //        ElementBinding binding = iterator.Current as ElementBinding;
+            //        if (definition != null && binding != null)
+            //        {
+            //            ProjectParameterData paramData = new ProjectParameterData
+            //            {
+            //                Name = definition.Name,
+            //                //ParameterType = GetParameterTypeString(definition),
+            //                //ParameterGroup = GetParameterGroupString(definition),
+            //                //BindingType = binding is InstanceBinding ? "实例参数" : "类型参数",
+            //                //Categories = GetBoundCategories(binding),
+            //                //IsShared = definition is ExternalDefinition,
+            //                //IsReportable = IsReportableParameter(definition),
+            //                //GUID = GetParameterGUID(definition)
+            //            };
+            //            ////if ((definition is ExternalDefinition))
+            //            //if (binding is CategorySetBinding)
+            //            //{
+            //            //    result.Add(paramData);
+            //            //}
+            //            result.Add(paramData);
+            //        }
+            //    }
+            //    List<string> parameterNames = new List<string>();
+            //    foreach (var item in result)
+            //    {
+            //        parameterNames.Add(item.Name);
+            //    }
+            //    //foreach (var item in filters)
+            //    //{
+            //    //    parameterNames.Add(item.Name);
+            //    //}
+            //    // 输出所有全局参数名称
+            //    //TaskDialog.Show("全局参数", string.Join("\n", parameterNames));
+            //    TaskDialog.Show("全局参数", parameterNames.Count().ToString());
+            //}
+            //else
+            //{
+            //    TaskDialog.Show("错误", "当前文档不支持全局参数");
+            //}
+            ////"冷凝水系统"
+            ////1024 找遗漏少量id
+            //var resultPipes = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
+            //var resultPipes2 = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).Cast<Pipe>().ToList();
+            //StringBuilder ids = new StringBuilder();
+            //foreach (var item in resultPipes)
+            //{
+            //    Parameter parameter = item.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
+            //    if (parameter != null && parameter.HasValue)
+            //    {
+            //        ElementId systemTypeId = parameter.AsElementId();
+            //        if (systemTypeId != ElementId.InvalidElementId)
+            //        {
+            //            // 通过系统类型ID获取系统类型元素
+            //            Element systemType = doc.GetElement(systemTypeId);
+            //            if (systemType != null)
+            //            {
+            //                // 获取系统名称
+            //                string systemName = systemType.Name;
+            //                if (systemName == "冷凝水系统")
+            //                {
+            //                    ids.AppendLine($"ElementId: {item.Id.IntegerValue}");
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+            //foreach (var item in resultPipes2)
+            //{
+            //    Parameter parameter = item.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
+            //    if (parameter != null && parameter.HasValue)
+            //    {
+            //        ElementId systemTypeId = parameter.AsElementId();
+            //        if (systemTypeId != ElementId.InvalidElementId)
+            //        {
+            //            // 通过系统类型ID获取系统类型元素
+            //            Element systemType = doc.GetElement(systemTypeId);
+            //            if (systemType != null)
+            //            {
+            //                // 获取系统名称
+            //                string systemName = systemType.Name;
+            //                if (systemName == "冷凝水系统")
+            //                {
+            //                    ids.AppendLine($"ElementId: {item.Id.IntegerValue}");
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+            //TaskDialog.Show("tt", ids.ToString());
+            ////例程结束
+            //var resultPipes = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).Cast<Pipe>().ToList();
+            //StringBuilder ids = new StringBuilder();
+            //foreach (var item in resultPipes)
+            //{
+            //    Parameter parameter = item.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
+            //    if (parameter.AsString() == "组合式空调系统供水") ids.AppendLine(item.Id.ToString());
+            //}
+            //TaskDialog.Show("tt", ids.ToString());
+            //var objs = new FilteredElementCollector(doc).OfCategory( BuiltInCategory.OST_DuctFitting).
+            //var fitting = uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, new filterMEPFitting());
+            //Element element = doc.GetElement(fitting);
+
+            ////1010 字符串长度
+            //string aa = "Audit_DesignRole//Audit_CheckRole//Audit_DspAppRole//Audit_ReviewRole//Audit_ApproveRole";
+            //string aa = "H:\\mango\\整理芒果资源\\BaiduNetdiskDownload\\【24650】2016幼升小数学思维启蒙班【22讲 洪然】\\视频+讲义\\【免费小学学习视频下载www.laixuexi.cc】第21讲 益智天地";
+            //TaskDialog.Show("tt", aa.Length.ToString());
+
+            ////1018 改拾取元素递增值代码，1002 通用编码 OK
+            //FamilyInstanceSerializeView instanceSerializeView = new FamilyInstanceSerializeView(uiApp);
+            //instanceSerializeView.Show();
 
             //////1014 补充沟体替换
             //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
@@ -556,9 +762,7 @@ namespace CreatePipe
             //    }
             //}
 
-            ////1010 字符串长度
-            //string aa = "Audit_DesignRole//Audit_CheckRole//Audit_DspAppRole//Audit_ReviewRole//Audit_ApproveRole";
-            //TaskDialog.Show("tt", aa.Length.ToString());
+
 
             ////1003 SplitElementsCommand 变形缝、后浇带打断板、梁
             //// 检查当前视图是否为平面、立面或剖面
@@ -1066,28 +1270,7 @@ namespace CreatePipe
             //    transaction.Commit();
             //}
 
-            ////0926 批量按选择项写面积属性,临时工具
-            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-            //using (Transaction trans = new Transaction(doc, "设置面积"))
-            //{
-            //    trans.Start();
-            //    foreach (var item in selectedIds)
-            //    {
-            //        Element element = doc.GetElement(item);
-            //        double areaValue = element.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED).AsDouble();
-            //        // 检查自定义参数是否存在
-            //        Parameter areaParam = element.LookupParameter("面积1");
-            //        if (areaParam != null && !areaParam.IsReadOnly)
-            //        {
-            //            areaParam.Set(((areaValue * 304.8 * 304.8) / (1000 * 1000)).ToString("F2"));
-            //        }
-            //        else
-            //        {
-            //            TaskDialog.Show("提示", "元素ID " + item.IntegerValue + " 不存在'面积1'参数或参数为只读");
-            //        }
-            //    }
-            //    trans.Commit();
-            //}
+
             ////0909 取楼梯中心几何点
             //var columnRef = uiDoc.Selection.PickObject(ObjectType.Element, new StairsFilter(), "选择楼梯");
             //Stairs stair = doc.GetElement(columnRef.ElementId) as Stairs;
@@ -1561,5 +1744,7 @@ namespace CreatePipe
 
             return Result.Succeeded;
         }
+
+
     }
 }
