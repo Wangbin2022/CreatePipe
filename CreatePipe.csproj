@@ -79,6 +79,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\FamilyFilterClass.cs" />
     <Compile Include="filter\FloorSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
@@ -100,12 +101,13 @@
     <Compile Include="Form\SequentialSelectorTest.xaml.cs">
       <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ImportParameters.cs" />
     <Compile Include="ProjectParameterData.cs" />
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
-    <Compile Include="DrawAdaptiveCircle.cs" />
+    <Compile Include="Obselete\DrawAdaptiveCircle.cs" />
     <Compile Include="ElementCount.cs" />
     <Compile Include="filter\StairsFilter.cs" />
     <Compile Include="Form\Behaviors\ValidationErrorToViewModelBehavior.cs" />
@@ -362,6 +364,9 @@
     <Compile Include="Obselete\Test09_0617.cs" />
     <Compile Include="SplitWallByLevel.cs" />
     <Compile Include="Test10_0818.cs" />
+    <Compile Include="UniversalMultiParameterSelect.xaml.cs">
+      <DependentUpon>UniversalMultiParameterSelect.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Utils\BaseExternalHandler.cs" />
     <Compile Include="Utils\FailurePreProcessor.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
@@ -675,6 +680,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Obselete\RoomAttr\RoomAttrForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UniversalMultiParameterSelect.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
