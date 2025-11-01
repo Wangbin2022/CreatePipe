@@ -526,9 +526,98 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            ////1101.1026 按构件机电类别选择
+            try
+            {
+                // 获取用户选择的元素
+                FamilyInstance familyInstance;
+                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+                if (selectedIds.Count == 0)
+                {
+                    var reference = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
+                    familyInstance = doc.GetElement(reference) as FamilyInstance;
+                }
+                else
+                {
+                    familyInstance = doc.GetElement(selectedIds.First()) as FamilyInstance;
+                }
+                // 检查构件是否有 MEP 连接管理器
+                if (familyInstance.MEPModel?.ConnectorManager == null)
+                {
+                    TaskDialog.Show("提示", "该构件没有 MEP 连接管理器");
+                    return Result.Failed;
+                }
+                // 获取系统类型参数
+                Parameter systemTypeParam = null;
+                var parameters = new[]
+                {BuiltInParameter.RBS_CTC_SERVICE_TYPE, BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM };
+                foreach (var paramId in parameters)
+                {
+                    systemTypeParam = familyInstance.get_Parameter(paramId);
+                    if (systemTypeParam != null && systemTypeParam.HasValue) break;
+                }
+                if (systemTypeParam == null || !systemTypeParam.HasValue)
+                {
+                    TaskDialog.Show("提示", "该构件系统类型未定义");
+                    return Result.Failed;
+                }
+                string paramValue = systemTypeParam.AsValueString();
+                if (paramValue == "Undefined" || paramValue == "未定义")
+                {
+                    TaskDialog.Show("提示", "该构件系统类型未定义");
+                    return Result.Failed;
+                }
+                // 获取匹配的构件
+                ElementId familySymbolId = familyInstance.Symbol.Family.Id;
+                List<ElementId> selectedElementIds = new List<ElementId>();
+                FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
+                foreach (FamilyInstance instance in collector)
+                {
+                    if (instance.MEPModel?.ConnectorManager == null) continue;
+                    // 电气系统特殊处理                    
+                    if (!(familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE) is null))
+                    {
+                        paramValue = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsString();
+                        Parameter systemParam = instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
+                        if (systemParam != null && systemParam.AsValueString() == paramValue && instance.Symbol.Family.Id == familySymbolId)
+                        {
+                            selectedElementIds.Add(instance.Id);
+                        }
+                    }
+                    else
+                    {
+                        // 管道/风管系统处理
+                        BuiltInParameter targetParameter = systemTypeParam.Definition.Name.Contains("PIPING")
+                            ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
+                            : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
+                        Parameter systemParam = instance.get_Parameter(targetParameter);
+                        if (systemParam != null && systemParam.AsElementId() == systemTypeParam.AsElementId() && instance.Symbol.Family.Id == familySymbolId)
+                        {
+                            selectedElementIds.Add(instance.Id);
+                        }
+                    }
+                }
+                // 更新选择集
+                uiDoc.Selection.SetElementIds(selectedElementIds);
+                TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("错误", ex.Message);
+                return Result.Failed;
+            }
+            //////1031 桥架管理功能优化
+            //CableTraySystemTest cableTraySystemTest = new CableTraySystemTest(doc);
+            //cableTraySystemTest.ShowDialog();
 
+            //CableTray cableTray = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element).ElementId) as CableTray;
+            //TaskDialog.Show("tt", cableTray.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString());
 
-            ////1031 桥架及配件按类型拾取和类型名称修改
+            //////1031 桥架及配件按类型拾取和类型名称修改
             //CableTray cableTray = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element).ElementId) as CableTray;
             //List<CableTray> allCableTrays = new FilteredElementCollector(doc).OfClass(typeof(CableTray)).Cast<CableTray>().ToList();
             //List<FamilyInstance> allCableTrayFittings = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_CableTrayFitting).Cast<FamilyInstance>().ToList();

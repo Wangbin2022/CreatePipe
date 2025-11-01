@@ -78,7 +78,7 @@
   Binding="{Binding SystemName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="缩写" Width="35" SortMemberPath="Abbreviation" CanUserResize="False"
-                      Binding="{Binding Abbreviation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                      Binding="{Binding Abbreviation, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="类型" Width="35" SortMemberPath="SystemCategory" CanUserResize="False"
                       Binding="{Binding SystemCategory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="数量统计" Width="50" SortMemberPath="SingleSystemElementCount" 
@@ -146,7 +146,7 @@ SortMemberPath="Name" >
                     <DataGridTemplateColumn Header="设置操作" CanUserResize="False">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="确认并设置" Width="auto" Command="{Binding DataContext.ApplySetupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                <Button Content="设到全视图" Width="auto" Command="{Binding DataContext.ApplySetupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
 CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

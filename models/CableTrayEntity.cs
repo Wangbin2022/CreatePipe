@@ -215,25 +215,83 @@ namespace CreatePipe.models
         }
         private void ModifyAbbreviation(string newValue)
         {
-            FilteredElementCollector collector = new FilteredElementCollector(Document);
-            List<CableTray> cableTrays = collector.OfClass(typeof(CableTray))
-                .Cast<CableTray>().ToList();
-            FilteredElementCollector collector1 = new FilteredElementCollector(Document);
-            List<FamilyInstance> cableTrayFittings = collector1
-                .OfClass(typeof(FamilyInstance))
-                .OfCategory(BuiltInCategory.OST_CableTrayFitting)
-                .Cast<FamilyInstance>().ToList();
-            List<string> abbs = new List<string>();
-            foreach (CableTray item in cableTrays)
+            List<CableTray> allCableTrays = new FilteredElementCollector(Document).OfClass(typeof(CableTray)).Cast<CableTray>().ToList();
+            List<FamilyInstance> allCableTrayFittings = new FilteredElementCollector(Document).OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_CableTrayFitting).Cast<FamilyInstance>().ToList();
+            List<CableTray> selectCableTrays = new List<CableTray>();
+            foreach (var item in allCableTrays)
             {
-                Parameter param = item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-                param.Set(newValue);
+                if (item.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString() == cableTrayType.Name)
+                {
+                    selectCableTrays.Add(item);
+                }
             }
-            foreach (FamilyInstance item in cableTrayFittings)
+            //string paraName = selectCableTrays.FirstOrDefault().get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsValueString();
+            //UniversalNewString subView = new UniversalNewString("请输入要桥架类型名称", paraName);
+            //if (subView.ShowDialog() != true || !(subView.DataContext is NewStringViewModel vm) || string.IsNullOrWhiteSpace(vm.NewName))
+            //{
+            //    TaskDialog.Show("tt", "输入属性遇到错误，请重试");
+            //    return Result.Cancelled;
+            //}
+            //paraName = vm.NewName;
+            foreach (var item in selectCableTrays)
             {
-                Parameter param = item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-                param.Set(newValue);
+                item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).Set(newValue);
             }
+            foreach (var instance in allCableTrayFittings)
+            {
+                ConnectorSet cons = instance.MEPModel.ConnectorManager.Connectors;
+                foreach (Connector item in cons)
+                {
+                    if (!item.IsConnected)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        // 获取连接的所有构件
+                        ConnectorSet connectedCons = item.AllRefs;
+                        foreach (Connector connectedCon in connectedCons)
+                        {
+                            // 排除自身连接器
+                            if (connectedCon == item) continue;
+
+                            // 判断连接对象类型
+                            if (connectedCon.Owner is FamilyInstance connectedFamilyInstance)
+                            {
+                                continue;
+                            }
+                            else if (connectedCon.Owner is CableTray mepCurve && mepCurve.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsValueString() == newValue)
+                            {
+                                // 直接连接到桥架的情况
+                                instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).Set(newValue);
+                            }
+                        }
+                    }
+                }
+            }
+            ////TaskDialog.Show("tt", item.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString());
+            //TaskDialog.Show("tt", $"已修改{CableSwitch.Count.ToString()}个构件");
+            //Selection select = uiApp.ActiveUIDocument.Selection;
+            //select.SetElementIds(CableSwitch);
+            ////FilteredElementCollector collector = new FilteredElementCollector(Document);
+            ////List<CableTray> cableTrays = collector.OfClass(typeof(CableTray))
+            ////    .Cast<CableTray>().ToList();
+            ////FilteredElementCollector collector1 = new FilteredElementCollector(Document);
+            ////List<FamilyInstance> cableTrayFittings = collector1
+            ////    .OfClass(typeof(FamilyInstance))
+            ////    .OfCategory(BuiltInCategory.OST_CableTrayFitting)
+            ////    .Cast<FamilyInstance>().ToList();
+            ////List<string> abbs = new List<string>();
+            ////foreach (CableTray item in cableTrays)
+            ////{
+            ////    Parameter param = item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
+            ////    param.Set(newValue);
+            ////}
+            ////foreach (FamilyInstance item in cableTrayFittings)
+            ////{
+            ////    Parameter param = item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
+            ////    param.Set(newValue);
+            ////}
         }
         private string GetSystemCategory(CableTrayType cableTray)
         {
