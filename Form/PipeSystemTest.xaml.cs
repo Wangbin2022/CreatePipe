@@ -12,7 +12,7 @@ namespace CreatePipe.Form
         public PipeSystemTest(Document document)
         {
             InitializeComponent();
-            this.DataContext = new PipeSystemViewModel(document);
+            //this.DataContext = new PipeSystemViewModel(document);
         }
         private void Button_Click(object sender, RoutedEventArgs e)
         {

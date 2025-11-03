@@ -24,7 +24,7 @@
     <DefineConstants>REVIT2021_OR_HIGHER;REVIT2020</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -83,6 +83,9 @@
     <Compile Include="filter\FamilyFilterClass.cs" />
     <Compile Include="filter\FloorSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
+    <Compile Include="Form\DuctSystemManagerView.xaml.cs">
+      <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\FamilyInstanceSerializeView.xaml.cs">
       <DependentUpon>FamilyInstanceSerializeView.xaml</DependentUpon>
     </Compile>
@@ -95,6 +98,9 @@
     <Compile Include="Form\OverView2.xaml.cs">
       <DependentUpon>OverView2.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\PipeSystemManagerView.xaml.cs">
+      <DependentUpon>PipeSystemManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\SequentialSelector.xaml.cs">
       <DependentUpon>SequentialSelector.xaml</DependentUpon>
     </Compile>
@@ -102,6 +108,7 @@
       <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
     </Compile>
     <Compile Include="ImportParameters.cs" />
+    <Compile Include="models\DuctSystemEntity.cs" />
     <Compile Include="ProjectParameterData.cs" />
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
@@ -451,6 +458,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\DuctSystemManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\EvacRouteManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -488,6 +499,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\OverView2.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\PipeSystemManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

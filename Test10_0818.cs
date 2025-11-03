@@ -5,6 +5,7 @@ using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Plumbing;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
@@ -479,46 +480,126 @@ namespace CreatePipe
             XYZ centerPoint = (bbox.Min + bbox.Max) / 2.0;
             return room.IsPointInRoom(centerPoint);
         }
+        //生成柱子
 
-        public string FindBuiltInFailureByDescription(string searchDescription)
+        // 截断小数位数的方法
+        private double CutDecimalWithN(double value, int decimalPlaces)
         {
-            FailureDefinitionRegistry failureReg = Application.GetFailureDefinitionRegistry();
-            Type builtInFailuresType = typeof(BuiltInFailures);
-            Type[] nestedTypes = builtInFailuresType.GetNestedTypes(BindingFlags.Public);
-
-            foreach (Type nestedType in nestedTypes)
+            double factor = Math.Pow(10, decimalPlaces);
+            return Math.Truncate(value * factor) / factor;
+        }
+        private void CreatColu(Document doc, XYZ point, double b, double h)
+        {
+            FilteredElementCollector fil = new FilteredElementCollector(doc);
+            fil.OfClass(typeof(FamilySymbol));
+            string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
+            List<FamilySymbol> listFa = new List<FamilySymbol>();
+            foreach (FamilySymbol fa in fil)
             {
-                foreach (PropertyInfo property in nestedType.GetProperties(BindingFlags.Public | BindingFlags.Static))
+                // 更安全的参数获取方式
+                Parameter familyNameParam = fa.LookupParameter("族名称");
+                if (familyNameParam != null && familyNameParam.AsString() == "CADC_柱-混凝土-矩形")
                 {
-                    try
-                    {
-                        MethodInfo getMethod = property.GetGetMethod();
-                        if (getMethod != null)
-                        {
-                            FailureDefinitionId failureId = getMethod.Invoke(null, null) as FailureDefinitionId;
-                            if (failureId != null)
-                            {
-                                FailureDefinitionAccessor failureAccessor = failureReg.FindFailureDefinition(failureId);
-                                if (failureAccessor != null)
-                                {
-                                    string description = failureAccessor.GetDescriptionText();
-                                    if (description.Contains(searchDescription))
-                                    {
-                                        return $"{nestedType.Name}.{property.Name}";
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // 忽略错误继续查找
-                    }
+                    listFa.Add(fa);
                 }
             }
-            return null;
+            if (listFa.Count == 0)
+            {
+                TaskDialog.Show("错误", "未找到名为'CADC_柱-混凝土-矩形'的族类型");
+                return;
+            }
+            FamilySymbol targetSymbol = null;
+            // 查找匹配的族类型
+            foreach (FamilySymbol symbol in listFa)
+            {
+                if (bh == symbol.Name)
+                {
+                    targetSymbol = symbol;
+                    break;
+                }
+            }
+            if (targetSymbol != null)
+            {
+                // 确保族类型已激活
+                if (!targetSymbol.IsActive) targetSymbol.Activate();
+                doc.Create.NewFamilyInstance(point, targetSymbol, StructuralType.Column);
+            }
+            else
+            {
+                // 复制创建新的族类型
+                FamilySymbol fam = listFa[0];
+                // 确保族类型已激活
+                if (!fam.IsActive) fam.Activate();
+                try
+                {
+                    FamilySymbol newSymbol = fam.Duplicate(bh) as FamilySymbol;
+                    // 设置参数 - 使用更安全的参数查找方式
+                    Parameter widthParam = newSymbol.LookupParameter("b");
+                    Parameter heightParam = newSymbol.LookupParameter("h");
+                    if (widthParam != null && heightParam != null)
+                    {
+                        using (Transaction t = new Transaction(doc, "设置柱参数"))
+                        {
+                            t.Start();
+                            widthParam.Set(b);
+                            heightParam.Set(h);
+                            t.Commit();
+                        }
+                        doc.Create.NewFamilyInstance(point, newSymbol, StructuralType.Column);
+                    }
+                    else
+                    {
+                        TaskDialog.Show("错误", "找不到截面宽度或截面高度参数");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TaskDialog.Show("错误", $"创建族类型失败: {ex.Message}");
+                }
+            }
         }
+        //private void CreatColu(Document doc, XYZ point, double b, double h)
+        //{
+        //    FilteredElementCollector fil = new FilteredElementCollector(doc);
+        //    fil.OfClass(typeof(FamilySymbol));
+        //    string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
+        //    List<FamilySymbol> listFa = new List<FamilySymbol>();
+        //    foreach (FamilySymbol fa in fil)
+        //    {
+        //        if (fa.GetParameters("族名称")[0].AsString() == "砼矩形柱")
+        //        {
+        //            listFa.Add(fa);
+        //        }
+        //    }
+        //    int i = 0;
+        //    bool bo = false;
+        //    int j = 0;
+        //    for (i = 0; i < listFa.Count; i++)
+        //    {
+        //        if (bh == listFa[i].Name)
+        //        {
 
+        //            bo = true;
+
+        //            j = i;
+
+        //        }
+        //    }
+
+        //    if (bo == true)
+        //    {
+        //        doc.Create.NewFamilyInstance(point, listFa[j], StructuralType.Column);
+        //    }
+        //    else
+        //    {
+        //        FamilySymbol fam = listFa[0];
+        //        ElementType coluType = fam.Duplicate(bh);
+        //        coluType.GetParameters("截面宽度")[0].Set(b);
+        //        coluType.GetParameters("截面高度")[0].Set(h);
+        //        FamilySymbol fs = coluType as FamilySymbol;
+        //        doc.Create.NewFamilyInstance(point, fs, StructuralType.Column);
+        //    }
+        //}
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -526,166 +607,161 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////1101.1026 按构件机电类别选择
+            ////1102 结构柱翻模测试改造 https://zhuanlan.zhihu.com/p/108750783
+            // 创建应用程序对象
+            Autodesk.Revit.UI.UIApplication uiapp = commandData.Application;
+            //Autodesk.Revit.UI.UIDocument uiDoc = uiapp.ActiveUIDocument;
+            //Autodesk.Revit.DB.Document doc = uiDoc.Document;
             try
             {
-                // 获取用户选择的元素
-                FamilyInstance familyInstance;
-                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-                if (selectedIds.Count == 0)
+                //开始事务
+                using (Autodesk.Revit.DB.Transaction ts = new Autodesk.Revit.DB.Transaction(doc, "柱子翻模"))
                 {
-                    var reference = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
-                    familyInstance = doc.GetElement(reference) as FamilyInstance;
-                }
-                else
-                {
-                    familyInstance = doc.GetElement(selectedIds.First()) as FamilyInstance;
-                }
-                // 检查构件是否有 MEP 连接管理器
-                if (familyInstance.MEPModel?.ConnectorManager == null)
-                {
-                    TaskDialog.Show("提示", "该构件没有 MEP 连接管理器");
-                    return Result.Failed;
-                }
-                // 获取系统类型参数
-                Parameter systemTypeParam = null;
-                var parameters = new[]
-                {BuiltInParameter.RBS_CTC_SERVICE_TYPE, BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM };
-                foreach (var paramId in parameters)
-                {
-                    systemTypeParam = familyInstance.get_Parameter(paramId);
-                    if (systemTypeParam != null && systemTypeParam.HasValue) break;
-                }
-                if (systemTypeParam == null || !systemTypeParam.HasValue)
-                {
-                    TaskDialog.Show("提示", "该构件系统类型未定义");
-                    return Result.Failed;
-                }
-                string paramValue = systemTypeParam.AsValueString();
-                if (paramValue == "Undefined" || paramValue == "未定义")
-                {
-                    TaskDialog.Show("提示", "该构件系统类型未定义");
-                    return Result.Failed;
-                }
-                // 获取匹配的构件
-                ElementId familySymbolId = familyInstance.Symbol.Family.Id;
-                List<ElementId> selectedElementIds = new List<ElementId>();
-                FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
-                foreach (FamilyInstance instance in collector)
-                {
-                    if (instance.MEPModel?.ConnectorManager == null) continue;
-                    // 电气系统特殊处理                    
-                    if (!(familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE) is null))
+                    ts.Start();
+                    Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement); //获取对象
+                    string ss = r.ConvertToStableRepresentation(doc); //转化为字符串
+                    Element elem = doc.GetElement(r);
+                    // 获取几何图元
+                    GeometryElement geoElem = elem.get_Geometry(new Options());
+                    GeometryObject geoObj = elem.GetGeometryObjectFromReference(r);
+                    //获取选中的cad图层
+                    Category targetCategory = null;
+                    ElementId graphicsStyleId = ElementId.InvalidElementId;
+                    //判断所选取的几何对象样式不为元素无效值
+                    if (geoObj != null && geoObj.GraphicsStyleId != ElementId.InvalidElementId)
                     {
-                        paramValue = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsString();
-                        Parameter systemParam = instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-                        if (systemParam != null && systemParam.AsValueString() == paramValue && instance.Symbol.Family.Id == familySymbolId)
+                        graphicsStyleId = geoObj.GraphicsStyleId;
+                        GraphicsStyle gs = doc.GetElement(geoObj.GraphicsStyleId) as GraphicsStyle; //获得所选对象图形样式
+                        if (gs != null)
                         {
-                            selectedElementIds.Add(instance.Id);
+                            targetCategory = gs.GraphicsStyleCategory; //图层
+                            string layerName = gs.GraphicsStyleCategory.Name; //图层名字
                         }
+                        //隐藏选中的cad图层
+                        if (targetCategory != null)
+                        {
+                            //doc.ActiveView.SetVisibility(targetCategory, false);
+                            doc.ActiveView.SetCategoryHidden(targetCategory.Id, false);
+                        }
+                        CurveArray curveArray = new CurveArray();
+                        List<double> listdb = new List<double>();
+                        foreach (var gObj in geoElem)
+                        {
+                            GeometryInstance geomInstance = gObj as GeometryInstance;
+                            if (geomInstance != null)
+                            {
+                                //坐标转换
+                                Transform transform = geomInstance.Transform;
+
+                                foreach (var insObj in geomInstance.SymbolGeometry) //坐标空间
+                                {
+                                    if (insObj == null) continue;
+                                    // 检查图形样式ID是否匹配
+                                    if (insObj.GraphicsStyleId != graphicsStyleId)
+                                        continue;
+                                    //线类型 - 处理PolyLine
+                                    if (insObj is PolyLine polyLine)
+                                    {
+                                        IList<XYZ> points = polyLine.GetCoordinates(); //获取坐标点
+                                        XYZ pMax = polyLine.GetOutline().MaximumPoint;
+                                        XYZ pMin = polyLine.GetOutline().MinimumPoint;
+                                        //长和宽
+                                        double b = Math.Abs(pMin.X - pMax.X);
+                                        double h = Math.Abs(pMin.Y - pMax.Y);
+                                        XYZ pp = pMax.Add(pMin) / 2; //柱子的中点坐标
+                                        pp = transform.OfPoint(pp); //坐标转换
+                                        CreatColu(doc, pp, b, h); //生成柱子
+                                    }
+                                    else
+                                    {
+                                        TaskDialog.Show("tt", "未检测到符合条件多段线");
+                                        return Result.Failed;
+                                    }
+                                    // 添加对Line的处理
+                                    //else if (insObj is Line line)
+                                    //{
+                                    //    // 处理直线类型的CAD元素
+                                    //    XYZ start = line.GetEndPoint(0);
+                                    //    XYZ end = line.GetEndPoint(1);
+                                    //    // 可以根据需要添加对直线的处理逻辑
+                                    //}
+                                }
+                            }
+                        }
+                        ts.Commit();
                     }
                     else
                     {
-                        // 管道/风管系统处理
-                        BuiltInParameter targetParameter = systemTypeParam.Definition.Name.Contains("PIPING")
-                            ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
-                            : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
-                        Parameter systemParam = instance.get_Parameter(targetParameter);
-                        if (systemParam != null && systemParam.AsElementId() == systemTypeParam.AsElementId() && instance.Symbol.Family.Id == familySymbolId)
-                        {
-                            selectedElementIds.Add(instance.Id);
-                        }
+                        ts.RollBack();
+                        TaskDialog.Show("错误", "无法获取有效的图形样式信息");
+                        return Result.Failed;
                     }
+                    return Result.Succeeded;
                 }
-                // 更新选择集
-                uiDoc.Selection.SetElementIds(selectedElementIds);
-                TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
+                // 用户取消了选择操作
                 return Result.Cancelled;
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("错误", ex.Message);
+                message = ex.Message;
+                TaskDialog.Show("错误", $"执行过程中发生错误: {ex.Message}");
                 return Result.Failed;
             }
-            //////1031 桥架管理功能优化
-            //CableTraySystemTest cableTraySystemTest = new CableTraySystemTest(doc);
-            //cableTraySystemTest.ShowDialog();
 
-            //CableTray cableTray = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element).ElementId) as CableTray;
-            //TaskDialog.Show("tt", cableTray.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString());
-
-            //////1031 桥架及配件按类型拾取和类型名称修改
-            //CableTray cableTray = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element).ElementId) as CableTray;
-            //List<CableTray> allCableTrays = new FilteredElementCollector(doc).OfClass(typeof(CableTray)).Cast<CableTray>().ToList();
-            //List<FamilyInstance> allCableTrayFittings = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_CableTrayFitting).Cast<FamilyInstance>().ToList();
-            //List<CableTray> selectCableTrays = new List<CableTray>();
-            //using (Transaction tx = new Transaction(doc, "桥架类型批写入"))
+            ////1025 找项目参数并删除
+            //// 检查是否允许全局参数
+            //if (GlobalParametersManager.AreGlobalParametersAllowed(doc))
             //{
-            //    tx.Start();
-            //    List<ElementId> CableSwitch = new List<ElementId>();
-            //    foreach (var item in allCableTrays)
+            //    List<ProjectParameterData> result = new List<ProjectParameterData>();
+            //    // 获取文档的BindingMap
+            //    BindingMap map = doc.ParameterBindings;
+            //    DefinitionBindingMapIterator iterator = map.ForwardIterator();
+            //    while (iterator.MoveNext())
             //    {
-            //        if (item.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString() == cableTray.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString())
+            //        Definition definition = iterator.Key;
+            //        ElementBinding binding = iterator.Current as ElementBinding;
+            //        if (definition != null && binding != null)
             //        {
-            //            selectCableTrays.Add(item);
-            //            CableSwitch.Add(item.Id);
+            //            ProjectParameterData paramData = new ProjectParameterData
+            //            {
+            //                Name = definition.Name,
+            //                //ParameterType = GetParameterTypeString(definition),
+            //                //ParameterGroup = GetParameterGroupString(definition),
+            //                //BindingType = binding is InstanceBinding ? "实例参数" : "类型参数",
+            //                //Categories = GetBoundCategories(binding),
+            //                //IsShared = definition is ExternalDefinition,
+            //                //IsReportable = IsReportableParameter(definition),
+            //                //GUID = GetParameterGUID(definition)
+            //            };
+            //            ////if ((definition is ExternalDefinition))
+            //            //if (binding is CategorySetBinding)
+            //            //{
+            //            //    result.Add(paramData);
+            //            //}
+            //            result.Add(paramData);
             //        }
             //    }
-            //    string paraName = selectCableTrays.FirstOrDefault().get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsValueString();
-            //    UniversalNewString subView = new UniversalNewString("请输入要桥架类型名称", paraName);
-            //    if (subView.ShowDialog() != true || !(subView.DataContext is NewStringViewModel vm) || string.IsNullOrWhiteSpace(vm.NewName))
+            //    List<string> parameterNames = new List<string>();
+            //    foreach (var item in result)
             //    {
-            //        TaskDialog.Show("tt", "输入属性遇到错误，请重试");
-            //        return Result.Cancelled;
+            //        parameterNames.Add(item.Name);
             //    }
-            //    paraName = vm.NewName;
-            //    foreach (var item in selectCableTrays)
-            //    {
-            //        item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).Set(paraName);
-            //    }
-            //    foreach (var instance in allCableTrayFittings)
-            //    {
-            //        ConnectorSet cons = instance.MEPModel.ConnectorManager.Connectors;
-            //        foreach (Connector item in cons)
-            //        {
-            //            if (!item.IsConnected)
-            //            {
-            //                continue;
-            //            }
-            //            else
-            //            {
-            //                // 获取连接的所有构件
-            //                ConnectorSet connectedCons = item.AllRefs;
-            //                foreach (Connector connectedCon in connectedCons)
-            //                {
-            //                    // 排除自身连接器
-            //                    if (connectedCon == item) continue;
-
-            //                    // 判断连接对象类型
-            //                    if (connectedCon.Owner is FamilyInstance connectedFamilyInstance)
-            //                    {
-            //                        continue;
-            //                    }
-            //                    else if (connectedCon.Owner is CableTray mepCurve && mepCurve.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsValueString() == paraName)
-            //                    {
-            //                        // 直接连接到桥架的情况
-            //                        instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).Set(paraName);
-            //                        CableSwitch.Add(instance.Id); ;
-            //                    }
-            //                }
-            //            }
-            //        }
-            //    }
-            //    //TaskDialog.Show("tt", item.get_Parameter(BuiltInParameter.ELEM_TYPE_PARAM).AsValueString());
-            //    TaskDialog.Show("tt", $"已修改{CableSwitch.Count.ToString()}个构件");
-            //    Selection select = uiApp.ActiveUIDocument.Selection;
-            //    select.SetElementIds(CableSwitch);
-            //    tx.Commit();
+            //    //foreach (var item in filters)
+            //    //{
+            //    //    parameterNames.Add(item.Name);
+            //    //}
+            //    // 输出所有全局参数名称
+            //    //TaskDialog.Show("全局参数", string.Join("\n", parameterNames));
+            //    TaskDialog.Show("全局参数", parameterNames.Count().ToString());
             //}
-
+            //else
+            //{
+            //    TaskDialog.Show("错误", "当前文档不支持全局参数");
+            //}
+            //例程结束(未完)
             ////1031 查找重叠喷头
             //var allSprinklers = uiDoc.Selection.PickObjects(ObjectType.Element, new SprinklerEntityFilter(), "选择喷头")
             //    .Select(re => doc.GetElement(re.ElementId) as FamilyInstance).ToList();
@@ -724,9 +800,7 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", allSprinklers.Count.ToString());
             //List<FamilyInstance> allFamilyInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
-
-
-            //////1029 管道属性填写,系统族批量可参考.OK
+            //////1029 管道属性批量填写,系统族批量可参考.OK
             //using (Transaction tx = new Transaction(doc, "管道属性批写入"))
             //{
             //    tx.Start();
@@ -782,63 +856,6 @@ namespace CreatePipe
             //    tx.Commit();
             //}
             ////例程结束
-            ////1031 跨模型 相同构件属性传递
-            ////1026 按构件机电类别选择  
-            ////1031 单个桥架赋值测试
-            //using (Transaction tx = new Transaction(doc, "桥架尺寸写入"))
-            //{
-            //    tx.Start();
-            //    string paraName = "尺寸1";
-            //    UniversalNewString subView = new UniversalNewString("请输入要写入的定义属性名称", paraName);
-            //    if (subView.ShowDialog() != true || !(subView.DataContext is NewStringViewModel vm) || string.IsNullOrWhiteSpace(vm.NewName))
-            //    {
-            //        TaskDialog.Show("tt", "输入属性遇到错误，请重试");
-            //        return Result.Cancelled;
-            //    }
-            //    paraName = vm.NewName;
-            //    CableTray cableTray = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element).ElementId) as CableTray;
-
-            //    Double recHorizonPara = cableTray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM).AsDouble();
-            //    Double recVeriticalPara = cableTray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM).AsDouble();
-            //    Parameter param = cableTray.LookupParameter(paraName);
-            //    param.Set($"{(recHorizonPara * 304.8).ToString()}x{(recVeriticalPara * 304.8).ToString()}mm");
-            //    tx.Commit();
-            //}
-            ////墙属性测试
-            //Wall wall = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, new filterWallClass()).ElementId) as Wall;
-            //WallType wallType = wall.WallType;
-            //if (wallType != null)
-            //{
-            //    CompoundStructure structure = wallType.GetCompoundStructure();
-            //    {
-            //        //double areaValue = wall.get_Parameter(BuiltInParameter.WALL_ATTR_WIDTH_PARAM).AsDouble();
-            //        TaskDialog.Show("tt", (structure.GetWidth() * 304.8).ToString());
-            //    }
-            //}
-            ////0926 批量按选择项写楼板面积属性,临时工具
-            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-            //using (Transaction trans = new Transaction(doc, "设置面积"))
-            //{
-            //    trans.Start();
-            //    foreach (var item in selectedIds)
-            //    {
-            //        Element element = doc.GetElement(item);
-            //        double areaValue = element.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED).AsDouble();
-            //        // 检查自定义参数是否存在
-            //        Parameter areaParam = element.LookupParameter("面积1");
-            //        if (areaParam != null && !areaParam.IsReadOnly)
-            //        {
-            //            areaParam.Set(((areaValue * 304.8 * 304.8) / (1000 * 1000)).ToString("F2"));
-            //        }
-            //        else
-            //        {
-            //            TaskDialog.Show("提示", "元素ID " + item.IntegerValue + " 不存在'面积1'参数或参数为只读");
-            //        }
-            //    }
-            //    trans.Commit();
-            //}
-            //例程结束
-
             //////1014 补充沟体替换
             //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
             //circleGaugePlaceView.Show();
@@ -884,7 +901,7 @@ namespace CreatePipe
             //    tx.Commit();
             //}
             //例程结束
-            ////1024 找遗漏少量id
+            //////1024 找管道系统遗漏少量id
             //var resultPipes = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
             //var resultPipes2 = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).Cast<Pipe>().ToList();
             //StringBuilder ids = new StringBuilder();
@@ -938,37 +955,12 @@ namespace CreatePipe
             //string aa = "Audit_DesignRole//Audit_CheckRole//Audit_DspAppRole//Audit_ReviewRole//Audit_ApproveRole";
             //string aa = @"G:\新建文件夹\mango\整理芒果资源\芒果电子书\英文电子书\英文电子书\5\Ghosthunters Series - Cornelia Funke\Cornelia Funke - Ghosthunters 02 - And The Gruesome Invincible Lighting Ghost\Cornelia Funke - Ghosthunters 02 - And The Ghosthunters 02 - And The Gruesome Invincible Lighting Ghost.jpg";
             //TaskDialog.Show("tt", aa.Length.ToString());
-            ////1018 改拾取元素递增值代码，1002 通用编码 OK
-            //FamilyInstanceSerializeView instanceSerializeView = new FamilyInstanceSerializeView(uiApp);
-            //instanceSerializeView.Show();
-            //找基准点位置
-            //var instance = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new AdaptiveFamilyFilter()).ElementId) as FamilyInstance;
-            //var loc = instance.Location;
-            //if (loc is LocationPoint locationPoint && activeView.ViewType is ViewType.FloorPlan)
-            //{
-            //    XYZ xYZ = locationPoint.Point;
-            //    using (Transaction trans = new Transaction(doc, "绘制基准点圆圈"))
-            //    {
-            //        trans.Start();
-            //        // 创建草图平面（使用当前视图的草图平面）
-            //        SketchPlane sketchPlane = activeView.SketchPlane;
-            //        if (sketchPlane == null)
-            //        {
-            //            // 如果没有草图平面，创建一个基于水平面的
-            //            Plane plane = Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ.Zero);
-            //            sketchPlane = SketchPlane.Create(doc, plane);
-            //        }
-            //        // 圆的半径（100毫米转换为英尺）
-            //        double radius = 100 / 304.8;
-            //        // 创建圆
-            //        Arc circle = Arc.Create(xYZ, radius, 0, 2 * Math.PI, XYZ.BasisX, XYZ.BasisY);
-            //        // 创建详细线
-            //        DetailLine detailCircle = doc.Create.NewDetailCurve(activeView, circle) as DetailLine;
-            //        trans.Commit();
-            //        TaskDialog.Show("完成", "已在基准点位置绘制半径为100mm的圆");
-            //    }
-            //}
-
+            ////1102 整合管道、风管管理初始化事务组，简化command执行，增加选择按钮
+            //PipeSystemManagerView pipeSystemManagerView = new PipeSystemManagerView(uiApp);
+            //pipeSystemManagerView.ShowDialog();
+            //DuctSystemManagerView ductSystemManager = new DuctSystemManagerView(uiApp);
+            //ductSystemManager.ShowDialog();
+            ////1003 管道设色事务合并到事务组
             ////1003 SplitElementsCommand 变形缝、后浇带打断板、梁
             //// 检查当前视图是否为平面、立面或剖面
             //if (!(doc.ActiveView is ViewPlan || doc.ActiveView is ViewSection || doc.ActiveView is ViewElevation))
@@ -1056,56 +1048,6 @@ namespace CreatePipe
             //    }
             //}
             //例程结束
-            ////1025 找项目参数并删除
-            //// 检查是否允许全局参数
-            //if (GlobalParametersManager.AreGlobalParametersAllowed(doc))
-            //{
-            //    List<ProjectParameterData> result = new List<ProjectParameterData>();
-            //    // 获取文档的BindingMap
-            //    BindingMap map = doc.ParameterBindings;
-            //    DefinitionBindingMapIterator iterator = map.ForwardIterator();
-            //    while (iterator.MoveNext())
-            //    {
-            //        Definition definition = iterator.Key;
-            //        ElementBinding binding = iterator.Current as ElementBinding;
-            //        if (definition != null && binding != null)
-            //        {
-            //            ProjectParameterData paramData = new ProjectParameterData
-            //            {
-            //                Name = definition.Name,
-            //                //ParameterType = GetParameterTypeString(definition),
-            //                //ParameterGroup = GetParameterGroupString(definition),
-            //                //BindingType = binding is InstanceBinding ? "实例参数" : "类型参数",
-            //                //Categories = GetBoundCategories(binding),
-            //                //IsShared = definition is ExternalDefinition,
-            //                //IsReportable = IsReportableParameter(definition),
-            //                //GUID = GetParameterGUID(definition)
-            //            };
-            //            ////if ((definition is ExternalDefinition))
-            //            //if (binding is CategorySetBinding)
-            //            //{
-            //            //    result.Add(paramData);
-            //            //}
-            //            result.Add(paramData);
-            //        }
-            //    }
-            //    List<string> parameterNames = new List<string>();
-            //    foreach (var item in result)
-            //    {
-            //        parameterNames.Add(item.Name);
-            //    }
-            //    //foreach (var item in filters)
-            //    //{
-            //    //    parameterNames.Add(item.Name);
-            //    //}
-            //    // 输出所有全局参数名称
-            //    //TaskDialog.Show("全局参数", string.Join("\n", parameterNames));
-            //    TaskDialog.Show("全局参数", parameterNames.Count().ToString());
-            //}
-            //else
-            //{
-            //    TaskDialog.Show("错误", "当前文档不支持全局参数");
-            //}
             ////1003 检测A-B点之间可见
             //try
             //{
@@ -1201,7 +1143,6 @@ namespace CreatePipe
             //    message = ex.Message;
             //    return Result.Failed;
             //}
-
             ////1003 升级二维射线检测方法
             //try
             //{
@@ -1270,108 +1211,6 @@ namespace CreatePipe
             //    message = ex.Message;
             //    return Result.Failed;
             //}
-
-            ////1003 管道设色事务合并到事务组
-            //    public class PipeSystemManagerViewModel : ObserverableObject
-            //{
-            //    private Document _doc;
-            //    public Document Doc { get => _doc; set => SetProperty(ref _doc, value); }
-            //    public ObservableCollection<PipeSystemEntity> PipeSystemEntitys { get; set; }
-            //    #region Commands
-            //    public ICommand QueryELementCommand { get; }
-            //    public RelayCommand<PipingSystemType> SetColorCommand { get; }
-            //    public RelayCommand<IEnumerable<object>> DeleteELementCommand { get; }
-            //    public RelayCommand<PipeSystemEntity> DeleteELementCommand2 { get; }
-            //    public RelayCommand<PipeSystemEntity> AddInsulationCommand { get; }
-            //    public ICommand WindowCommand { get; }
-            //    #endregion
-            //    public PipeSystemManagerViewModel(Document document)
-            //    {
-            //        _doc = document;
-            //        PipeSystemEntitys = new ObservableCollection<PipeSystemEntity>();
-            //        // 初始化命令
-            //        QueryELementCommand = new BaseBindingCommand(QueryElement);
-            //        SetColorCommand = new RelayCommand<PipingSystemType>(SetColor);
-            //        // ... 其他命令初始化 ...
-            //        // 加载并预处理数据
-            //        LoadAndInitializePipeSystems();
-            //    }
-            //    private void LoadAndInitializePipeSystems()
-            //    {
-            //        // --- 核心修改部分：使用 TransactionGroup ---
-            //        TransactionGroup tg = new TransactionGroup(_doc, "初始化管道系统设置");
-            //        try
-            //        {
-            //            tg.Start();
-            //            // 1. 查询所有管道系统类型
-            //            var elements = new FilteredElementCollector(_doc).OfClass(typeof(PipingSystemType));
-            //            List<PipingSystemType> pipingSystemTypes = elements.OfType<PipingSystemType>().ToList();
-            //            // 2. 在一个单独的事务中设置默认颜色
-            //            using (var trans = new Transaction(_doc, "设置默认系统颜色"))
-            //            {
-            //                trans.Start();
-            //                bool changesMade = false;
-            //                Random rand = new Random();
-            //                foreach (var pst in pipingSystemTypes)
-            //                {
-            //                    // 检查颜色是否有效，如果无效，则设置一个随机的默认颜色
-            //                    if (!pst.LineColor.IsValid)
-            //                    {
-            //                        byte r = (byte)rand.Next(50, 220); // 避免太深或太浅的颜色
-            //                        byte g = (byte)rand.Next(50, 220);
-            //                        byte b = (byte)rand.Next(50, 220);
-            //                        pst.LineColor = new Autodesk.Revit.DB.Color(r, g, b);
-            //                        changesMade = true;
-            //                    }
-            //                }
-            //                if (changesMade) trans.Commit();
-            //                else trans.RollBack(); // 如果没有做任何修改，则回滚事务
-            //            }
-            //            // 3. 将处理后的数据加载到ViewModel中
-            //            PipeSystemEntitys.Clear();
-            //            var pipeSystems = pipingSystemTypes.Select(pst => new PipeSystemEntity(pst)).ToList();
-            //            foreach (var item in pipeSystems)
-            //            {
-            //                PipeSystemEntitys.Add(item);
-            //            }
-            //            // 4. 同化事务组，将所有子事务合并成一个撤销操作
-            //            tg.Assimilate();
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            // 如果发生任何错误，回滚整个事务组
-            //            tg.RollBack();
-            //            TaskDialog.Show("错误", "初始化管道系统时出错: " + ex.Message);
-            //        }
-            //    }
-            //    // SetColor 方法保持不变，它处理用户交互，应该有自己的独立事务
-            //    private void SetColor(PipingSystemType pipingSystemType)
-            //    {
-            //        if (pipingSystemType == null) return;
-            //        System.Windows.Forms.ColorDialog dialog = new System.Windows.Forms.ColorDialog();
-            //        dialog.AllowFullOpen = true;
-            //        dialog.FullOpen = true;
-            //        dialog.ShowHelp = true;
-            //        Autodesk.Revit.DB.Color color = pipingSystemType.LineColor;
-            //        dialog.Color = System.Drawing.Color.FromArgb(color.Red, color.Green, color.Blue);
-            //        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            //        {
-            //            // 使用上面定义的扩展方法，代码更简洁
-            //            _doc.NewTransaction(() =>
-            //            {
-            //                pipingSystemType.LineColor = dialog.Color.ConvertToRevitColor();
-            //            }, "修改线颜色");
-            //            QueryElement(null); // 刷新界面
-            //        }
-            //    }
-            //    private void QueryElement(object obj)
-            //    {
-            //        // 刷新逻辑可以简化为重新调用初始化方法
-            //        LoadAndInitializePipeSystems();
-            //    }
-            //    // ... 其他方法 ...
-            //}
-
             ////1002 拆分楼板，读取出所有轮廓并分别保存多个楼板。注意存在逻辑问题，未处理环嵌套的问题，无法维持板内部开洞
             //// 1. 提示用户选择一个楼板
             //Reference selectedRef;
@@ -1438,20 +1277,16 @@ namespace CreatePipe
             //        return Result.Failed;
             //    }
             //}
-
             //////0404 升级柱切板和梁，梁切板。使用 BuiltInCategory 枚举，而不是魔术数字
             //var structuralColumns = new FilteredElementCollector(doc)
             //    .OfCategory(BuiltInCategory.OST_StructuralColumns)
             //    .WhereElementIsNotElementType().ToElements();
-
             //var structuralFraming = new FilteredElementCollector(doc)
             //    .OfCategory(BuiltInCategory.OST_StructuralFraming)
             //    .WhereElementIsNotElementType().ToElements();
-
             //using (Transaction transaction = new Transaction(doc, "自动调整几何连接关系"))
             //{
             //    transaction.Start();
-
             //    // 1. 柱切割梁和楼板
             //    foreach (Element column in structuralColumns)
             //    {
@@ -1480,7 +1315,6 @@ namespace CreatePipe
             //    }
             //    transaction.Commit();
             //}
-
             ////0909 取楼梯中心几何点
             //var columnRef = uiDoc.Selection.PickObject(ObjectType.Element, new StairsFilter(), "选择楼梯");
             //Stairs stair = doc.GetElement(columnRef.ElementId) as Stairs;
@@ -1668,52 +1502,6 @@ namespace CreatePipe
             //例程结束
             //0520 遗留测试
             //——————————————————
-            ////0930 BuiltInFailures错误列表导出找特定名称
-            //var result = FindBuiltInFailureByDescription("The duct/pipe has been modified to be in the opposite direction causing the connections to be invalid.");
-            //TaskDialog.Show("tt", result);
-
-            ////0930 BuiltInFailures错误列表导出
-            ////https://forums.autodesk.com/t5/revit-api-forum/get-a-list-of-all-the-revit-warnings/m-p/10399203
-            //Autodesk.Revit.ApplicationServices.Application app = commandData.Application.Application;
-            //FailureDefinitionRegistry failureReg = Autodesk.Revit.ApplicationServices.Application.GetFailureDefinitionRegistry();
-            //Type _type = typeof(BuiltInFailures);
-            //Type[] _nested = _type.GetNestedTypes(System.Reflection.BindingFlags.Public);
-            //Dictionary<Guid, Type> _dict = new Dictionary<Guid, Type>();
-            //string _ClassName = string.Empty;
-            //foreach (Type nt in _nested)
-            //{
-            //    try
-            //    {
-            //        _ClassName = nt.FullName.Replace('+', '.');
-            //        sb.AppendLine(string.Format("#### {0} ####", _ClassName));
-            //        foreach (System.Reflection.PropertyInfo pInfo in nt.GetProperties())
-            //        {
-            //            System.Reflection.MethodInfo mInfo = pInfo.GetGetMethod();
-            //            FailureDefinitionId res = mInfo.Invoke(nt, null) as FailureDefinitionId;
-            //            if (res == null) continue;
-            //            if (_dict.ContainsKey(res.Guid)) continue;
-            //            _dict.Add(res.Guid, nt);
-            //            FailureDefinitionAccessor _acc = failureReg.FindFailureDefinition(res);
-            //            if (_acc == null) continue;
-            //            sb.AppendLine(string.Format("  * {0} <{1}> {2}", _acc.GetId().Guid, _acc.GetSeverity(), _ClassName));
-            //            sb.AppendLine(string.Format("          {0}", _acc.GetDescriptionText()));
-            //        }
-            //    }
-            //    catch
-            //    {
-            //    }
-            //}
-            //_ClassName = "user-defined";
-            //sb.AppendLine(string.Format("#### {0} ####", _ClassName));
-            //foreach (FailureDefinitionAccessor _acc in failureReg.ListAllFailureDefinitions())
-            //{
-            //    Type DefType = null;
-            //    _dict.TryGetValue(_acc.GetId().Guid, out DefType);
-            //    if (DefType != null) continue;  // failure already listed
-            //    sb.AppendLine(string.Format("  * {0} <{1}> {2}", _acc.GetId().Guid, _acc.GetSeverity(), _ClassName));
-            //    sb.AppendLine(string.Format("          {0}", _acc.GetDescriptionText()));
-            //}
-            ////TaskDialog.Show("res", sb.ToString());
             //// 更完整的 CSV 导出方案
             //string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             //string fileName = $"RevitFailureDefinitions_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
@@ -1766,20 +1554,9 @@ namespace CreatePipe
             //    // 用户点击了取消、关闭按钮，或者按了 Esc 键
             //    TaskDialog.Show("操作取消", "用户已取消操作。");
             //}
-            //0925 改multiComboBox控件测试
+            //0925 改multiComboBox控件测试，暂不使用GPT升级代码
             //PipeSystemTest pipeSystemTest = new PipeSystemTest(doc);
             //pipeSystemTest.ShowDialog();
-            //////0925 修改
-            ////0903 通用多选窗口实现验证
-            //////0925 布置沟代码OK
-            //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
-            //circleGaugePlaceView.Show();
-            //0922 用标高切分墙，柱，机电管线的程序合并界面
-            //0922 柱切板和梁，梁切板深化界面
-            //0913 拾取自适应环(通用)
-            //0913 族管理器增加类别
-            //FamilyManagerView familyManagerView = new FamilyManagerView(uiApp);
-            //familyManagerView.Show();
             ////////0903 adWindows试验
             ///////似乎无法找到bentley的插件？
             //RibbonControl ribbonControl = adWin.ComponentManager.Ribbon;
@@ -1831,41 +1608,6 @@ namespace CreatePipe
             //}
             ////ViewFiltersForm viewFiltersForm =new ViewFiltersForm(uiApp);
             ////viewFiltersForm.ShowDialog();
-            ////0903 过滤器bug测试
-            ///model类型为空 导致，处理增加 if (category == null) return null;
-            //try
-            //{
-            //    var instances = new FilteredElementCollector(doc).OfClass(typeof(ParameterFilterElement)).Cast<ParameterFilterElement>().ToList();
-            //ParameterFilterElement pfe = null;
-            //foreach (var item in instances)
-            //{
-            //    if (item.Name == "地沟结构填充")
-            //    {
-            //        pfe= item;
-            //    }
-            //}
-            ////TaskDialog.Show("tt", pfe.Name);
-
-            //    ElementLogicalFilter elf = pfe.GetElementFilter() as ElementLogicalFilter;
-            //    if (elf is LogicalAndFilter)
-            //    {
-            //        TaskDialog.Show("tt", "且"); 
-            //    }
-            //    else if (elf is LogicalOrFilter)
-            //    {
-            //        TaskDialog.Show("tt", "或"); 
-            //    }
-            //    else TaskDialog.Show("tt", "nnPASS"); 
-            //    //if (elf == null)
-            //    //{
-            //    //    TaskDialog.Show("tt", "noPASS");
-            //    //}
-            //    //TaskDialog.Show("tt", instances.Count().ToString());
-            //}
-            //catch (Exception)
-            //{
-            //    throw;
-            //}
             //////0902 已载入插件查找管理2
             ////var list = uiApp.GetRibbonPanels("DiRootsOne");
             ////var list = uiApp.GetRibbonPanels("FJSKFamily");
@@ -1889,7 +1631,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", stringBuilder.ToString());
             //////exApp.GetType().Assembly.Location
-
             ////0222 用标高切分结构柱，初步完成 在结构柱分层的高度上仍有问题。。要考虑柱的顶底偏移再设置切分逻辑
             ////新的柱子虽然不用考虑开洞但仍需手动考虑偏移的各种情况给赋值。
             ////斜柱如何处理  
@@ -1910,51 +1651,14 @@ namespace CreatePipe
             //        activeView.Scale = 300;
             //    }
             //    tx.Commit();
-            //}
-            //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
-            //evacRouteManagerView.Show();
-            ////0818 字符串分割测试。先检测空字符串，非法字符（半角逗号，多个分割），限制长度
-            ////切分正反字符串，移除前标
-            ////根据标点检测是否符合数量，统计牌面数
-            ////切分内容到各个牌面
-            //string text = "正面：C09-C18，C19-C32，国内出发 登机口D||背面：C01-C08，C19-C32";
-            //if (string.IsNullOrEmpty(text))
-            //{
-            //    TaskDialog.Show("tt", "shuru zifuc ");
-            //}
-            //int count = 0;
-            //for (int i = 0; i < text.Length; i++)
-            //{
-            //    if (text[i] == '|')                
-            //    {
-            //        count++;
-
-            //        //// 前 2 个字符
-            //        //int prevStart = Math.Max(0, i - 2);
-            //        //string prev = text.Substring(prevStart, i - prevStart);
-            //        //// 后 2 个字符
-            //        //int nextEnd = Math.Min(text.Length - 1, i + 2);
-            //        //string next = text.Substring(i + 1, nextEnd - i);
-            //        //Console.WriteLine($"第 {count} 个逗号：前面=[{prev}], 后面=[{next}]");
-            //    }
-            //}
-            //TaskDialog.Show("tt", text.Length.ToString());
-            //TaskDialog.Show("tt", count.ToString());
-            //Console.WriteLine($"共检测到 {count} 个半角逗号。");
-            //例程结束
-            //GuidanceSignManagerView guidanceSignManagerView = new GuidanceSignManagerView(uiApp);
-            //guidanceSignManagerView.Show();
-            //0815 布置功能原型
-            //GuidanceSignPlaceView placeView = new GuidanceSignPlaceView(uiApp);
-            //placeView.Show();
-            ////////0812 标识标签
-            //Reference r = uiDoc.Selection.PickObject(ObjectType.Element, new TagFilter(), "Pick something");
-            //IndependentTag tag = (IndependentTag)doc.GetElement(r.ElementId);
-            //FamilySymbol tagSymbol = tag.Document.GetElement(tag.GetTypeId()) as FamilySymbol;
-
+            //}     
+            ////1102 找管道配件系统内容返回list 似乎意义不大 牵扯到RoutingPreferenceManager又是rule集合麻烦
+            //var pipe = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe()).ElementId) as Pipe;
+            //string systemName = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsValueString();
+            //PipingSystemType pipingSystemType = new FilteredElementCollector(doc).OfClass(typeof(PipingSystemType)).OfType<PipingSystemType>().FirstOrDefault(e => e.Name == systemName);
+            //PipeType type = doc.GetElement(pipingSystemType.GetTypeId()) as PipeType;
+            ////type.RoutingPreferenceManager.GetNumberOfRules();
             return Result.Succeeded;
         }
-
-
     }
 }
