@@ -10,6 +10,7 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
+using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -858,6 +859,29 @@ namespace CreatePipe
         //        return false;
         //    }
         //}
+        private void ImportRVT(Document doc, string pathName)
+        {
+            FilePath path = new FilePath(pathName);
+            RevitLinkOptions options = new RevitLinkOptions(false);
+            LinkLoadResult result = RevitLinkType.Create(doc, path, options);
+            if (result.ElementId != null)
+            {
+                RevitLinkInstance.Create(doc, result.ElementId);
+            }
+        }
+        private void ImportDWG(Document doc, string pathName, View activeView)
+        {
+            DWGImportOptions options = new DWGImportOptions
+            {
+                Placement = Autodesk.Revit.DB.ImportPlacement.Origin,
+                OrientToView = true,
+                Unit = ImportUnit.Millimeter
+            };
+            ElementId elementId = null;
+            doc.Link(pathName, options, activeView, out elementId);
+            Element element = doc.GetElement(elementId);
+            element.Pinned = false;
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -865,152 +889,46 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-
-            ////1110增加管道管径选择逻辑 1101.1026 按构件机电类别选择
+            //1110 合并rvt和dwg导入功能
             try
             {
-                // 获取用户选择的元素
-                FamilyInstance familyInstance = null;
-                Pipe pipe = null;
-                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-                if (selectedIds.Count == 0)
+                OpenFileDialog opdg = new OpenFileDialog
                 {
-                    var reference = uiDoc.Selection.PickObject(ObjectType.Element, "选择元素");
-                    Element element = doc.GetElement(reference.ElementId);
-                    if (element is FamilyInstance)
-                    {
-                        familyInstance = doc.GetElement(reference.ElementId) as FamilyInstance;
-                    }
-                    else if (element is Pipe)
-                    {
-                        pipe = doc.GetElement(reference.ElementId) as Pipe;
-                    }
-                    else
-                    {
-                        TaskDialog.Show("tt", "选择项不符合要求");
-                        return Result.Cancelled;
-                    }
-                }
-                else
+                    Multiselect = true,
+                    //Filter = "Revit Files (*.rvt)|*.rvt|DWG Files (*.dwg)|*.dwg"
+                    Filter = "Revit and DWG Files (*.rvt;*.dwg)|*.rvt;*.dwg|Revit Files (*.rvt)|*.rvt|DWG Files (*.dwg)|*.dwg"
+                };
+                int importCount = 0;
+                if (opdg.ShowDialog() == DialogResult.OK)
                 {
-                    Element element = doc.GetElement(selectedIds.First());
-                    if (element is FamilyInstance)
+                    string[] files = opdg.FileNames;
+                    doc.NewTransaction(() =>
                     {
-                        familyInstance = doc.GetElement(element.Id) as FamilyInstance;
-                    }
-                    else if (element is Pipe)
-                    {
-                        pipe = doc.GetElement(element.Id) as Pipe;
-                    }
-                    else
-                    {
-                        TaskDialog.Show("tt", "选择项不符合要求");
-                        return Result.Cancelled;
-                    }
-                }
-                //// 管道处理，获取管径参数并选择
-                if (pipe != null)
-                {
-                    List<ElementId> selectedElementIds = new List<ElementId>();
-                    PipeSelectView pipeSelectView = new PipeSelectView(pipe);
-                    if (pipeSelectView.ShowDialog() != true || pipeSelectView.Strings == null)
-                    {
-                        TaskDialog.Show("tt", "未选择有效管径");
-                        return Result.Cancelled; ;
-                    }
-                    foreach (var SelectedDN in pipeSelectView.Strings)
-                    {
-                        //GetInstancesFunc(pipingSystem, SelectedDN);
-                        Parameter systemParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
-                        ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory
- .CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), systemParam.AsValueString(), false));
-                        IList<Element> allpipes = new FilteredElementCollector(doc)
-                            .WhereElementIsNotElementType()
-                            .OfCategory(BuiltInCategory.OST_PipeCurves)
-                            .WherePasses(filter)
-                            .ToElements();
-                        foreach (Element p in allpipes) if (p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString() == SelectedDN)
-                            {
-                                selectedElementIds.Add(p.Id);
-                            }
-                    }
-                    //// 更新选择集
-                    uiDoc.Selection.SetElementIds(selectedElementIds);
-                    TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
-                }
-                //// 检查构件是否有 MEP 连接管理器
-                if (familyInstance != null && familyInstance.MEPModel?.ConnectorManager == null)
-                {
-                    TaskDialog.Show("提示", "该构件没有 MEP 连接管理器");
-                    return Result.Failed;
-                }
-                //// 可载入实例处理，获取系统类型参数并选择全部
-                if (familyInstance != null)
-                {
-                    Parameter systemTypeParam = null;
-                    var parameters = new[]
-                    {BuiltInParameter.RBS_CTC_SERVICE_TYPE, BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM };
-                    foreach (var paramId in parameters)
-                    {
-                        systemTypeParam = familyInstance.get_Parameter(paramId);
-                        if (systemTypeParam != null && systemTypeParam.HasValue) break;
-                    }
-                    if (systemTypeParam == null || !systemTypeParam.HasValue)
-                    {
-                        TaskDialog.Show("提示", "该构件系统类型未定义");
-                        return Result.Failed;
-                    }
-                    string paramValue = systemTypeParam.AsValueString();
-                    if (paramValue == "Undefined" || paramValue == "未定义")
-                    {
-                        TaskDialog.Show("提示", "该构件系统类型未定义");
-                        return Result.Failed;
-                    }
-                    // 获取匹配的构件
-                    ElementId familySymbolId = familyInstance.Symbol.Family.Id;
-                    List<ElementId> selectedElementIds = new List<ElementId>();
-                    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
-                    foreach (FamilyInstance instance in collector)
-                    {
-                        if (instance.MEPModel?.ConnectorManager == null) continue;
-                        // 电气系统特殊处理                    
-                        if (!(familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE) is null))
+                        foreach (var file in files)
                         {
-                            paramValue = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsString();
-                            Parameter systemParam = instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-                            if (systemParam != null && systemParam.AsValueString() == paramValue && instance.Symbol.Family.Id == familySymbolId)
+                            if (file.ToLower().EndsWith(".rvt"))
                             {
-                                selectedElementIds.Add(instance.Id);
+                                ImportRVT(doc, file);
+                                importCount++;
+                            }
+                            else if (file.ToLower().EndsWith(".dwg"))
+                            {
+                                ImportDWG(doc, file, activeView);
+                                importCount++;
                             }
                         }
-                        else
-                        {
-                            // 管道/风管系统处理
-                            BuiltInParameter targetParameter = systemTypeParam.Definition.Name.Contains("PIPING")
-                                ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
-                                : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
-                            Parameter systemParam = instance.get_Parameter(targetParameter);
-                            if (systemParam != null && systemParam.AsElementId() == systemTypeParam.AsElementId() && instance.Symbol.Family.Id == familySymbolId)
-                            {
-                                selectedElementIds.Add(instance.Id);
-                            }
-                        }
+                    }, "批量导入文件");
+                    if (importCount!=0)
+                    {
+                        TaskDialog.Show("tt", $"已导入{importCount}个文件");
                     }
-                    // 更新选择集
-                    uiDoc.Selection.SetElementIds(selectedElementIds);
-                    TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
                 }
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return Result.Cancelled;
             }
             catch (Exception ex)
             {
                 TaskDialog.Show("错误", ex.Message);
-                return Result.Failed;
+                return Result.Cancelled;
             }
-
             ////1108 断开mep连接,没有效果   
             ////1102 结构柱翻模测试改造 https://zhuanlan.zhihu.com/p/108750783
             ///改为按标高打断管线,需要增加高度获取和。OK
