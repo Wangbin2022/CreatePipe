@@ -16,5 +16,7 @@ namespace CreatePipe
         public bool IsShared { get; set; }
         public bool IsReportable { get; set; }
         public string GUID { get; set; }
+        //*PARAM	GUID	NAME	DATATYPE	DATACATEGORY	GROUP	VISIBLE	DESCRIPTION	USERMODIFIABLE	HIDEWHENNOVALUE
+        //PARAM	43e57303-6590-404e-8d91-917b70bb5109 无障碍 TEXT		1	1		1	0
     }
 }

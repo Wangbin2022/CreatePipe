@@ -15,8 +15,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
+using System.Windows.Controls;
 using System.Windows.Forms;
+using System.Windows.Media.Media3D;
 using Application = Autodesk.Revit.ApplicationServices.Application;
 using View = Autodesk.Revit.DB.View;
 
@@ -481,7 +484,6 @@ namespace CreatePipe
             return room.IsPointInRoom(centerPoint);
         }
         //生成柱子
-
         // 截断小数位数的方法
         private double CutDecimalWithN(double value, int decimalPlaces)
         {
@@ -600,6 +602,262 @@ namespace CreatePipe
         //        doc.Create.NewFamilyInstance(point, fs, StructuralType.Column);
         //    }
         //}
+        //private void CreatePipe(Document doc, Connector connector, double length,)
+        //{
+        //    // 创建管道
+        //    Pipe pipe = Pipe.Create(doc, connector., connector.Origin, length, connector.Direction);
+        //    pipe.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
+        //}
+        //private void CreateDuct(Document doc, Connector connector, double length)
+        //{
+        //    // 创建风管
+        //    Duct duct = Duct.Create(doc, connector.Level.Id, connector.Origin, length, connector.Direction);
+        //    duct.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
+        //}
+        //private void CreateCableTray(Document doc, Connector connector, double length)
+        //{
+        //    // 创建电缆桥架
+        //    CableTray cableTray = CableTray.Create(doc, connector.Level.Id, connector.Origin, length, connector.Direction);
+        //    cableTray.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
+        //}
+        public MEPCurve BreakMEPCurveByOne(Document document, MEPCurve mEPCurve, XYZ xYZ)
+        {
+            try
+            {
+                XYZ breakXYZ = xYZ;
+                MEPCurve mEPCurveCopy = null;//变量声明放到事务外才能访问
+
+                //拷贝一根管
+                ICollection<ElementId> ids = ElementTransformUtils.CopyElement(document, mEPCurve.Id, new XYZ(0, 0, 0));
+                ElementId newId = ids.FirstOrDefault();
+                mEPCurveCopy = document.GetElement(newId) as MEPCurve;
+                //原管的线
+                Curve curve = (mEPCurve.Location as LocationCurve).Curve;
+                XYZ startXYZ = curve.GetEndPoint(0);
+                XYZ endXYZ = curve.GetEndPoint(1);
+                //把点xyz轴映射到线上避免错误 ??这个映射方法没搞懂
+                breakXYZ = curve.Project(breakXYZ).XYZPoint;
+                //给原管用的线
+                Line line = Line.CreateBound(startXYZ, breakXYZ);
+                //找连接器并取消多余连接，保存连接信息P28
+                Connector othercon = null;
+                foreach (Connector con in mEPCurve.ConnectorManager.Connectors)
+                {
+                    bool isBreak = false;
+                    //获取id后，找连接的情况，再解除连接
+                    if (con.Id == 1 && con.IsConnected)
+                    {
+                        foreach (Connector con2 in con.AllRefs)
+                        {
+                            if (con2.Owner is FamilyInstance)
+                            {
+                                con.DisconnectFrom(con2);
+                                othercon = con2;
+                                isBreak = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isBreak)
+                    {
+                        break;
+                    }
+                }
+
+                        (mEPCurve.Location as LocationCurve).Curve = line;
+                //拷贝管用的线
+                Line line1 = Line.CreateBound(breakXYZ, endXYZ);
+                (mEPCurveCopy.Location as LocationCurve).Curve = line1;
+                //拷贝管连接老管的连接器
+                if (othercon != null)
+                {
+                    foreach (Connector con in mEPCurveCopy.ConnectorManager.Connectors)
+                    {
+                        if (con.Id == 1)
+                        {
+                            con.ConnectTo(othercon);
+                        }
+                    }
+
+                }
+
+                return mEPCurveCopy;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("功能退出", ex.Message);
+            }
+            return null;
+        }
+        // 在指定点查找MEP曲线
+        private MEPCurve FindMEPCurveAtPoint(UIDocument uiDoc, double offsetHeight, XYZ point)
+        {
+            MEPCurve result = null;
+            try
+            {
+                Document doc = uiDoc.Document;
+                // 获取当前视图的标高
+                View activeView = doc.ActiveView;
+                Level currentLevel = doc.GetElement(activeView.GenLevel.Id) as Level;
+                if (currentLevel == null)
+                {
+                    TaskDialog.Show("错误", "无法获取当前视图的标高");
+                    return null;
+                }
+                // 计算目标高度（当前标高 + 2000mm）
+                double targetElevation = currentLevel.Elevation + offsetHeight;
+                // 收集所有MEP曲线
+                FilteredElementCollector collector = new FilteredElementCollector(doc)
+                    .OfClass(typeof(MEPCurve));
+                // 遍历所有MEP曲线，检查是否符合条件
+                foreach (MEPCurve mepCurve in collector)
+                {
+                    // 检查MEP曲线的标高
+                    Parameter levelParam = mepCurve.get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM);
+                    if (levelParam == null) continue;
+
+                    ElementId levelId = levelParam.AsElementId();
+                    Level mepLevel = doc.GetElement(levelId) as Level;
+                    if (mepLevel == null) continue;
+                    // 检查是否在当前楼层标高（考虑标高容差）
+                    double levelDifference = Math.Abs(mepLevel.Elevation - currentLevel.Elevation);
+                    if (levelDifference > 0.1) // 容差约30mm
+                        continue;
+                    // 获取MEP曲线的位置曲线
+                    LocationCurve locationCurve = mepCurve.Location as LocationCurve;
+                    if (locationCurve == null) continue;
+                    Curve curve = locationCurve.Curve;
+                    if (curve == null) continue;
+                    // 创建垂直投影线（从目标高度向下）
+                    XYZ projectionStart = new XYZ(point.X, point.Y, targetElevation + 1.0); // 稍微高于目标高度
+                    XYZ projectionEnd = new XYZ(point.X, point.Y, targetElevation - 1.0);   // 稍微低于目标高度
+                    Line verticalLine = Line.CreateBound(projectionStart, projectionEnd);
+                    // 检查垂直投影线是否与MEP曲线相交
+                    SetComparisonResult setComparison = curve.Intersect(verticalLine, out IntersectionResultArray results);
+                    if (setComparison == SetComparisonResult.Disjoint)
+                        continue;
+                    if (setComparison == SetComparisonResult.Overlap && results != null && results.Size > 0)
+                    {
+                        // 找到相交的MEP曲线
+                        result = mepCurve;
+                        break;
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("查找管道错误", ex.Message);
+                return null;
+            }
+        }
+        //private MEPCurve FindMEPCurveAtPoint(UIDocument doc, XYZ point)
+        //{
+        //    try
+        //    {
+        //        // 使用ReferenceIntersector查找与点相交的MEP曲线
+        //        ElementClassFilter mepFilter = new ElementClassFilter(typeof(MEPCurve));
+        //        ReferenceIntersector refIntersector = new ReferenceIntersector(mepFilter, FindReferenceTarget.Element, doc.ActiveView);
+
+        //        // 在点周围小范围内查找
+        //        XYZ searchDirection = new XYZ(0, 0, -1); // 向下搜索
+        //        ReferenceWithContext referenceWithContext = refIntersector.FindNearest(point, searchDirection);
+
+        //        if (referenceWithContext != null)
+        //        {
+        //            Reference reference = referenceWithContext.GetReference();
+        //            Element element = doc.GetElement(reference.ElementId);
+        //            return element as MEPCurve;
+        //        }
+
+        //        return null;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        TaskDialog.Show("查找管道错误", ex.Message);
+        //        return null;
+        //    }
+        //}
+        // 管道退后方法
+        //private void RetreatMEPCurve(MEPCurve mepCurve, XYZ breakPoint, double retreatDistance)
+        //{
+        //    try
+        //    {
+        //        LocationCurve locationCurve = mepCurve.Location as LocationCurve;
+        //        if (locationCurve == null) return;
+        //        Curve currentCurve = locationCurve.Curve;
+        //        XYZ startPoint = currentCurve.GetEndPoint(0);
+        //        XYZ endPoint = currentCurve.GetEndPoint(1);
+        //        // 确定退后方向
+        //        XYZ curveDirection = (endPoint - startPoint).Normalize();
+        //        // 根据退后距离的正负决定退后方向
+        //        XYZ retreatVector = curveDirection * retreatDistance;
+        //        // 判断哪一端靠近打断点
+        //        double distanceToStart = breakPoint.DistanceTo(startPoint);
+        //        double distanceToEnd = breakPoint.DistanceTo(endPoint);
+        //        Curve newCurve;
+        //        if (distanceToStart < distanceToEnd)
+        //        {
+        //            // 靠近起点端，移动起点
+        //            XYZ newStartPoint = startPoint + retreatVector;
+        //            // 确保新起点在曲线上且不超出范围
+        //            if (IsPointOnCurveSegment(currentCurve, newStartPoint))
+        //            {
+        //                newCurve = Line.CreateBound(newStartPoint, endPoint);
+        //            }
+        //            else
+        //            {
+        //                // 如果无法退后，保持原曲线
+        //                newCurve = currentCurve;
+        //            }
+        //        }
+        //        else
+        //        {
+        //            // 靠近终点端，移动终点
+        //            XYZ newEndPoint = endPoint + retreatVector;
+        //            // 确保新终点在曲线上且不超出范围
+        //            if (IsPointOnCurveSegment(currentCurve, newEndPoint))
+        //            {
+        //                newCurve = Line.CreateBound(startPoint, newEndPoint);
+        //            }
+        //            else
+        //            {
+        //                // 如果无法退后，保持原曲线
+        //                newCurve = currentCurve;
+        //            }
+        //        }
+        //        locationCurve.Curve = newCurve;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // 退后失败时忽略错误，继续执行
+        //        System.Diagnostics.Debug.WriteLine($"管道退后失败: {ex.Message}");
+        //    }
+        //}
+        // 检查点是否在曲线段上
+        //private bool IsPointOnCurveSegment(Curve curve, XYZ point)
+        //{
+        //    try
+        //    {
+        //        // 获取曲线参数范围
+        //        double startParam = curve.GetEndParameter(0);
+        //        double endParam = curve.GetEndParameter(1);
+
+        //        // 将点投影到曲线上获取参数
+        //        IntersectionResult result = curve.Project(point);
+        //        if (result != null)
+        //        {
+        //            double pointParam = result.Parameter;
+        //            // 检查参数是否在曲线范围内（包含一定的容差）
+        //            return pointParam >= startParam - 0.001 && pointParam <= endParam + 0.001;
+        //        }
+        //        return false;
+        //    }
+        //    catch
+        //    {
+        //        return false;
+        //    }
+        //}
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -607,110 +865,327 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////1102 结构柱翻模测试改造 https://zhuanlan.zhihu.com/p/108750783
-            // 创建应用程序对象
-            Autodesk.Revit.UI.UIApplication uiapp = commandData.Application;
-            //Autodesk.Revit.UI.UIDocument uiDoc = uiapp.ActiveUIDocument;
-            //Autodesk.Revit.DB.Document doc = uiDoc.Document;
+
+            ////1110增加管道管径选择逻辑 1101.1026 按构件机电类别选择
             try
             {
-                //开始事务
-                using (Autodesk.Revit.DB.Transaction ts = new Autodesk.Revit.DB.Transaction(doc, "柱子翻模"))
+                // 获取用户选择的元素
+                FamilyInstance familyInstance = null;
+                Pipe pipe = null;
+                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+                if (selectedIds.Count == 0)
                 {
-                    ts.Start();
-                    Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement); //获取对象
-                    string ss = r.ConvertToStableRepresentation(doc); //转化为字符串
-                    Element elem = doc.GetElement(r);
-                    // 获取几何图元
-                    GeometryElement geoElem = elem.get_Geometry(new Options());
-                    GeometryObject geoObj = elem.GetGeometryObjectFromReference(r);
-                    //获取选中的cad图层
-                    Category targetCategory = null;
-                    ElementId graphicsStyleId = ElementId.InvalidElementId;
-                    //判断所选取的几何对象样式不为元素无效值
-                    if (geoObj != null && geoObj.GraphicsStyleId != ElementId.InvalidElementId)
+                    var reference = uiDoc.Selection.PickObject(ObjectType.Element, "选择元素");
+                    Element element = doc.GetElement(reference.ElementId);
+                    if (element is FamilyInstance)
                     {
-                        graphicsStyleId = geoObj.GraphicsStyleId;
-                        GraphicsStyle gs = doc.GetElement(geoObj.GraphicsStyleId) as GraphicsStyle; //获得所选对象图形样式
-                        if (gs != null)
-                        {
-                            targetCategory = gs.GraphicsStyleCategory; //图层
-                            string layerName = gs.GraphicsStyleCategory.Name; //图层名字
-                        }
-                        //隐藏选中的cad图层
-                        if (targetCategory != null)
-                        {
-                            //doc.ActiveView.SetVisibility(targetCategory, false);
-                            doc.ActiveView.SetCategoryHidden(targetCategory.Id, false);
-                        }
-                        CurveArray curveArray = new CurveArray();
-                        List<double> listdb = new List<double>();
-                        foreach (var gObj in geoElem)
-                        {
-                            GeometryInstance geomInstance = gObj as GeometryInstance;
-                            if (geomInstance != null)
-                            {
-                                //坐标转换
-                                Transform transform = geomInstance.Transform;
-
-                                foreach (var insObj in geomInstance.SymbolGeometry) //坐标空间
-                                {
-                                    if (insObj == null) continue;
-                                    // 检查图形样式ID是否匹配
-                                    if (insObj.GraphicsStyleId != graphicsStyleId)
-                                        continue;
-                                    //线类型 - 处理PolyLine
-                                    if (insObj is PolyLine polyLine)
-                                    {
-                                        IList<XYZ> points = polyLine.GetCoordinates(); //获取坐标点
-                                        XYZ pMax = polyLine.GetOutline().MaximumPoint;
-                                        XYZ pMin = polyLine.GetOutline().MinimumPoint;
-                                        //长和宽
-                                        double b = Math.Abs(pMin.X - pMax.X);
-                                        double h = Math.Abs(pMin.Y - pMax.Y);
-                                        XYZ pp = pMax.Add(pMin) / 2; //柱子的中点坐标
-                                        pp = transform.OfPoint(pp); //坐标转换
-                                        CreatColu(doc, pp, b, h); //生成柱子
-                                    }
-                                    else
-                                    {
-                                        TaskDialog.Show("tt", "未检测到符合条件多段线");
-                                        return Result.Failed;
-                                    }
-                                    // 添加对Line的处理
-                                    //else if (insObj is Line line)
-                                    //{
-                                    //    // 处理直线类型的CAD元素
-                                    //    XYZ start = line.GetEndPoint(0);
-                                    //    XYZ end = line.GetEndPoint(1);
-                                    //    // 可以根据需要添加对直线的处理逻辑
-                                    //}
-                                }
-                            }
-                        }
-                        ts.Commit();
+                        familyInstance = doc.GetElement(reference.ElementId) as FamilyInstance;
+                    }
+                    else if (element is Pipe)
+                    {
+                        pipe = doc.GetElement(reference.ElementId) as Pipe;
                     }
                     else
                     {
-                        ts.RollBack();
-                        TaskDialog.Show("错误", "无法获取有效的图形样式信息");
+                        TaskDialog.Show("tt", "选择项不符合要求");
+                        return Result.Cancelled;
+                    }
+                }
+                else
+                {
+                    Element element = doc.GetElement(selectedIds.First());
+                    if (element is FamilyInstance)
+                    {
+                        familyInstance = doc.GetElement(element.Id) as FamilyInstance;
+                    }
+                    else if (element is Pipe)
+                    {
+                        pipe = doc.GetElement(element.Id) as Pipe;
+                    }
+                    else
+                    {
+                        TaskDialog.Show("tt", "选择项不符合要求");
+                        return Result.Cancelled;
+                    }
+                }
+                //// 管道处理，获取管径参数并选择
+                if (pipe != null)
+                {
+                    List<ElementId> selectedElementIds = new List<ElementId>();
+                    PipeSelectView pipeSelectView = new PipeSelectView(pipe);
+                    if (pipeSelectView.ShowDialog() != true || pipeSelectView.Strings == null)
+                    {
+                        TaskDialog.Show("tt", "未选择有效管径");
+                        return Result.Cancelled; ;
+                    }
+                    foreach (var SelectedDN in pipeSelectView.Strings)
+                    {
+                        //GetInstancesFunc(pipingSystem, SelectedDN);
+                        Parameter systemParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
+                        ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory
+ .CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), systemParam.AsValueString(), false));
+                        IList<Element> allpipes = new FilteredElementCollector(doc)
+                            .WhereElementIsNotElementType()
+                            .OfCategory(BuiltInCategory.OST_PipeCurves)
+                            .WherePasses(filter)
+                            .ToElements();
+                        foreach (Element p in allpipes) if (p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString() == SelectedDN)
+                            {
+                                selectedElementIds.Add(p.Id);
+                            }
+                    }
+                    //// 更新选择集
+                    uiDoc.Selection.SetElementIds(selectedElementIds);
+                    TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
+                }
+                //// 检查构件是否有 MEP 连接管理器
+                if (familyInstance != null && familyInstance.MEPModel?.ConnectorManager == null)
+                {
+                    TaskDialog.Show("提示", "该构件没有 MEP 连接管理器");
+                    return Result.Failed;
+                }
+                //// 可载入实例处理，获取系统类型参数并选择全部
+                if (familyInstance != null)
+                {
+                    Parameter systemTypeParam = null;
+                    var parameters = new[]
+                    {BuiltInParameter.RBS_CTC_SERVICE_TYPE, BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM };
+                    foreach (var paramId in parameters)
+                    {
+                        systemTypeParam = familyInstance.get_Parameter(paramId);
+                        if (systemTypeParam != null && systemTypeParam.HasValue) break;
+                    }
+                    if (systemTypeParam == null || !systemTypeParam.HasValue)
+                    {
+                        TaskDialog.Show("提示", "该构件系统类型未定义");
                         return Result.Failed;
                     }
-                    return Result.Succeeded;
+                    string paramValue = systemTypeParam.AsValueString();
+                    if (paramValue == "Undefined" || paramValue == "未定义")
+                    {
+                        TaskDialog.Show("提示", "该构件系统类型未定义");
+                        return Result.Failed;
+                    }
+                    // 获取匹配的构件
+                    ElementId familySymbolId = familyInstance.Symbol.Family.Id;
+                    List<ElementId> selectedElementIds = new List<ElementId>();
+                    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
+                    foreach (FamilyInstance instance in collector)
+                    {
+                        if (instance.MEPModel?.ConnectorManager == null) continue;
+                        // 电气系统特殊处理                    
+                        if (!(familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE) is null))
+                        {
+                            paramValue = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsString();
+                            Parameter systemParam = instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
+                            if (systemParam != null && systemParam.AsValueString() == paramValue && instance.Symbol.Family.Id == familySymbolId)
+                            {
+                                selectedElementIds.Add(instance.Id);
+                            }
+                        }
+                        else
+                        {
+                            // 管道/风管系统处理
+                            BuiltInParameter targetParameter = systemTypeParam.Definition.Name.Contains("PIPING")
+                                ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
+                                : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
+                            Parameter systemParam = instance.get_Parameter(targetParameter);
+                            if (systemParam != null && systemParam.AsElementId() == systemTypeParam.AsElementId() && instance.Symbol.Family.Id == familySymbolId)
+                            {
+                                selectedElementIds.Add(instance.Id);
+                            }
+                        }
+                    }
+                    // 更新选择集
+                    uiDoc.Selection.SetElementIds(selectedElementIds);
+                    TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
                 }
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
-                // 用户取消了选择操作
                 return Result.Cancelled;
             }
             catch (Exception ex)
             {
-                message = ex.Message;
-                TaskDialog.Show("错误", $"执行过程中发生错误: {ex.Message}");
+                TaskDialog.Show("错误", ex.Message);
                 return Result.Failed;
             }
 
+            ////1108 断开mep连接,没有效果   
+            ////1102 结构柱翻模测试改造 https://zhuanlan.zhihu.com/p/108750783
+            ///改为按标高打断管线,需要增加高度获取和。OK
+            ////创建应用程序对象
+            //Autodesk.Revit.UI.UIApplication uiapp = commandData.Application;
+            ////Autodesk.Revit.UI.UIDocument uiDoc = uiapp.ActiveUIDocument;
+            ////Autodesk.Revit.DB.Document doc = uiDoc.Document;
+            //try
+            //{
+            //    //开始事务
+            //    using (Autodesk.Revit.DB.Transaction ts = new Autodesk.Revit.DB.Transaction(doc, "柱子翻模"))
+            //    {
+            //        ts.Start();
+            //        Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement); //获取对象
+            //        string ss = r.ConvertToStableRepresentation(doc); //转化为字符串
+            //        Element elem = doc.GetElement(r);
+            //        // 获取几何图元
+            //        GeometryElement geoElem = elem.get_Geometry(new Options());
+            //        GeometryObject geoObj = elem.GetGeometryObjectFromReference(r);
+            //        //获取选中的cad图层
+            //        Category targetCategory = null;
+            //        ElementId graphicsStyleId = ElementId.InvalidElementId;
+            //        //判断所选取的几何对象样式不为元素无效值
+            //        if (geoObj != null && geoObj.GraphicsStyleId != ElementId.InvalidElementId)
+            //        {
+            //            graphicsStyleId = geoObj.GraphicsStyleId;
+            //            GraphicsStyle gs = doc.GetElement(geoObj.GraphicsStyleId) as GraphicsStyle; //获得所选对象图形样式
+            //            if (gs != null)
+            //            {
+            //                //图层及图层名字
+            //                targetCategory = gs.GraphicsStyleCategory;
+            //                string layerName = gs.GraphicsStyleCategory.Name;
+            //            }
+            //            double offsetHeight = 2000 / 304.8;
+            //            ////隐藏选中的cad图层
+            //            if (targetCategory != null)
+            //            {
+            //                //doc.ActiveView.SetCategoryHidden(targetCategory.Id, true);
+            //            }
+            //            CurveArray curveArray = new CurveArray();
+            //            List<double> listdb = new List<double>();
+            //            foreach (var gObj in geoElem)
+            //            {
+            //                GeometryInstance geomInstance = gObj as GeometryInstance;
+            //                if (geomInstance != null)
+            //                {
+            //                    //坐标转换
+            //                    Transform transform = geomInstance.Transform;
+            //                    //TaskDialog.Show("tt", geomInstance.SymbolGeometry.Count().ToString());
+            //                    //坐标空间
+            //                    foreach (var insObj in geomInstance.SymbolGeometry)
+            //                    {
+            //                        if (insObj == null) continue;
+            //                        // 检查图形样式ID是否匹配
+            //                        if (insObj.GraphicsStyleId != graphicsStyleId)
+            //                            continue;
+            //                        //线类型 - 处理PolyLine
+            //                        if (insObj is PolyLine polyLine)
+            //                        {
+            //                            //获取坐标点
+            //                            IList<XYZ> points = polyLine.GetCoordinates();
+            //                            XYZ pMax = polyLine.GetOutline().MaximumPoint;
+            //                            XYZ pMin = polyLine.GetOutline().MinimumPoint;
+            //                            //长和宽
+            //                            double b = Math.Abs(pMin.X - pMax.X);
+            //                            double h = Math.Abs(pMin.Y - pMax.Y);
+            //                            //柱子的中点坐标+坐标转换
+            //                            XYZ pp = pMax.Add(pMin) / 2;
+            //                            pp = transform.OfPoint(pp);
+            //                            ////找到中点，向上找管道，打断并尝试两侧退后各100
+            //                            MEPCurve mepCurveToBreak = FindMEPCurveAtPoint(uiDoc, offsetHeight, pp);
+            //                            if (mepCurveToBreak != null)
+            //                            {
+            //                                // 打断管道
+            //                                MEPCurve copiedMEPCurve = BreakMEPCurveByOne(doc, mepCurveToBreak, pp);
+            //                            }
+            //                            //CreatColu(doc, pp, b, h); //生成柱子
+            //                        }
+            //                        else if (insObj is Arc circle)
+            //                        {
+            //                            XYZ pp = circle.Center;
+            //                            pp = transform.OfPoint(pp);
+            //                            //// 查找与投影点相交的MEP曲线
+            //                            MEPCurve mepCurveToBreak = FindMEPCurveAtPoint(uiDoc, offsetHeight, pp);
+            //                            if (mepCurveToBreak != null)
+            //                            {
+            //                                // 打断管道
+            //                                MEPCurve copiedMEPCurve = BreakMEPCurveByOne(doc, mepCurveToBreak, pp);
+            //                            }
+            //                        }
+            //                        else if (insObj is GeometryInstance instance)
+            //                        {
+            //                            //instance.Transform;
+            //                            //
+            //                        }
+            //                        else
+            //                        {
+            //                            TaskDialog.Show("tt", "未检测到符合条件多段线");
+            //                            return Result.Failed;
+            //                        }
+            //                    }
+            //                }
+            //            }
+            //            ts.Commit();
+            //        }
+            //        else
+            //        {
+            //            ts.RollBack();
+            //            TaskDialog.Show("错误", "无法获取有效的图形样式信息");
+            //            return Result.Failed;
+            //        }
+            //        return Result.Succeeded;
+            //    }
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    // 用户取消了选择操作
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    TaskDialog.Show("错误", $"执行过程中发生错误: {ex.Message}");
+            //    return Result.Failed;
+            //}
+            //例程结束
+            //////1105 批量左右镜像.OK
+            //try
+            //{
+            //    FamilyInstance familyInstance;
+            //    ICollection<ElementId> selectedIds = new HashSet<ElementId>();
+            //    selectedIds = uiDoc.Selection.GetElementIds();
+            //    using (Transaction tx = new Transaction(doc))
+            //    {
+            //        tx.Start("Mirror Element");
+            //        if (selectedIds.Count == 0)
+            //        {
+            //            var reference = uiDoc.Selection.PickObjects(ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
+            //            foreach (var item in reference)
+            //            {
+            //                selectedIds.Add(item.ElementId);
+            //            }
+            //        }
+            //        foreach (var id in selectedIds)
+            //        {
+            //            familyInstance = doc.GetElement(id) as FamilyInstance;
+            //            // 获取构件的中心点
+            //            LocationPoint locationPoint = familyInstance.Location as LocationPoint;
+            //            XYZ centerPoint = locationPoint.Point;
+            //            // 获取构件的局部坐标系
+            //            Transform transform = familyInstance.GetTotalTransform();
+            //            // 获取局部 X 轴方向（左右方向）
+            //            XYZ xAxis = transform.BasisX;
+            //            // 创建镜像平面（通过中心点和局部 X 轴方向）
+            //            Plane mirrorPlane = Plane.CreateByNormalAndOrigin(xAxis, centerPoint);
+            //            // 镜像构件
+            //            ElementTransformUtils.MirrorElements(doc, new List<ElementId> { familyInstance.Id }, mirrorPlane, false);
+            //        }
+            //        tx.Commit();
+            //    }
+            //    //TaskDialog.Show("成功", "构件已按中心轴线镜像");
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    // 用户取消操作
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("错误", ex.Message);
+            //    return Result.Failed;
+            //}
+            //例程结束
+            //1104 现成方案需要指定参数名称 https://howto.im/q/how-to-read-and-write-data-to-revit-project-parameters-using-the-api
+            //https://forums.autodesk.com/t5/revit-api-forum/adding-project-parameters/td-p/12500853
             ////1025 找项目参数并删除
             //// 检查是否允许全局参数
             //if (GlobalParametersManager.AreGlobalParametersAllowed(doc))
@@ -761,7 +1236,7 @@ namespace CreatePipe
             //{
             //    TaskDialog.Show("错误", "当前文档不支持全局参数");
             //}
-            //例程结束(未完)
+            ////例程结束(未完)
             ////1031 查找重叠喷头
             //var allSprinklers = uiDoc.Selection.PickObjects(ObjectType.Element, new SprinklerEntityFilter(), "选择喷头")
             //    .Select(re => doc.GetElement(re.ElementId) as FamilyInstance).ToList();

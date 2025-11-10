@@ -109,6 +109,9 @@
     </Compile>
     <Compile Include="ImportParameters.cs" />
     <Compile Include="models\DuctSystemEntity.cs" />
+    <Compile Include="PipeSelectView.xaml.cs">
+      <DependentUpon>PipeSelectView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ProjectParameterData.cs" />
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
@@ -695,6 +698,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Obselete\RoomAttr\RoomAttrForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="PipeSelectView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
