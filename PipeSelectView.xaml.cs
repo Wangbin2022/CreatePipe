@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Drawing.Printing;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -100,10 +101,21 @@ namespace CreatePipe
                 string pipeDN = c.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString();
                 pipeNames.Add(pipeDN);
             }
+            //foreach (var item in pipeNames)
+            //{
+            //    string numberAsString = item.Substring(0, item.Length - 3);
+            //    numbers.Add(int.Parse(numberAsString));
+            //}
+
             foreach (var item in pipeNames)
             {
-                string numberAsString = item.Substring(0, item.Length - 3);
-                numbers.Add(int.Parse(numberAsString));
+                // 使用正则表达式提取数字部分
+                Match match = Regex.Match(item, @"(\d+)");
+                if (match.Success)
+                {
+                    int number = int.Parse(match.Groups[1].Value);
+                    numbers.Add(number);
+                }
             }
             numbers.Sort();
             foreach (var item in numbers)

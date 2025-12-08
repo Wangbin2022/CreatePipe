@@ -1,0 +1,70 @@
+﻿<Window x:Class="CreatePipe.ManualCropZaxisView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe"
+        mc:Ignorable="d"
+        Title="ManualCropZaxisView" 
+        Height="240" Width="360" Topmost="True" ResizeMode="NoResize"
+        WindowStartupLocation="Manual" Left="30" Top="300" 
+        >
+    <Grid Margin="5">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.35*"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="当前平面标高" Margin="5"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="5" >
+            <TextBlock Text="{Binding CurrentLevel}"/>
+            <TextBlock Text="  "/>
+            <TextBlock Text="本层相对内部原点高度"/>
+            <TextBlock Text="  "/>
+            <TextBlock Text="{Binding CurrentLevelHeight,StringFormat={}{0:N0}}"/>
+        </StackPanel>
+        <Grid Grid.Row="1" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="0.8*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="剖切底标高" />
+            <TextBlock Grid.Row="1"  FontSize="18"
+                Text="{Binding CropZaxisBottomValue,StringFormat={}{0:N0},UpdateSourceTrigger=PropertyChanged}"/>
+        </Grid>
+        <Slider Grid.Row="1" Grid.Column="1" Margin="5"
+                VerticalAlignment="Center"
+        Minimum="{Binding CropZaxisBottomValueMin}"
+        Maximum="{Binding CropZaxisBottomValueMax}"
+        TickFrequency="{Binding SliderTickFrequency}"
+        IsSnapToTickEnabled="True"
+        Value="{Binding CropZaxisBottomValue, Mode=TwoWay}"/>
+        <Grid Grid.Row="2" Margin="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="0.8*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="剖切顶标高" />
+            <TextBlock Grid.Row="1" FontSize="18"
+                Text="{Binding CropZaxisTopValue,StringFormat={}{0:N0},UpdateSourceTrigger=PropertyChanged}"/>
+        </Grid>
+        <Slider Grid.Row="2" Grid.Column="1" Margin="5"
+                VerticalAlignment="Center"
+        Minimum="{Binding CropZaxisTopValueMin}"
+        Maximum="{Binding CropZaxisTopValueMax}"
+        TickFrequency="{Binding SliderTickFrequency}"
+        IsSnapToTickEnabled="True"
+        Value="{Binding CropZaxisTopValue, Mode=TwoWay}"/>
+        <DockPanel Grid.Row="3" Margin="5,2" Grid.ColumnSpan="2">
+            <Button  Content="选取平面两角点生成剖面框" Height="20" IsDefault="True"
+                     Command="{Binding PlaceCropViewCommand}"
+                     HorizontalAlignment="Stretch"
+                      IsEnabled="{Binding CanPlaceCropView}" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -24,7 +24,7 @@
     <DefineConstants>REVIT2021_OR_HIGHER;REVIT2020</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -80,8 +80,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ExportParameters.cs" />
+    <Compile Include="filter\AirTerminalSelectionFilter.cs" />
+    <Compile Include="filter\DWGReferenceFilter.cs" />
     <Compile Include="filter\FamilyFilterClass.cs" />
+    <Compile Include="filter\filterDuct.cs" />
     <Compile Include="filter\FloorSelectionFilter.cs" />
+    <Compile Include="filter\LinkedPipeAndDuctSelectionFilter.cs" />
+    <Compile Include="filter\LinkedPipeDuctSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
     <Compile Include="Form\DuctSystemManagerView.xaml.cs">
       <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
@@ -108,7 +113,13 @@
       <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
     </Compile>
     <Compile Include="ImportParameters.cs" />
+    <Compile Include="Form\ManualCropZaxisView.xaml.cs">
+      <DependentUpon>ManualCropZaxisView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
+    <Compile Include="PipeSelectFromSelectionView.xaml.cs">
+      <DependentUpon>PipeSelectFromSelectionView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="PipeSelectView.xaml.cs">
       <DependentUpon>PipeSelectView.xaml</DependentUpon>
     </Compile>
@@ -569,6 +580,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\ManualCropZaxisView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="NCCoding\NCCodingView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -698,6 +713,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Obselete\RoomAttr\RoomAttrForm.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="PipeSelectFromSelectionView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
