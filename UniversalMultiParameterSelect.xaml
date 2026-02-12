@@ -16,18 +16,44 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="请选择要导出的参数:" Margin="0,0,0,10"/>
-
-        <ListView Grid.Row="1" x:Name="ParametersListView" SelectionMode="Multiple">
+        <!-- 简化版DataGrid -->
+        <DataGrid Grid.Row="1" 
+                  x:Name="ParametersDataGrid" 
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  CanUserSortColumns="True"
+                  SelectionMode="Extended"
+                  SelectionUnit="FullRow"
+                  IsReadOnly="True"
+                  GridLinesVisibility="None"
+                  HeadersVisibility="Column"
+                  Margin="0,0,0,10">
+            <DataGrid.Columns>
+                <!-- 选择列 -->
+                <DataGridTemplateColumn Width="40" SortMemberPath="IsSelected">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <!-- 参数名列 -->
+                <DataGridTextColumn Header="参数名称" Width="*" 
+                                    Binding="{Binding Name}"  SortMemberPath="Name"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <!--<ListView Grid.Row="1" x:Name="ParametersListView" SelectionMode="Multiple">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" 
                               Margin="2"/>
                 </DataTemplate>
             </ListView.ItemTemplate>
-        </ListView>
-
+        </ListView>-->
         <TextBlock Grid.Row="2" x:Name="SelectionCountText" Margin="0,10,0,5"/>
-
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="确定" Click="Ok_Click" Width="80" Margin="0,0,10,0"/>
             <Button Content="取消" Click="Cancel_Click" Width="80"/>

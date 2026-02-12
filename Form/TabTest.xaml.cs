@@ -11,7 +11,7 @@ namespace CreatePipe.Form
         public TabTest(UIApplication application)
         {
             InitializeComponent();
-            this.DataContext = new RPManagerViewModel(application);
+            //this.DataContext = new RPManagerViewModel(application);
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

@@ -5,7 +5,6 @@ using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
 using CreatePipe.Form;
 using CreatePipe.Utils;
-using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -84,10 +83,10 @@ namespace CreatePipe.models
                 TaskDialog.Show("错误", "初始化管道系统时出错: " + ex.Message);
             }
         }
-        public ICommand SelectSystemCommand =>new Form.RelayCommand<IEnumerable<object>>(SelectSystems);
+        public ICommand SelectSystemCommand => new Form.RelayCommand<IEnumerable<object>>(SelectSystems);
         private void SelectSystems(IEnumerable<object> selectedElements)
         {
-            if (selectedElements.Count()==0)
+            if (selectedElements.Count() == 0)
             {
                 TaskDialog.Show("tt", "未选择任何系统，请重试");
                 return;

@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace CreatePipe
@@ -83,7 +82,7 @@ namespace CreatePipe
 
                 if (!updateData.Any())
                 {
-                    TaskDialog.Show("提示", "未找到有效数据");  return Result.Failed;
+                    TaskDialog.Show("提示", "未找到有效数据"); return Result.Failed;
                 }
 
                 // 更新模型

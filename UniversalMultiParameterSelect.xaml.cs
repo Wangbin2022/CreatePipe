@@ -1,17 +1,7 @@
 ﻿using Autodesk.Revit.DB;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe
 {
@@ -40,11 +30,11 @@ namespace CreatePipe
                     IsSelected = false
                 });
             }
-            ParametersListView.ItemsSource = parameters;
+            ParametersDataGrid.ItemsSource = parameters;
         }
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItems = ((List<ParameterItem>)ParametersListView.ItemsSource)
+            var selectedItems = ((List<ParameterItem>)ParametersDataGrid.ItemsSource)
                 .Where(p => p.IsSelected)
                 .Select(p => p.Name)
                 .ToList();

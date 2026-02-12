@@ -4,17 +4,8 @@ using CreatePipe.cmd;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe
 {
@@ -115,7 +106,7 @@ namespace CreatePipe
             // 转成带单位的字符串
             return sorted.Select(d => $"{d} mm").ToList();
         }
-        public string SelectedPipeSystem {  get; set; }
+        public string SelectedPipeSystem { get; set; }
         /// <summary>
         /// 从选中的管道集合中提取所有系统名称（去重）
         /// </summary>

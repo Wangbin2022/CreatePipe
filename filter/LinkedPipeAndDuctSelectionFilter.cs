@@ -1,12 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.UI.Selection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CreatePipe.filter
+﻿namespace CreatePipe.filter
 {
     ///// <summary>
     ///// 一个选择过滤器，用于只允许用户选择链接 Revit 模型中的管道（Pipe）或风管（Duct）。

@@ -81,6 +81,7 @@
   <ItemGroup>
     <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\AirTerminalSelectionFilter.cs" />
+    <Compile Include="filter\DuctTerminalFilter.cs" />
     <Compile Include="filter\DWGReferenceFilter.cs" />
     <Compile Include="filter\FamilyFilterClass.cs" />
     <Compile Include="filter\filterDuct.cs" />
@@ -124,6 +125,9 @@
       <DependentUpon>PipeSelectView.xaml</DependentUpon>
     </Compile>
     <Compile Include="ProjectParameterData.cs" />
+    <Compile Include="RevitStylePopup\ToastWindow.xaml.cs">
+      <DependentUpon>ToastWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
     <Compile Include="cmd\RevitContext.cs" />
@@ -385,6 +389,10 @@
     <Compile Include="Obselete\Test09_0617.cs" />
     <Compile Include="SplitWallByLevel.cs" />
     <Compile Include="Test10_0818.cs" />
+    <Compile Include="Test11_0118.cs" />
+    <Compile Include="TestWindow.xaml.cs">
+      <DependentUpon>TestWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="UniversalMultiParameterSelect.xaml.cs">
       <DependentUpon>UniversalMultiParameterSelect.xaml</DependentUpon>
     </Compile>
@@ -724,6 +732,14 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="RevitStylePopup\ToastWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TestWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="UniversalMultiParameterSelect.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -787,5 +803,6 @@
   <ItemGroup>
     <Resource Include="Resources\4删除R16a.png" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
