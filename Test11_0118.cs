@@ -1,17 +1,12 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
-using CreatePipe.RevitStylePopup;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 
 namespace CreatePipe
 {
@@ -186,12 +181,160 @@ namespace CreatePipe
         //    try { return owner?.Category?.Name ?? owner?.GetType().Name ?? "<null>"; }
         //    catch { return "<unknown>"; }
         //}
+
+        /// <summary>
+        /// 反转字符串
+        /// </summary>
+        private static string ReverseString(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return str;
+            char[] charArray = str.ToCharArray();
+            Array.Reverse(charArray);
+            return new string(charArray);
+        }
+        ///// <summary>
+        ///// 按单词逆序排序（从词尾到词首）,只支持一列
+        ///// </summary>
+        //public static void SortByReversedWords(string inputPath, string outputAscPath, Encoding encoding)
+        //{
+        //    try
+        //    {
+        //        // 1. 读取所有单词
+        //        var words = File.ReadAllLines(inputPath, encoding)
+        //            .Where(line => !string.IsNullOrWhiteSpace(line))
+        //            .Select(line => line.Trim())
+        //            .ToList();
+        //        //Console.WriteLine($"读取到 {words.Count} 个单词");
+        //        // 2. 创建 (原单词, 反转单词) 对
+        //        var wordPairs = words.Select(word => new
+        //        {
+        //            Original = word,
+        //            Reversed = ReverseString(word)
+        //        }).ToList();
+        //        //// 3. 按反转后的单词正序排序（A-Z）
+        //        //var sortedAsc = wordPairs
+        //        //    .OrderBy(pair => pair.Reversed, StringComparer.OrdinalIgnoreCase)
+        //        //    .Select(pair => pair.Original)
+        //        //    .ToList();
+        //        //File.WriteAllLines(outputAscPath, sortedAsc, new UTF8Encoding(true));
+        //        // 4. 按反转后的单词倒序排序（Z-A）
+        //        var sortedDesc = wordPairs
+        //            .OrderByDescending(pair => pair.Reversed, StringComparer.OrdinalIgnoreCase)
+        //            .Select(pair => pair.Original)
+        //            .ToList();
+        //        File.WriteAllLines(outputAscPath, sortedDesc, new UTF8Encoding(true)); 
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"错误: {ex.Message}");
+        //    }
+        //}       
+        /// <summary>
+        /// 解析 CSV 行（简单版本，不处理引号内的逗号）
+        /// </summary>
+        private static string[] ParseCsvLine(string line)
+        {
+            return line.Split(',').Select(field => field.Trim()).ToArray();
+        }
+        /// <summary>
+        /// 多列 CSV 按第一列逆序排序
+        /// </summary>
+        public static int SortByReversedWords(string inputPath, string outputPath, Encoding encoding, bool hasHeader = false)
+        {
+            try
+            {
+                // 1. 读取所有行
+                var lines = File.ReadAllLines(inputPath, encoding)
+                    .Where(line => !string.IsNullOrWhiteSpace(line))
+                    .ToList();
+                if (lines.Count == 0)
+                {
+                    Console.WriteLine("文件为空");
+                    return 0;
+                }
+                string headerLine = null;
+                int startIndex = 0;
+                // 2. 处理标题行
+                if (hasHeader && lines.Count > 0)
+                {
+                    headerLine = lines[0];
+                    startIndex = 1;
+                    //Console.WriteLine($"标题行: {headerLine}");
+                }
+                // 3. 解析数据行
+                var dataRows = lines
+                    .Skip(startIndex)
+                    .Select(line => new
+                    {
+                        OriginalLine = line,
+                        Fields = ParseCsvLine(line),
+                        FirstColumn = ParseCsvLine(line).Length > 0 ? ParseCsvLine(line)[0] : ""
+                    })
+                    .Where(row => !string.IsNullOrEmpty(row.FirstColumn))
+                    .Select(row => new
+                    {
+                        row.OriginalLine,
+                        row.Fields,
+                        row.FirstColumn,
+                        ReversedFirstColumn = ReverseString(row.FirstColumn)
+                    })
+                    .ToList();
+                //Console.WriteLine($"读取到 {dataRows.Count} 行数据");
+                // 4. 按第一列的反转字符串倒序排序（Z-A）
+                var sortedRows = dataRows
+                    .OrderByDescending(row => row.ReversedFirstColumn, StringComparer.OrdinalIgnoreCase)
+                    .Select(row => row.OriginalLine)
+                    .ToList();
+                // 5. 写入文件
+                var outputLines = new List<string>();
+                if (hasHeader && headerLine != null)
+                {
+                    outputLines.Add(headerLine);
+                }
+                outputLines.AddRange(sortedRows);
+                File.WriteAllLines(outputPath, outputLines, new UTF8Encoding(true));
+                return lines.Count;
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine($"错误: {ex.Message}");
+                throw;
+            }
+        }
+
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
             Document doc = uiDoc.Document;
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
+
+            ////0302 逆序单词
+            //OpenFileDialog openFileDialog = new OpenFileDialog();
+            //openFileDialog.Multiselect = false;
+            //openFileDialog.Filter = "(*.csv)|*.csv";
+            //openFileDialog.Title = "请选择 CSV 文件";
+            //if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
+            ////检测csv文件编码
+            //Encoding encoding = EncodingHelper.DetectEncoding(openFileDialog.FileName);
+            ////TaskDialog.Show("tt", $"检测到文件编码: {encoding.EncodingName}");
+            ////单列csv逆序重排
+            ////SortByReversedWords(openFileDialog.FileName, "words_reverse_asc.csv", encoding);
+            ////多列csv逆序重排
+            //int lines = SortByReversedWords(openFileDialog.FileName, "words_reverse_asc.csv", encoding);
+            //TaskDialog.Show("tt", $"任务已完成，处理{lines}行数据，words_reverse_asc.csv保存到桌面");
+
+            //0212 日志功能测试 安装Text.Json 和Externsion.Logging
+            //https://www.bilibili.com/video/BV1k7HyzNEpQ
+            //默认日志接口使用
+            //using var loggerFactory = LoggerFactory.Create(builder =>
+            //{
+            //    builder.AddConsole();
+            //});
+            //ILogger logger = loggerFactory.Create();
+            //结构化日志不应直接字符串拼接记录变量，而应当适用指定变量与要显示的值挂接
+            //ILogger<Test11_0118> logger = null;
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
             //var selIds = uiDoc.Selection.GetElementIds();
@@ -261,6 +404,54 @@ namespace CreatePipe
             //    tx.Commit();
             //}
             //TaskDialog.Show("结果",$"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
+
+            ////0222 改标高1500
+            //var selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds.Count > 1)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //try
+            //{
+            //    if (selectedIds.Count == 0)
+            //    {
+            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
+            //        Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+
+            //        Parameter sysParam = pipe1.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //        if (sysParam == null || !sysParam.HasValue)
+            //        {
+            //            TaskDialog.Show("提示", "未获取到系统参数");
+            //            return Result.Cancelled;
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "更改标高"))
+            //        {
+            //            tx.Start();
+            //            sysParam.Set(1500 / 304.8);
+            //            tx.Commit();
+            //        }
+            //    }
+            //    else
+            //    {
+            //        Pipe pipe = doc.GetElement(selectedIds.FirstOrDefault()) as Pipe;
+            //        Parameter sysParam = pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //        if (sysParam == null || !sysParam.HasValue)
+            //        {
+            //            TaskDialog.Show("提示", "未获取到系统参数");
+            //            return Result.Cancelled;
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "更改标高"))
+            //        {
+            //            tx.Start();
+            //            sysParam.Set(1500 / 304.8);
+            //            tx.Commit();
+            //        }
+            //    }
+            //}
+            //catch (Exception)
+            //{
+            //    throw;
+            //}
 
             ////0205 查找特定属性风口构建
             //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
@@ -388,6 +579,51 @@ namespace CreatePipe
             //    trans.Commit();
             //}
             return Result.Succeeded;
+        }
+    }
+    public class EncodingHelper
+    {
+        /// <summary>
+        /// 自动检测文件编码
+        /// </summary>
+        public static Encoding DetectEncoding(string filePath)
+        {
+            // 读取文件前几个字节检测 BOM
+            byte[] bom = new byte[4];
+            using (FileStream file = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            {
+                file.Read(bom, 0, 4);
+            }
+            // 检测 BOM
+            if (bom[0] == 0xef && bom[1] == 0xbb && bom[2] == 0xbf)
+                return Encoding.UTF8;  // UTF-8 with BOM
+
+            if (bom[0] == 0xff && bom[1] == 0xfe && bom[2] == 0 && bom[3] == 0)
+                return Encoding.UTF32;  // UTF-32 LE
+
+            if (bom[0] == 0xff && bom[1] == 0xfe)
+                return Encoding.Unicode;  // UTF-16 LE
+
+            if (bom[0] == 0xfe && bom[1] == 0xff)
+                return Encoding.BigEndianUnicode;  // UTF-16 BE
+
+            // 没有 BOM，尝试检测内容
+            string content = File.ReadAllText(filePath, Encoding.Default);
+            // 检测是否包含中文字符
+            if (content.Any(c => c >= 0x4e00 && c <= 0x9fa5))
+            {
+                // 尝试 GB2312/GBK
+                try
+                {
+                    //Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                    return Encoding.GetEncoding("GB2312");
+                }
+                catch
+                {
+                    return Encoding.UTF8;
+                }
+            }
+            return Encoding.UTF8;  // 默认使用 UTF-8
         }
     }
 }

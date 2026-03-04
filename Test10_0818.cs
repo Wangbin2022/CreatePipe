@@ -1,17 +1,13 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Windows.Interop;
 using View = Autodesk.Revit.DB.View;
 
 namespace CreatePipe
@@ -1252,7 +1248,7 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
 
-           
+
             ////1120 匹配风管标高OK
             //var ductSource = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new filterDuct()).ElementId) as Duct;
             //Parameter parameter = ductSource.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
