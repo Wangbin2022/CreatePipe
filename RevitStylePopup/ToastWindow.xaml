@@ -5,7 +5,8 @@
         Title="ToastWindow" 
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True"
-        Width="320" Height="100">
+        WindowStartupLocation="CenterScreen"
+        Width="320" Height="130">
     <Window.Resources>
         <sys:Int32 x:Key="DelaySeconds">1</sys:Int32>
     </Window.Resources>
@@ -17,7 +18,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
                 <RowDefinition Height="60"/>
-                <!--<RowDefinition Height="40"/>-->
+                <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
             <!-- 标题栏 -->
             <Border Grid.Row="0"
@@ -40,8 +41,12 @@
                 </Grid>
             </Border>
             <!-- 内容区域 -->
-            <Border Grid.Row="1" Padding="12" Background="#ffffff" CornerRadius="0,0,9,9">
+            <Border Grid.Row="1" Padding="12" Background="#ffffff" >
                 <TextBlock x:Name="MessageTextBlock" TextWrapping="Wrap" Foreground="#224ca3" FontSize="16" VerticalAlignment="Center"/>
+            </Border>
+            <Border Grid.Row="2" Padding="6"  Background="#f3f3f3"
+                    BorderBrush="#f3f3f3" CornerRadius="0,0,9,9">
+                <TextBlock Text="命令已执行完毕，本窗口将于2秒后自动关闭" Margin="6,0"/>
             </Border>
         </Grid>
     </Border>

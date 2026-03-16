@@ -9,7 +9,6 @@
         xmlns:vm="clr-namespace:CreatePipe.models"
         xmlns:model="clr-namespace:CreatePipe.models"
         mc:Ignorable="d" WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance Type=vm:CableTraySystemViewModel}"
         Title="CableTraySystemTest" Height="450" Width="720">
     <Window.Resources>
         <converter:ColorConvertHelper x:Key="colorConverter"/>

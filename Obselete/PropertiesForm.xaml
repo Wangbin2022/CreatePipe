@@ -14,14 +14,14 @@
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Row="0">
-            <TextBox Width="200" VerticalAlignment="Center" Margin="5" 
+            <!--<TextBox Width="200" VerticalAlignment="Center" Margin="5" 
                     Text="{Binding Keyword,UpdateSourceTrigger=PropertyChanged}">
                 <b:Interaction.Triggers>
                     <b:EventTrigger EventName="TextChanged">
                         <b:InvokeCommandAction x:Name="SelectionCommand" Command="{Binding QueryELementCommand}"/>
                     </b:EventTrigger>
                 </b:Interaction.Triggers>
-            </TextBox>
+            </TextBox>-->
             <!--<TextBox Style="{DynamicResource LoginNameCss}" Foreground="#9999" x:Name="LoginName" VerticalContentAlignment="Center" FontSize="18"   Height="40" Margin="20,0,20,0" Padding="10,0,0,0">
                 <b:Interaction.Behaviors >
                     <local:TextBoxWaterMarkBehavior WaterMarkText="手机/邮箱" IsNotNullForeground="#000"/>

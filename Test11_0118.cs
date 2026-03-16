@@ -2,11 +2,18 @@
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using CreatePipe.filter;
+using CreatePipe.RevitStylePopup;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using Visibility = System.Windows.Visibility;
 
 namespace CreatePipe
 {
@@ -182,127 +189,6 @@ namespace CreatePipe
         //    catch { return "<unknown>"; }
         //}
 
-        /// <summary>
-        /// 反转字符串
-        /// </summary>
-        private static string ReverseString(string str)
-        {
-            if (string.IsNullOrEmpty(str)) return str;
-            char[] charArray = str.ToCharArray();
-            Array.Reverse(charArray);
-            return new string(charArray);
-        }
-        ///// <summary>
-        ///// 按单词逆序排序（从词尾到词首）,只支持一列
-        ///// </summary>
-        //public static void SortByReversedWords(string inputPath, string outputAscPath, Encoding encoding)
-        //{
-        //    try
-        //    {
-        //        // 1. 读取所有单词
-        //        var words = File.ReadAllLines(inputPath, encoding)
-        //            .Where(line => !string.IsNullOrWhiteSpace(line))
-        //            .Select(line => line.Trim())
-        //            .ToList();
-        //        //Console.WriteLine($"读取到 {words.Count} 个单词");
-        //        // 2. 创建 (原单词, 反转单词) 对
-        //        var wordPairs = words.Select(word => new
-        //        {
-        //            Original = word,
-        //            Reversed = ReverseString(word)
-        //        }).ToList();
-        //        //// 3. 按反转后的单词正序排序（A-Z）
-        //        //var sortedAsc = wordPairs
-        //        //    .OrderBy(pair => pair.Reversed, StringComparer.OrdinalIgnoreCase)
-        //        //    .Select(pair => pair.Original)
-        //        //    .ToList();
-        //        //File.WriteAllLines(outputAscPath, sortedAsc, new UTF8Encoding(true));
-        //        // 4. 按反转后的单词倒序排序（Z-A）
-        //        var sortedDesc = wordPairs
-        //            .OrderByDescending(pair => pair.Reversed, StringComparer.OrdinalIgnoreCase)
-        //            .Select(pair => pair.Original)
-        //            .ToList();
-        //        File.WriteAllLines(outputAscPath, sortedDesc, new UTF8Encoding(true)); 
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"错误: {ex.Message}");
-        //    }
-        //}       
-        /// <summary>
-        /// 解析 CSV 行（简单版本，不处理引号内的逗号）
-        /// </summary>
-        private static string[] ParseCsvLine(string line)
-        {
-            return line.Split(',').Select(field => field.Trim()).ToArray();
-        }
-        /// <summary>
-        /// 多列 CSV 按第一列逆序排序
-        /// </summary>
-        public static int SortByReversedWords(string inputPath, string outputPath, Encoding encoding, bool hasHeader = false)
-        {
-            try
-            {
-                // 1. 读取所有行
-                var lines = File.ReadAllLines(inputPath, encoding)
-                    .Where(line => !string.IsNullOrWhiteSpace(line))
-                    .ToList();
-                if (lines.Count == 0)
-                {
-                    Console.WriteLine("文件为空");
-                    return 0;
-                }
-                string headerLine = null;
-                int startIndex = 0;
-                // 2. 处理标题行
-                if (hasHeader && lines.Count > 0)
-                {
-                    headerLine = lines[0];
-                    startIndex = 1;
-                    //Console.WriteLine($"标题行: {headerLine}");
-                }
-                // 3. 解析数据行
-                var dataRows = lines
-                    .Skip(startIndex)
-                    .Select(line => new
-                    {
-                        OriginalLine = line,
-                        Fields = ParseCsvLine(line),
-                        FirstColumn = ParseCsvLine(line).Length > 0 ? ParseCsvLine(line)[0] : ""
-                    })
-                    .Where(row => !string.IsNullOrEmpty(row.FirstColumn))
-                    .Select(row => new
-                    {
-                        row.OriginalLine,
-                        row.Fields,
-                        row.FirstColumn,
-                        ReversedFirstColumn = ReverseString(row.FirstColumn)
-                    })
-                    .ToList();
-                //Console.WriteLine($"读取到 {dataRows.Count} 行数据");
-                // 4. 按第一列的反转字符串倒序排序（Z-A）
-                var sortedRows = dataRows
-                    .OrderByDescending(row => row.ReversedFirstColumn, StringComparer.OrdinalIgnoreCase)
-                    .Select(row => row.OriginalLine)
-                    .ToList();
-                // 5. 写入文件
-                var outputLines = new List<string>();
-                if (hasHeader && headerLine != null)
-                {
-                    outputLines.Add(headerLine);
-                }
-                outputLines.AddRange(sortedRows);
-                File.WriteAllLines(outputPath, outputLines, new UTF8Encoding(true));
-                return lines.Count;
-            }
-            catch (Exception ex)
-            {
-                //Console.WriteLine($"错误: {ex.Message}");
-                throw;
-            }
-        }
-
-
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -310,31 +196,142 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0302 逆序单词
-            //OpenFileDialog openFileDialog = new OpenFileDialog();
-            //openFileDialog.Multiselect = false;
-            //openFileDialog.Filter = "(*.csv)|*.csv";
-            //openFileDialog.Title = "请选择 CSV 文件";
-            //if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
-            ////检测csv文件编码
-            //Encoding encoding = EncodingHelper.DetectEncoding(openFileDialog.FileName);
-            ////TaskDialog.Show("tt", $"检测到文件编码: {encoding.EncodingName}");
-            ////单列csv逆序重排
-            ////SortByReversedWords(openFileDialog.FileName, "words_reverse_asc.csv", encoding);
-            ////多列csv逆序重排
-            //int lines = SortByReversedWords(openFileDialog.FileName, "words_reverse_asc.csv", encoding);
-            //TaskDialog.Show("tt", $"任务已完成，处理{lines}行数据，words_reverse_asc.csv保存到桌面");
+            //0315 窗口及控件测试
 
-            //0212 日志功能测试 安装Text.Json 和Externsion.Logging
-            //https://www.bilibili.com/video/BV1k7HyzNEpQ
-            //默认日志接口使用
-            //using var loggerFactory = LoggerFactory.Create(builder =>
+            //369测试窗口
+            //Universal369Buttons universal369Buttons = new Universal369Buttons();
+            //universal369Buttons.ShowDialog();
+            ////双联按钮 圆形按钮。OK
+            TestWindow testWindow = new TestWindow();
+            testWindow.ShowDialog();
+            //0313//////0131 测试窗口。OK
+            //string tt = "测试定时消隐窗口";
+            //string myMessage = "使用。。。已完成";
+            //ToastManager.ShowToast(tt, myMessage);
+            ////var toast = new ToastWindow(tt, myMessage);
+            ////toast.Show();
+
+            ////0313 日志测试
+            //// 初始化日志器
+            //RevitOperationLogger.Initialize(uiApp);
+            //var logger = RevitOperationLogger.Instance;
+            //string commandName = "管道标高修改";
+            //logger.LogCommandStart(commandName);
+            //try
             //{
-            //    builder.AddConsole();
-            //});
-            //ILogger logger = loggerFactory.Create();
-            //结构化日志不应直接字符串拼接记录变量，而应当适用指定变量与要显示的值挂接
-            //ILogger<Test11_0118> logger = null;
+            //    // 1. 选择操作日志
+            //    var selectedIds = uiDoc.Selection.GetElementIds();
+            //    logger.LogSelection("获取当前选择", selectedIds.Count, true);
+            //    // 2. 验证操作日志 - 检查选择数量
+            //    if (selectedIds.Count > 1)
+            //    {
+            //        logger.LogValidation("选择数量检查", false, "选择了多个元素，应只选择一个", true);
+            //        return Result.Cancelled;
+            //    }
+            //    Pipe targetPipe = null;
+            //    if (selectedIds.Count == 0)
+            //    {
+            //        // 3. 选择操作 - 手动选择
+            //        try
+            //        {
+            //            logger.LogGeneral("等待用户手动选择管道", true);
+            //            Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
+            //            logger.LogSelection("手动选择管道", 1, true);
+            //            targetPipe = doc.GetElement(ref1) as Pipe;
+            //            // 4. 空值检查
+            //            logger.LogNullCheck("选择的管道", targetPipe == null, true);
+            //            if (targetPipe == null)
+            //            {
+            //                return Result.Cancelled;
+            //            }
+            //        }
+            //        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //        {
+            //            logger.LogGeneral("用户取消选择操作", false);
+            //            return Result.Cancelled;
+            //        }
+            //    }
+            //    else
+            //    {
+            //        // 处理已选择的管道
+            //        ElementId selectedId = selectedIds.FirstOrDefault();
+            //        targetPipe = doc.GetElement(selectedId) as Pipe;
+            //        // 4. 空值检查
+            //        logger.LogNullCheck("选择的管道", targetPipe == null, true);
+            //        if (targetPipe == null)
+            //        {
+            //            return Result.Cancelled;
+            //        }
+            //    }
+            //    // 5. 参数操作 - 获取标高参数
+            //    Parameter sysParam = targetPipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //    // 6. 空值检查 - 参数
+            //    logger.LogNullCheck("标高参数", sysParam == null, true);
+            //    if (sysParam == null || !sysParam.HasValue)
+            //    {
+            //        return Result.Cancelled;
+            //    }
+            //    // 7. 事务操作
+            //    using (Transaction tx = new Transaction(doc, "更改标高"))
+            //    {
+            //        try
+            //        {
+            //            tx.Start();
+            //            logger.LogTransaction("更改标高", true, "事务开始");
+            //            // 记录修改前后的值
+            //            double oldValue = sysParam.AsDouble() * 304.8; // 转换为mm
+            //            double newValue = 1500.0; // mm
+            //            sysParam.Set(newValue / 304.8);
+            //            // 8. 参数操作日志
+            //            logger.LogParameterOperation("RBS_OFFSET_PARAM", $"管道ID:{targetPipe.Id}", $"{oldValue:F1}mm", $"{newValue:F1}mm", true);
+            //            tx.Commit();
+            //            logger.LogTransaction("更改标高", true, "事务提交成功");
+            //            // 9. 验证操作 - 检查修改结果
+            //            double actualValue = sysParam.AsDouble() * 304.8;
+            //            bool isSuccess = Math.Abs(actualValue - 1500) < 0.1;
+            //            logger.LogValidation("标高修改结果验证", isSuccess, $"当前值: {actualValue:F1}mm, 目标值: 1500mm", !isSuccess);
+            //            if (isSuccess)
+            //            {
+            //                TaskDialog.Show("成功", $"管道标高已修改为 1500mm");
+            //            }
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            if (tx.HasStarted())
+            //            {
+            //                tx.RollBack();
+            //                logger.LogTransaction("更改标高", false, "事务回滚");
+            //            }
+            //            throw; // 重新抛出，由外层catch处理
+            //        }
+            //    }
+            //    logger.LogCommandEnd(commandName, true);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    // 10. 异常处理日志
+            //    logger.LogException(ex, commandName, true);
+            //    logger.LogCommandEnd(commandName, false);
+            //    return Result.Failed;
+            //}
+
+            //////0313 简化日志测试
+            ////string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            //// 获取当前程序集对象DLL 的完整路径 
+            //Assembly assembly = Assembly.GetExecutingAssembly();
+            //string dllFullPath = assembly.Location;
+            //// 获取 DLL 所在的目录路径 (推荐，通常用于加载配置文件或依赖DLL)
+            //string dllFolder = Path.GetDirectoryName(dllFullPath);
+            ////TaskDialog.Show("DLL 路径", dllFolder);
+            //ToastManager.ShowToast("DLL 路径", dllFolder);
+            //////异常字符处理方案，获取当前程序集的位置
+            ////string codeBase = Assembly.GetExecutingAssembly().Location;
+            ////// 转换为本地文件路径格式 (处理可能的 URI 格式问题)
+            ////// UriBuilder 用于处理路径中包含特殊字符或中文的情况
+            ////UriBuilder uri = new UriBuilder(codeBase);
+            ////string path = Uri.UnescapeDataString(uri.Path);
+
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
             //var selIds = uiDoc.Selection.GetElementIds();
@@ -405,6 +402,83 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("结果",$"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
 
+            ////0204 复制文字属性？直接用导出导入属性试试
+            ////需要简单界面，选择要复制到的类型
+            ////查找当前族实例所有实例文字属性，复制到已选择的对象
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "请选择第一根水平管道");
+            //FamilyInstance instance = doc.GetElement(ref1) as FamilyInstance;
+            //TaskDialog.Show("tt", instance.Name);
+
+            ////////1122 生成交叉中间立管OK
+            //// 1. 拾取第一根管道
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
+            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //// 2. 拾取第二根管道
+            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
+            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
+            //// 校验：确保是水平管道 (Z轴方向分量接近0)
+            //if (!IsHorizontal(pipe1) || !IsHorizontal(pipe2))
+            //{
+            //    TaskDialog.Show("错误", "请选择水平管道。");
+            //    return Result.Failed;
+            //}
+            //using (Transaction trans = new Transaction(doc, "生成垂直立管"))
+            //{
+            //    trans.Start();
+            //    // 3. 获取管道的几何中心线
+            //    Line line1 = (pipe1.Location as LocationCurve).Curve as Line;
+            //    Line line2 = (pipe2.Location as LocationCurve).Curve as Line;
+            //    // 4. 计算XY平面上的投影交点 (无限延伸)
+            //    XYZ intersectionPoint2D = GetIntersectionPoint2D(line1, line2);
+            //    if (intersectionPoint2D == null)
+            //    {
+            //        TaskDialog.Show("错误", "两根管道在XY平面平行，无法生成垂直连接管。");
+            //        return Result.Failed;
+            //    }
+            //    // 5. 准备创建立管的坐标,获取两根管各自在交点处的Z高度
+            //    double z1 = line1.Origin.Z;
+            //    double z2 = line2.Origin.Z;
+            //    // 容差处理，如果高度极度接近则不需要立管
+            //    if (Math.Abs(z1 - z2) < 0.01) // 0.01 feet
+            //    {
+            //        TaskDialog.Show("提示", "两根管道高度几乎一致，无需立管。");
+            //        return Result.Cancelled;
+            //    }
+            //    // 确定立管的底点和顶点
+            //    XYZ bottomPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Min(z1, z2));
+            //    XYZ topPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Max(z1, z2));
+            //    // 6. 创建垂直立管
+            //    // 使用第一根管的系统类型和管材类型，以及标高
+            //    ElementId systemTypeId = pipe1.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
+            //    ElementId pipeTypeId = pipe1.PipeType.Id;
+            //    ElementId levelId = pipe1.ReferenceLevel.Id;
+            //    Pipe riserInfo = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, bottomPoint, topPoint);
+            //    // 设置立管直径（这里取较小管径或第一根管径，可视需求调整）
+            //    // 注意：Diameter是只读属性，需通过参数设置
+            //    double diameter = pipe1.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
+            //    riserInfo.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(diameter);
+            //    // 7. 连接管件 (生成三通/机械三通)
+            //    // 需要找到立管的上下连接器
+            //    Connector topConnector = GetConnectorAtPoint(riserInfo, topPoint);
+            //    Connector bottomConnector = GetConnectorAtPoint(riserInfo, bottomPoint);
+            //    // 判断哪个现有管道在上方，哪个在下方
+            //    Pipe topPipe = z1 > z2 ? pipe1 : pipe2;
+            //    Pipe bottomPipe = z1 > z2 ? pipe2 : pipe1;
+            //    // 核心API: NewTakeoffFitting
+            //    // 这个方法会在现有管道(pipe)上打断并插入三通，或者插入接头，并连接到指定的connector
+            //    //try
+            //    //{
+            //    //    doc.Create.NewTakeoffFitting(topConnector, topPipe);
+            //    //    doc.Create.NewTakeoffFitting(bottomConnector, bottomPipe);
+            //    //}
+            //    //catch (Exception ex)
+            //    //{
+            //    //    //TaskDialog.Show("警告", "生成管件失败，可能是没有配置路由首选项或空间不足。" + ex.Message);
+            //    //    // 即便管件失败，立管可能已生成，视情况决定是否回滚
+            //    //}
+            //    trans.Commit();
+            //}
+
             ////0222 改标高1500
             //var selectedIds = uiDoc.Selection.GetElementIds();
             //if (selectedIds.Count > 1)
@@ -417,7 +491,6 @@ namespace CreatePipe
             //    {
             //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
             //        Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-
             //        Parameter sysParam = pipe1.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
             //        if (sysParam == null || !sysParam.HasValue)
             //        {
@@ -492,92 +565,29 @@ namespace CreatePipe
             //TaskDialog.Show("tt", stringBuilder.ToString());
             ////uiDoc.Selection.SetElementIds(selectedElementIds);
 
-
-            ////0204 复制文字属性？直接用导出导入属性试试
-            ////需要简单界面，选择要复制到的类型
-            ////查找当前族实例所有实例文字属性，复制到已选择的对象
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "请选择第一根水平管道");
-            //FamilyInstance instance = doc.GetElement(ref1) as FamilyInstance;
-            //TaskDialog.Show("tt", instance.Name);
-
-            //////0131 测试临时窗口。OK
-            //string tt = "测试临时窗口";
-            //string myMessage = "使用DataTrigger和BooleanAnimation";
-            //var toast = new ToastWindow(tt,myMessage);
-            //toast.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            //toast.Show();
-            //var tw = new TestWindow();
-            //tw.Show();
-            ////////1122 生成交叉中间立管OK
-            //// 1. 拾取第一根管道
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
-            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //// 2. 拾取第二根管道
-            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
-            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
-            //// 校验：确保是水平管道 (Z轴方向分量接近0)
-            //if (!IsHorizontal(pipe1) || !IsHorizontal(pipe2))
-            //{
-            //    TaskDialog.Show("错误", "请选择水平管道。");
-            //    return Result.Failed;
-            //}
-            //using (Transaction trans = new Transaction(doc, "生成垂直立管"))
-            //{
-            //    trans.Start();
-            //    // 3. 获取管道的几何中心线
-            //    Line line1 = (pipe1.Location as LocationCurve).Curve as Line;
-            //    Line line2 = (pipe2.Location as LocationCurve).Curve as Line;
-            //    // 4. 计算XY平面上的投影交点 (无限延伸)
-            //    XYZ intersectionPoint2D = GetIntersectionPoint2D(line1, line2);
-            //    if (intersectionPoint2D == null)
+            ////0310 继续日志测试。依赖有些过多，暂时放弃使用官方ILogger
+            //var loggerFactory = LoggerFactory.Create(builder =>
             //    {
-            //        TaskDialog.Show("错误", "两根管道在XY平面平行，无法生成垂直连接管。");
-            //        return Result.Failed;
-            //    }
-            //    // 5. 准备创建立管的坐标,获取两根管各自在交点处的Z高度
-            //    double z1 = line1.Origin.Z;
-            //    double z2 = line2.Origin.Z;
-            //    // 容差处理，如果高度极度接近则不需要立管
-            //    if (Math.Abs(z1 - z2) < 0.01) // 0.01 feet
-            //    {
-            //        TaskDialog.Show("提示", "两根管道高度几乎一致，无需立管。");
-            //        return Result.Cancelled;
-            //    }
-            //    // 确定立管的底点和顶点
-            //    XYZ bottomPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Min(z1, z2));
-            //    XYZ topPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Max(z1, z2));
-            //    // 6. 创建垂直立管
-            //    // 使用第一根管的系统类型和管材类型，以及标高
-            //    ElementId systemTypeId = pipe1.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
-            //    ElementId pipeTypeId = pipe1.PipeType.Id;
-            //    ElementId levelId = pipe1.ReferenceLevel.Id;
-            //    Pipe riserInfo = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, bottomPoint, topPoint);
-            //    // 设置立管直径（这里取较小管径或第一根管径，可视需求调整）
-            //    // 注意：Diameter是只读属性，需通过参数设置
-            //    double diameter = pipe1.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
-            //    riserInfo.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(diameter);
-            //    // 7. 连接管件 (生成三通/机械三通)
-            //    // 需要找到立管的上下连接器
-            //    Connector topConnector = GetConnectorAtPoint(riserInfo, topPoint);
-            //    Connector bottomConnector = GetConnectorAtPoint(riserInfo, bottomPoint);
-            //    // 判断哪个现有管道在上方，哪个在下方
-            //    Pipe topPipe = z1 > z2 ? pipe1 : pipe2;
-            //    Pipe bottomPipe = z1 > z2 ? pipe2 : pipe1;
-            //    // 核心API: NewTakeoffFitting
-            //    // 这个方法会在现有管道(pipe)上打断并插入三通，或者插入接头，并连接到指定的connector
-            //    //try
-            //    //{
-            //    //    doc.Create.NewTakeoffFitting(topConnector, topPipe);
-            //    //    doc.Create.NewTakeoffFitting(bottomConnector, bottomPipe);
-            //    //}
-            //    //catch (Exception ex)
-            //    //{
-            //    //    //TaskDialog.Show("警告", "生成管件失败，可能是没有配置路由首选项或空间不足。" + ex.Message);
-            //    //    // 即便管件失败，立管可能已生成，视情况决定是否回滚
-            //    //}
+            //        //builder.AddJsonConsole();
+            //        //builder.AddFilter();
+            //    });
+            //ILogger logger = loggerFactory.CreateLogger<Test11_0118>();
+            //var name = "Nick";
+            //var age = 30;
+            ////logger.LogInformation($"{name}just turned:{age}");
+            //logger.LogInformation("{Name}just turned:{Age}",name,age); 
 
-            //    trans.Commit();
-            //}
+            //0212 日志功能测试 安装Text.Json 和Externsion.Logging
+            //https://www.bilibili.com/video/BV1k7HyzNEpQ
+            //默认日志接口使用
+            //using var loggerFactory = LoggerFactory.Create(builder =>
+            //{
+            //    builder.AddConsole();
+            //});
+            //ILogger logger = loggerFactory.Create();
+            //结构化日志不应直接字符串拼接记录变量，而应当适用指定变量与要显示的值挂接
+            //ILogger<Test11_0118> logger = null; 
+
             return Result.Succeeded;
         }
     }
@@ -626,4 +636,6 @@ namespace CreatePipe
             return Encoding.UTF8;  // 默认使用 UTF-8
         }
     }
+
+
 }

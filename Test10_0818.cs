@@ -1085,57 +1085,57 @@ namespace CreatePipe
 
 
             //////////1204 过滤管道管径选择
-            try
-            {
-                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-                if (selectedIds == null || selectedIds.Count == 0)
-                    return Result.Cancelled;
-                List<Pipe> pipes = new List<Pipe>();
-                foreach (var id in selectedIds)
-                {
-                    Element element = doc.GetElement(id);
-                    if (element is Pipe pipe)
-                    {
-                        pipes.Add(pipe);
-                    }
-                }
-                if (pipes.Count == 0) return Result.Failed;
-                // 打开选择窗口
-                PipeSelectFromSelectionView pipeSelectView = new PipeSelectFromSelectionView(pipes);
-                bool? dialogResult = pipeSelectView.ShowDialog();
-                if (dialogResult != true || pipeSelectView.Strings == null || pipeSelectView.Strings.Count == 0)
-                {
-                    TaskDialog.Show("提示", "未选择有效管径");
-                    return Result.Cancelled;
-                }
-                List<ElementId> selectedElementIds = new List<ElementId>();
-                foreach (var selectedDN in pipeSelectView.Strings)
-                {
-                    // 提取数字部分，例如 "100 mm" -> 100
-                    Match match = Regex.Match(selectedDN, @"(\d+)");
-                    if (!match.Success) continue;
-                    string dnNumber = match.Groups[1].Value;
-                    foreach (Pipe p in pipes)
-                    {
-                        string paramValue = p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsValueString();
-                        if (string.IsNullOrEmpty(paramValue)) continue;
-                        // 提取当前管道的数值部分
-                        Match pipeMatch = Regex.Match(paramValue, @"(\d+)");
-                        if (pipeMatch.Success && pipeMatch.Groups[1].Value == dnNumber)
-                        {
-                            selectedElementIds.Add(p.Id);
-                        }
-                    }
-                }
-                // 更新选择集
-                uiDoc.Selection.SetElementIds(selectedElementIds);
-                TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个指定管径的构件");
-            }
-            catch (Exception ex)
-            {
-                message = ex.Message;
-                return Result.Failed;
-            }
+            //try
+            //{
+            //    ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            //    if (selectedIds == null || selectedIds.Count == 0)
+            //        return Result.Cancelled;
+            //    List<Pipe> pipes = new List<Pipe>();
+            //    foreach (var id in selectedIds)
+            //    {
+            //        Element element = doc.GetElement(id);
+            //        if (element is Pipe pipe)
+            //        {
+            //            pipes.Add(pipe);
+            //        }
+            //    }
+            //    if (pipes.Count == 0) return Result.Failed;
+            //    // 打开选择窗口
+            //    PipeSelectFromSelectionView pipeSelectView = new PipeSelectFromSelectionView(pipes);
+            //    bool? dialogResult = pipeSelectView.ShowDialog();
+            //    if (dialogResult != true || pipeSelectView.Strings == null || pipeSelectView.Strings.Count == 0)
+            //    {
+            //        TaskDialog.Show("提示", "未选择有效管径");
+            //        return Result.Cancelled;
+            //    }
+            //    List<ElementId> selectedElementIds = new List<ElementId>();
+            //    foreach (var selectedDN in pipeSelectView.Strings)
+            //    {
+            //        // 提取数字部分，例如 "100 mm" -> 100
+            //        Match match = Regex.Match(selectedDN, @"(\d+)");
+            //        if (!match.Success) continue;
+            //        string dnNumber = match.Groups[1].Value;
+            //        foreach (Pipe p in pipes)
+            //        {
+            //            string paramValue = p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsValueString();
+            //            if (string.IsNullOrEmpty(paramValue)) continue;
+            //            // 提取当前管道的数值部分
+            //            Match pipeMatch = Regex.Match(paramValue, @"(\d+)");
+            //            if (pipeMatch.Success && pipeMatch.Groups[1].Value == dnNumber)
+            //            {
+            //                selectedElementIds.Add(p.Id);
+            //            }
+            //        }
+            //    }
+            //    // 更新选择集
+            //    uiDoc.Selection.SetElementIds(selectedElementIds);
+            //    TaskDialog.Show("选择完成", $"已选择 {selectedElementIds.Count} 个指定管径的构件");
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
             //////1229 选择指定的管道所属系统所有管道在当前视图中的实例 
             ////Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
             ////Pipe pipe1 = doc.GetElement(ref1) as Pipe;

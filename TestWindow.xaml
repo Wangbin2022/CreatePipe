@@ -3,10 +3,189 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:CreatePipe"
+        xmlns:uc="clr-namespace:CreatePipe.Form"
+        xmlns:btn="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
-        Title="TestWindow" Height="150" Width="300">
-    <Grid>
-        <Button Content="显示提示" HorizontalAlignment="Center" VerticalAlignment="Center" Width="100"  />
+        Title="TestWindow" Width="360" ResizeMode="NoResize"
+        SizeToContent="Height" MinHeight="80">
+    <Grid x:Name="MainGrid" Margin="0,10,0,10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <uc:UniversialSplitButton  Grid.Column="0" Grid.Row="0" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0" Height="80"/>
+        <uc:UniversialSplitButton  Grid.Column="1" Grid.Row="0" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>
+        <uc:UniversialSplitButton  Grid.Column="2" Grid.Row="0" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>
+        <btn:CircleImageButton Grid.Column="3" Grid.Row="0" 
+                               Margin="0,6,0,0"
+                               Width="20" Height="20"
+                               Background="White" 
+                               BorderBrush="Black"
+                               BorderThickness="1"
+                               VerticalAlignment="Top"
+                               ImageSource="pack://application:,,,/CreatePipe;component/Resources/plus16.png"
+                               Click="BtnAddRow_Click">             
+        </btn:CircleImageButton>
+        <uc:UniversialSplitButton  Grid.Column="0" Grid.Row="1" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0" Height="80"/>
+        <uc:UniversialSplitButton  Grid.Column="1" Grid.Row="1" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>
+        <uc:UniversialSplitButton  Grid.Column="2" Grid.Row="1" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>
+        <btn:CircleImageButton Grid.Column="3" Grid.Row="1" 
+                               Width="20" Height="20"
+                               Background="White" 
+                               BorderBrush="Black"
+                               BorderThickness="1"
+                               VerticalAlignment="Center"
+                               ImageSource="pack://application:,,,/CreatePipe;component/Resources/minus16.png"
+                               Click="BtnRemoveRow_Click">
+        </btn:CircleImageButton>
+        <uc:UniversialSplitButton  Grid.Column="0" Grid.Row="2" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0" Height="80"/>
+        <uc:UniversialSplitButton  Grid.Column="1" Grid.Row="2" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>
+        <uc:UniversialSplitButton  Grid.Column="2" Grid.Row="2" Margin="6"
+                          MainContent="保存"
+                          SecondaryContent="C"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>
     </Grid>
+    <!--<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">-->
+        <!-- 圆按钮 -->
+        <!--<btn:CircleImageButton Width="50" Height="50" 
+                         ImageSource="pack://application:,,,/CreatePipe;component/Resources/refresh32.png"
+                         Background="#FF007ACC" 
+                         Padding="10"
+                         Click="CircleImageButton_Click" />-->
+        <!--<btn:CircleImageButton Width="50" Height="50" Background="RosyBrown"      
+                               Command="{Binding SaveCommand}"
+                               FontSize="20"  FontWeight="Bold"  Padding="10">
+            <TextBlock Text="+" />
+        </btn:CircleImageButton>-->
+        <!-- 纯文本按钮 -->
+        <!--
+        <uc:UniversialSplitButton Width="150" Height="40" Margin="10"
+                          MainContent="保存"
+                          SecondaryContent="▼"
+                          MainCommand="{Binding SaveCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}"
+                          HoverColor="#E0E0E0"
+                          PressedColor="#C0C0C0"/>-->
+
+        <!-- 图片按钮 主按钮内容：图片+文字 辅助按钮内容：下拉箭头图标-->
+        <!--<uc:UniversialSplitButton Width="150" Height="40" Margin="10"
+                          CornerRadius="5"
+                          DividerColor="#666666"
+                          MainCommand="{Binding OpenCommand}"
+                          SecondaryCommand="{Binding OpenOptionsCommand}">              
+            <uc:UniversialSplitButton.MainContent>
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="/Resources/folder32.png" Width="16" Height="16" Margin="0,0,5,0"/>
+                    <TextBlock Text="打开" VerticalAlignment="Center"/>
+                </StackPanel>
+            </uc:UniversialSplitButton.MainContent>              
+            <uc:UniversialSplitButton.SecondaryContent>
+                <Image Source="/Resources/down-arrow32.png" Width="12" Height="12"/>
+            </uc:UniversialSplitButton.SecondaryContent>
+        </uc:UniversialSplitButton>-->
+
+        <!--纯图标按钮主按钮：刷新图标辅助按钮：设置图标-->
+        <!--<uc:UniversialSplitButton Width="100" Height="40" Margin="10"
+                          CornerRadius="5"
+                          MainCommand="{Binding RefreshCommand}"
+                          SecondaryCommand="{Binding RefreshOptionsCommand}">
+            <uc:UniversialSplitButton.MainContent>
+                <Image Width="16" Height="16" Margin="0,0,5,0">
+                    <Image.Source>
+                        <BitmapImage DecodePixelWidth="16" 
+                     UriSource="pack://application:,,,/CreatePipe;component/Resources/refresh32.png"/>
+                    </Image.Source>
+                </Image>
+            </uc:UniversialSplitButton.MainContent>
+            <uc:UniversialSplitButton.SecondaryContent>
+                <Image Width="16" Height="16" Margin="0,0,5,0">
+                    <Image.Source>
+                        <BitmapImage DecodePixelWidth="16" 
+                     UriSource="pack://application:,,,/CreatePipe;component/Resources/settings32.png"/>
+                    </Image.Source>
+                </Image>
+            </uc:UniversialSplitButton.SecondaryContent>
+        </uc:UniversialSplitButton>-->
+
+        <!--带背景色的按钮-->
+        <!--<uc:UniversialSplitButton Width="150" Height="40" Margin="10"
+                          Background="#4CAF50"
+                          HoverColor="#45a049"
+                          PressedColor="#3d8b40"
+                          ShowDivider="Collapsed"
+                          MainCommand="{Binding ConfirmCommand}"
+                          SecondaryCommand="{Binding SaveOptionsCommand}">
+            <uc:UniversialSplitButton.MainContent>
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="pack://application:,,,/CreatePipe;component/Resources/check16.png" Width="16" Height="16" Margin="0,0,5,0"/>
+                    <TextBlock Text="确认" Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
+            </uc:UniversialSplitButton.MainContent>
+            <uc:UniversialSplitButton.SecondaryContent>
+                <Image Source="pack://application:,,,/CreatePipe;component/Resources/info16.png" Width="16" Height="16"/>
+            </uc:UniversialSplitButton.SecondaryContent>
+        </uc:UniversialSplitButton>-->
+    <!--</StackPanel>-->
 </Window>
+
+<!--<uc:UniversialSplitButton.SecondaryContent>
+            <TextBlock Text="CLR"/>
+        </uc:UniversialSplitButton.SecondaryContent>-->
