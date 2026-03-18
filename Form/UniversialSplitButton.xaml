@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:CreatePipe.Form"
+             xmlns:conv="clr-namespace:CreatePipe.Form.Converter"
              mc:Ignorable="d" 
              d:DesignHeight="40" d:DesignWidth="120"
              x:Name="splitButton">
@@ -61,12 +62,41 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <!-- 主按钮内容 -->
-                <ContentControl Grid.Column="0" 
-                                Content="{Binding MainContent, ElementName=splitButton}"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
-                <!-- 分割线 -->
+                    <!-- 主按钮内容区域 -->
+                    <ContentControl Grid.Column="0" 
+                Content="{Binding MainContent, ElementName=splitButton}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+                    <ContentControl.Resources>
+                        <conv:TextTruncateConverter x:Key="TextTruncateConverter"/>
+                        <conv:IsStringConverter x:Key="IsStringConverter"/>
+                    </ContentControl.Resources>
+                    <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <!-- 1. 默认显示：当作普通内容显示 (如果是图片，会直接显示图片) -->
+                                    <ContentPresenter x:Name="DefaultPresenter" Content="{Binding}" />
+
+                                    <!-- 2. 文本显示：专门用于处理文字截断的 TextBlock (默认隐藏) -->
+                                    <TextBlock x:Name="TruncatedText" 
+                           Text="{Binding Converter={StaticResource TextTruncateConverter}, ConverterParameter=5}"
+                           Visibility="Collapsed" 
+                           VerticalAlignment="Center" 
+                           HorizontalAlignment="Center"/>
+                                </Grid>
+
+                                <DataTemplate.Triggers>
+                                    <!-- 【核心逻辑】：判断内容是不是字符串 -->
+                                    <!-- 如果 Binding 的对象类型是 String，则显示截断的 TextBlock，隐藏原始 Presenter -->
+                                    <DataTrigger Binding="{Binding Converter={StaticResource IsStringConverter}}" Value="True">
+                                        <Setter TargetName="TruncatedText" Property="Visibility" Value="Visible"/>
+                                        <Setter TargetName="DefaultPresenter" Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                    <!-- 分割线 -->
                 <Rectangle Grid.Column="1" 
                            Style="{StaticResource DividerStyle}"
                            Visibility="{Binding ShowDivider, ElementName=splitButton}"/>

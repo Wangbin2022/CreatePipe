@@ -1,11 +1,16 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Electrical;
+using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
+using CreatePipe.Form;
 using CreatePipe.RevitStylePopup;
+using CreatePipe.Utils;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -20,6 +25,7 @@ namespace CreatePipe
     [Transaction(TransactionMode.Manual)]
     public class Test11_0118 : IExternalCommand
     {
+
         //0118 新开规则，
         private bool IsHorizontal(Pipe pipe)
         {
@@ -73,7 +79,7 @@ namespace CreatePipe
             // 计算交点坐标 (Z值这里先暂定为0，后续业务逻辑会覆盖)
             return new XYZ(x1 + t1 * dx1, y1 + t1 * dy1, 0);
         }
-
+        #region
         //0206 应与PipeJoinHorizon合并考虑
         ///// <summary>
         ///// 从风管管件的连接器出发，获取其“外部相邻”的两个端点连接器（不返回管件自身连接器）。
@@ -188,7 +194,45 @@ namespace CreatePipe
         //    try { return owner?.Category?.Name ?? owner?.GetType().Name ?? "<null>"; }
         //    catch { return "<unknown>"; }
         //}
+        #endregion
+        private void CheckPipeSlope(Document document, List<ElementId> ids, double angle)
+        {
+            foreach (ElementId id in ids)
+            {
+                Element elem = document.GetElement(id);
+                if (!(elem is MEPCurve mepCurve)) { continue; }
+                switch (mepCurve)
+                {
+                    case Pipe pipe:
+                        if (pipe.get_Parameter(BuiltInParameter.RBS_PIPE_SLOPE).AsDouble() == angle)
+                        {
 
+                        }
+                        TaskDialog.Show("提示", $"检查了x个管道系统,坡度异常管道清单: {pipe.Name}");
+                        break;
+                    case Duct duct:
+                        if (duct.get_Parameter(BuiltInParameter.RBS_DUCT_SLOPE).AsDouble() == angle)
+                        {
+
+                        }
+                        TaskDialog.Show("提示", $"检查了x个风管系统,坡度异常风管清单: {duct.Name}");
+                        break;
+                    case CableTray tray:
+                        if (tray.get_Parameter(BuiltInParameter.RBS_START_OFFSET_PARAM).AsDouble() != tray.get_Parameter(BuiltInParameter.RBS_END_OFFSET_PARAM).AsDouble())
+                        {
+
+                        }
+                        TaskDialog.Show("提示", $"检查了x个桥架系统,坡度异常风管清单: {tray.Name}");
+                        break;
+                    case Conduit conduit:
+                        TaskDialog.Show("提示", "暂不支持线管检查");
+                        break;
+                    default:
+                        // 其他未定义的 MEPCurve 类型
+                        break;
+                }
+            }
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -196,20 +240,54 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0315 窗口及控件测试
+            //////0317  管道异常坡度检测，按系统？全部
+            //List<ElementId> selIds = uiDoc.Selection.GetElementIds().ToList();
+            //double angle = 0;
+            //if (selIds.Count != 0)
+            //{
+            //    CheckPipeSlope(doc, selIds, angle);
+            //}
+            //else
+            //{
+            //    TaskDialog td = new TaskDialog("重要提示")
+            //    {
+            //        MainInstruction = "请确认检查范围",
+            //        MainContent = "未选择任何对象，将检查所有机电系统线性构件坡度，是否继续？",
+            //        MainIcon = TaskDialogIcon.TaskDialogIconWarning,
+            //        CommonButtons = TaskDialogCommonButtons.Close,
+            //        DefaultButton = TaskDialogResult.Close
+            //    };
+            //    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "检查所有系统");
+            //    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "重新选择对象");
+            //    TaskDialogResult result = td.Show();
+            //    if (result == TaskDialogResult.CommandLink1)
+            //    {
+            //        var allPipeIds = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).ToElementIds().ToList();
+            //        CheckPipeSlope(doc, allPipeIds, angle);
+            //    }
+            //    else
+            //    {
+            //        return Result.Cancelled;
+            //    }
+            //}
 
-            //369测试窗口
-            //Universal369Buttons universal369Buttons = new Universal369Buttons();
-            //universal369Buttons.ShowDialog();
-            ////双联按钮 圆形按钮。OK
-            TestWindow testWindow = new TestWindow();
+            //////0315 窗口及控件测试
+            TestWindow testWindow = new TestWindow(uiApp);
             testWindow.ShowDialog();
-            //0313//////0131 测试窗口。OK
-            //string tt = "测试定时消隐窗口";
-            //string myMessage = "使用。。。已完成";
-            //ToastManager.ShowToast(tt, myMessage);
-            ////var toast = new ToastWindow(tt, myMessage);
-            ////toast.Show();
+
+            ////369测试窗口
+            ////Universal369Buttons universal369Buttons = new Universal369Buttons();
+            ////universal369Buttons.ShowDialog();
+            /////剪贴文本暂存器。OK 注意需要非模态运行
+            //ClipboardCatcher clipboard = new ClipboardCatcher();
+            //clipboard.Show();
+            //////双联按钮 圆形按钮。OK
+            ////0313//////0131 测试窗口。OK
+            ////string tt = "测试定时消隐窗口";
+            ////string myMessage = "使用。。。已完成";
+            ////ToastManager.ShowToast(tt, myMessage);
+            //////var toast = new ToastWindow(tt, myMessage);
+            //////toast.Show();
 
             ////0313 日志测试
             //// 初始化日志器
@@ -588,54 +666,107 @@ namespace CreatePipe
             //结构化日志不应直接字符串拼接记录变量，而应当适用指定变量与要显示的值挂接
             //ILogger<Test11_0118> logger = null; 
 
+            //0317 坡度参数测试 
+            /////桥架坡度测试 CURVE_ELEM_LENGTH
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterCableTray(), "请选择第一根桥架");
+            //CableTray ct = doc.GetElement(ref1) as CableTray;
+            //double deltaHeight = ct.get_Parameter(BuiltInParameter.RBS_START_OFFSET_PARAM).AsDouble() - ct.get_Parameter(BuiltInParameter.RBS_END_OFFSET_PARAM).AsDouble();
+            //double ctLength = ct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
+            //double horizontalLength = Math.Sqrt(Math.Max(0, Math.Pow(ctLength, 2) - Math.Pow(deltaHeight, 2)));
+            //double jd =  0;
+            //if (horizontalLength > 0.0001) // 避免除以 0 (垂直桥架)
+            //{
+            //    jd = deltaHeight / horizontalLength;
+            //}
+            //TaskDialog.Show("tt", (jd * 100).ToString("0.00"));
+
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterCableTray(), "请选择第一根桥架");
+            //MEPCurve curve = doc.GetElement(ref1) as MEPCurve;
+            //double jd=MEPSlopeHelper.GetSlope(curve);
+            //TaskDialog.Show("tt", (jd * 100).ToString("0.00"));
+
+            ////0318 csvHelper测试.OK
+            ////// 基本CSV操作示例
+            //string filePath = @"D:\CACCWPF\test.csv";
+            //var csv = new CsvHelper(filePath, ",");
+            ////// 写入数据
+            //csv.WriteAll(new[]
+            //{
+            //    new[] { "姓名", "年龄", "城市" },
+            //    new[] { "张三", "25", "北京" },
+            //    new[] { "李四", "30", "上海" },
+            //    new[] { "王五", "28", "广州" }
+            //});
+            ////// 追加一行
+            //csv.AppendLine("赵六", "35", "深圳");
+            //////// 读取所有数据
+            ////var allData = csv.ReadAll();
+            ////Console.WriteLine("所有数据：");
+            ////foreach (var row in allData)
+            ////{
+            ////    TaskDialog.Show("tt", (string.Join(" | ", row)));
+            ////}
+            ////// 读取带标题的数据，不是自动组合dict标题
+            ////var dataWithHeaders = csv.ReadAllWithHeaders();
+            //////Console.WriteLine("\n带标题的数据：");
+            ////foreach (var dict in dataWithHeaders)
+            ////{
+            ////    //Console.WriteLine($"姓名: {dict["姓名"]}, 年龄: {dict["年龄"]}, 城市: {dict["城市"]}");
+            ////    TaskDialog.Show("tt", $"姓名: {dict["姓名"]}, 年龄: {dict["年龄"]}, 城市: {dict["城市"]}");
+            ////}
+            ////// 更新数据
+            ////csv.UpdateField(2, 1, "31"); // 将第2行（李四）的年龄改为31
+            ////// 读取指定行
+            //var line = csv.ReadLine(2);
+            //TaskDialog.Show("tt", $"\n更新后的第2行: {string.Join(" | ", line)}");
+            ////Console.WriteLine($"\n更新后的第2行: {string.Join(" | ", line)}");
+            //// 泛型CSV操作示例
+            //string filePath = @"C:\temp\persons.csv";
+            //var csv = new CsvHelper<Person>(filePath, Encoding.UTF8, ",");
+            //// 创建测试数据
+            //var persons = new List<Person>
+            //{
+            //    new Person { Name = "张三", Age = 25, City = "北京", Salary = 8000.50m, IsActive = true, BirthDate = new DateTime(1998, 5, 20) },
+            //    new Person { Name = "李四", Age = 30, City = "上海", Salary = 12000.00m, IsActive = true, BirthDate = new DateTime(1993, 8, 15) },
+            //    new Person { Name = "王五", Age = 28, City = "广州", Salary = 9500.75m, IsActive = false, BirthDate = new DateTime(1995, 3, 10) }
+            //};
+            //// 写入数据
+            //csv.WriteAll(persons);
+            //// 读取数据
+            //var loadedPersons = csv.ReadAll();
+            //Console.WriteLine("\n读取的人员数据：");
+            //foreach (var p in loadedPersons)
+            //{
+            //    Console.WriteLine($"{p.Name}, {p.Age}岁, {p.City}, 薪资: {p.Salary}, 活跃: {p.IsActive}, 生日: {p.BirthDate:yyyy-MM-dd}");
+            //}
+            //// 使用自定义标题映射
+            //var mapping = new Dictionary<string, string>
+            //{
+            //    { "Name", "姓名" },
+            //    { "Age", "年龄" },
+            //    { "City", "城市" },
+            //    { "Salary", "薪资" },
+            //    { "IsActive", "是否在职" }
+            //};
+            //csv.WriteAll(persons, mapping);
+            //var mappedPersons = csv.ReadAll(mapping);
+            //Console.WriteLine("\n使用映射读取的数据：");
+            //foreach (var p in mappedPersons)
+            //{
+            //    Console.WriteLine($"{p.Name}, {p.Age}岁, {p.City}");
+            //}
+            //// 追加数据
+            //csv.Append(new Person { Name = "赵六", Age = 35, City = "深圳", Salary = 15000.00m });
             return Result.Succeeded;
         }
-    }
-    public class EncodingHelper
+    } 
+    public class Person
     {
-        /// <summary>
-        /// 自动检测文件编码
-        /// </summary>
-        public static Encoding DetectEncoding(string filePath)
-        {
-            // 读取文件前几个字节检测 BOM
-            byte[] bom = new byte[4];
-            using (FileStream file = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            {
-                file.Read(bom, 0, 4);
-            }
-            // 检测 BOM
-            if (bom[0] == 0xef && bom[1] == 0xbb && bom[2] == 0xbf)
-                return Encoding.UTF8;  // UTF-8 with BOM
-
-            if (bom[0] == 0xff && bom[1] == 0xfe && bom[2] == 0 && bom[3] == 0)
-                return Encoding.UTF32;  // UTF-32 LE
-
-            if (bom[0] == 0xff && bom[1] == 0xfe)
-                return Encoding.Unicode;  // UTF-16 LE
-
-            if (bom[0] == 0xfe && bom[1] == 0xff)
-                return Encoding.BigEndianUnicode;  // UTF-16 BE
-
-            // 没有 BOM，尝试检测内容
-            string content = File.ReadAllText(filePath, Encoding.Default);
-            // 检测是否包含中文字符
-            if (content.Any(c => c >= 0x4e00 && c <= 0x9fa5))
-            {
-                // 尝试 GB2312/GBK
-                try
-                {
-                    //Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-                    return Encoding.GetEncoding("GB2312");
-                }
-                catch
-                {
-                    return Encoding.UTF8;
-                }
-            }
-            return Encoding.UTF8;  // 默认使用 UTF-8
-        }
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public string City { get; set; }
+        public decimal Salary { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime BirthDate { get; set; }
     }
-
-
 }

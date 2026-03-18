@@ -7,7 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace CreatePipe.Form.converter
+namespace CreatePipe.Form.Converter
 {
     // 内容模板选择器
     public class ContentTemplateSelector : DataTemplateSelector

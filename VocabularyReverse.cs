@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using CreatePipe.Utils;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -128,7 +129,7 @@ namespace CreatePipe
             }
             catch (Exception ex)
             {
-                //Console.WriteLine($"错误: {ex.Message}");
+                Console.WriteLine($"错误: {ex.Message}");
                 throw;
             }
         }

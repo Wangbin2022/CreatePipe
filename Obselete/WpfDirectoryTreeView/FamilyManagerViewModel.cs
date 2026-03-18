@@ -37,6 +37,7 @@ namespace CreatePipe.WpfDirectoryTreeView
                 catch (Exception ex)
                 {
                     // 忽略不可用的驱动器
+                    TaskDialog.Show("tt", ex.Message);
                     //Debug.WriteLine($"Error accessing drive {drive.Name}: {ex.Message}");
                 }
             }
@@ -92,9 +93,9 @@ namespace CreatePipe.WpfDirectoryTreeView
                     }, "载入族");
                 });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                TaskDialog.Show("tt", ex.Message);
                 throw;
             }
         }
@@ -108,9 +109,9 @@ namespace CreatePipe.WpfDirectoryTreeView
                     application.OpenAndActivateDocument(file.fullName);
                 });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                TaskDialog.Show("tt", ex.Message);
                 throw;
             }
         }
@@ -145,8 +146,9 @@ namespace CreatePipe.WpfDirectoryTreeView
                     {
                         FileSystem.DeleteFile(item.fullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
                     }
-                    catch (IOException e)
+                    catch (IOException ex)
                     {
+                        TaskDialog.Show("tt", ex.Message);
                     }
                 }
                 TaskDialog.Show("tt", $"已清理备份{bakFiles.Count().ToString()}个");

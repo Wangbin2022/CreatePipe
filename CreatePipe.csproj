@@ -43,6 +43,9 @@
       <HintPath>packages\System.Windows.Interactivity.WPF.2.0.20525\lib\net40\Microsoft.Expression.Interactions.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualBasic" />
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="RevitAPI">
@@ -82,6 +85,7 @@
     <Compile Include="filter\DuctTerminalFilter.cs" />
     <Compile Include="filter\DWGReferenceFilter.cs" />
     <Compile Include="filter\FamilyFilterClass.cs" />
+    <Compile Include="filter\filterCableTray.cs" />
     <Compile Include="filter\filterDuct.cs" />
     <Compile Include="filter\FloorSelectionFilter.cs" />
     <Compile Include="filter\LinkedPipeAndDuctSelectionFilter.cs" />
@@ -90,9 +94,13 @@
     <Compile Include="Form\CircleImageButton.xaml.cs">
       <DependentUpon>CircleImageButton.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Form\converter\BoolToVisibilityConverter.cs" />
-    <Compile Include="Form\converter\ContentTemplateSelector.cs" />
-    <Compile Include="Form\converter\TextTruncateConverter.cs" />
+    <Compile Include="Form\ClipboardCatcher.xaml.cs">
+      <DependentUpon>ClipboardCatcher.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\Converter\BoolToVisibilityConverter.cs" />
+    <Compile Include="Form\Converter\ContentTemplateSelector.cs" />
+    <Compile Include="Form\Converter\IsStringConverter.cs" />
+    <Compile Include="Form\Converter\TextTruncateConverter.cs" />
     <Compile Include="Form\DuctSystemManagerView.xaml.cs">
       <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
     </Compile>
@@ -398,7 +406,6 @@
     <Compile Include="SplitWallByLevel.cs" />
     <Compile Include="Test10_0818.cs" />
     <Compile Include="Test11_0118.cs" />
-    <Compile Include="TestViewModel.cs" />
     <Compile Include="TestWindow.xaml.cs">
       <DependentUpon>TestWindow.xaml</DependentUpon>
     </Compile>
@@ -412,8 +419,13 @@
       <DependentUpon>UniversalMultiParameterSelect.xaml</DependentUpon>
     </Compile>
     <Compile Include="Utils\BaseExternalHandler.cs" />
+    <Compile Include="Utils\CsvHelper.cs" />
+    <Compile Include="Utils\EncodingHelper.cs" />
     <Compile Include="Utils\FailurePreProcessor.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
+    <Compile Include="Utils\JsonHelper.cs" />
+    <Compile Include="Utils\JsonHelperSystem.cs" />
+    <Compile Include="Utils\MEPSlopeHelper.cs" />
     <Compile Include="Utils\RevitProgressBar.cs" />
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
     <Compile Include="Utils\RobustFailureProcessor.cs" />
@@ -493,6 +505,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\CircleImageButton.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ClipboardCatcher.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

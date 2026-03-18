@@ -2,8 +2,6 @@
 using CreatePipe.cmd;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,25 +13,26 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using static CreatePipe.TestWindow;
 
-namespace CreatePipe
+namespace CreatePipe.Form
 {
     /// <summary>
-    /// Universal369Buttons.xaml 的交互逻辑
+    /// ClipboardCatcher.xaml 的交互逻辑
     /// </summary>
-    public partial class Universal369Buttons : Window
+    public partial class ClipboardCatcher : Window
     {
+        public ClipboardCatcher(UIApplication uiApp)
+        {
+            InitializeComponent();
+            this.DataContext = new TestViewModel(uiApp);
+            // 窗体初始化时，刷新一次显示状态，隐藏多余的行
+            UpdateRowsVisibility();
+        }
         // 记录当前显示了几行（默认显示1行）
         private int _visibleRowCount = 1;
         // 界面最大允许显示的行数
         private readonly int _maxRowCount = 3;
-        public Universal369Buttons()
-        {
-            InitializeComponent();
-            this.DataContext = new TestViewModel();
-            // 窗体初始化时，刷新一次显示状态，隐藏多余的行
-            UpdateRowsVisibility();
-        }
         // 第一行最后一个按钮（加号）点击事件
         private void BtnAddRow_Click(object sender, RoutedEventArgs e)
         {
@@ -43,7 +42,6 @@ namespace CreatePipe
                 UpdateRowsVisibility();
             }
         }
-
         // 第二行最后一个按钮（减号）点击事件
         private void BtnRemoveRow_Click(object sender, RoutedEventArgs e)
         {
@@ -74,11 +72,21 @@ namespace CreatePipe
                 }
             }
         }
-        //private void CircleImageButton_Click(object sender, RoutedEventArgs e)
-        //{
-        //    TaskDialog.Show("tt", "这是一个提示信息！");
-        //    this.Close();
-        //}
+    }
+    public class TestViewModel : ObserverableObject
+    {
+        public ClipboardSlotViewModel Slot1 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot2 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot3 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot4 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot5 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot6 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot7 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot8 { get; } = new ClipboardSlotViewModel();
+        public ClipboardSlotViewModel Slot9 { get; } = new ClipboardSlotViewModel();
+        public TestViewModel(UIApplication uiApp)
+        {
+        }
     }
     //子ViewModel，按钮内部通用逻辑
     public class ClipboardSlotViewModel : ObserverableObject
@@ -115,55 +123,5 @@ namespace CreatePipe
             if (!string.IsNullOrEmpty(MainContent)) MainContent = string.Empty;
         }
 
-    }
-    public class TestViewModel : ObserverableObject
-    {
-        public ClipboardSlotViewModel Slot1 { get; } = new ClipboardSlotViewModel();
-        public ClipboardSlotViewModel Slot2 { get; } = new ClipboardSlotViewModel();
-        public ClipboardSlotViewModel Slot3 { get; } = new ClipboardSlotViewModel();
-        public TestViewModel()
-        {
-        }
-        public ICommand TestCommand => new BaseBindingCommand(ExecuteTestAction);
-        private void ExecuteTestAction(object parameter)
-        {
-            TaskDialog.Show("tt", "PASS");
-        }
-        public ICommand SaveCommand => new BaseBindingCommand(ExecuteSave);
-        private void ExecuteSave(object parameter)
-        {
-            System.Windows.MessageBox.Show("保存按钮被点击", "提示");
-        }
-        public ICommand SaveOptionsCommand => new BaseBindingCommand(ExecuteSaveOptions);
-        private void ExecuteSaveOptions(object parameter)
-        {
-            System.Windows.MessageBox.Show("保存选项被点击", "提示");
-        }
-        public ICommand OpenCommand => new BaseBindingCommand(ExecuteOpen);
-        private void ExecuteOpen(object parameter)
-        {
-            System.Windows.MessageBox.Show("打开按钮被点击", "提示");
-        }
-        public ICommand OpenOptionsCommand => new BaseBindingCommand(ExecuteOpenOptions);
-        private void ExecuteOpenOptions(object parameter)
-        {
-            System.Windows.MessageBox.Show("打开选项被点击", "提示");
-        }
-        public ICommand RefreshCommand => new BaseBindingCommand(ExecuteRefresh);
-        private void ExecuteRefresh(object parameter)
-        {
-            //System.Windows.MessageBox.Show("刷新按钮被点击", "提示");
-            TaskDialog.Show("tt", "刷新按钮被点击");
-        }
-        public ICommand RefreshOptionsCommand => new BaseBindingCommand(ExecuteRefreshOptions);
-        private void ExecuteRefreshOptions(object parameter)
-        {
-            System.Windows.MessageBox.Show("刷新选项被点击", "提示");
-        }
-        public ICommand ConfirmCommand => new BaseBindingCommand(ExecuteConfirm);
-        private void ExecuteConfirm(object parameter)
-        {
-            System.Windows.MessageBox.Show("确认按钮被点击", "提示");
-        }
     }
 }

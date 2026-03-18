@@ -4,9 +4,12 @@ using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using CreatePipe.Utils;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using View = Autodesk.Revit.DB.View;
 
@@ -1083,6 +1086,107 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            //0318 测试查找所选ID并导出
+            try
+            {
+                StringBuilder stringBuilder2 = new StringBuilder();
+                List<ElementId> elemIds = uiDoc.Selection.GetElementIds().ToList();
+                if (elemIds.Count == 0)
+                {
+                    Reference reference = uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element);
+                    ElementId elementId = doc.GetElement(reference).Id;
+                    TaskDialog.Show("element", "点选元素ID=" + elementId.ToString());
+                    return Result.Succeeded;
+                }
+                else if (elemIds.Count > 8)
+                { 
+                    TaskDialog td = new TaskDialog("重要提示")
+                    {
+                        MainInstruction = "请确认处理方式",
+                        MainContent = $"选择对象 {elemIds.Count} 个，请选择以何种方式导出构件ID清单。",
+                        MainIcon = TaskDialogIcon.TaskDialogIconInformation,
+                        CommonButtons = TaskDialogCommonButtons.Close,
+                        DefaultButton = TaskDialogResult.Close
+                    };
+                    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "导出为CSV文件");
+                    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "导出为JSON文件");
+                    TaskDialogResult result = td.Show();
+                    var sortedIds = elemIds.OrderBy(id => id.IntegerValue).ToList();
+                    if (result == TaskDialogResult.CommandLink1)
+                    {
+                        SaveFileDialog saveFileDialog = new SaveFileDialog
+                        {
+                            Filter = "CSV 配置文件 (*.csv)|*.csv",
+                            Title = "保存所选构件ID",
+                            FileName = $"所选ID_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+                        };
+                        if (saveFileDialog.ShowDialog() == true)
+                        {
+                            string filePath = saveFileDialog.FileName;
+                            CsvHelper csv = new CsvHelper(filePath);
+                            // 定义表头
+                            string[] headers = { "构件名称", "ElementID" };
+                            // 2. 遍历排序后的 ID，构建每一行的数据
+                            List<string[]> rows = new List<string[]>();
+                            foreach (var id in sortedIds)
+                            {
+                                Element elem = doc.GetElement(id);
+                                string elemName = elem != null ? elem.Name : "未知构件";
+                                rows.Add(new string[] { elemName, id.IntegerValue.ToString() });
+                            }
+                            csv.WriteAllWithHeaders(headers, rows);
+                            TaskDialog.Show("成功", "构件ID保存成功！\n文件路径：" + filePath);
+                        }
+                    }
+                    else if (result == TaskDialogResult.CommandLink2)
+                    {
+                        SaveFileDialog saveFileDialog = new SaveFileDialog
+                        {
+                            Filter = "JSON 文件 (*.json)|*.json",
+                            Title = "保存所选构件ID",
+                            FileName = $"所选ID_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+                        };
+                        if (saveFileDialog.ShowDialog() == true)
+                        {
+                            string filePath = saveFileDialog.FileName;
+                            // 1. 遍历排序后的 ID，构建 JSON 数据对象列表
+                            // 这里使用匿名类（也可以在外部单独定义一个 class）
+                            var exportDataList = new List<object>();
+                            foreach (var id in sortedIds)
+                            {
+                                Element elem = doc.GetElement(id);
+                                string elemName = elem != null ? elem.Name : "未知构件";
+                                exportDataList.Add(new
+                                {
+                                    Name = elemName,
+                                    ElementID = id.IntegerValue
+                                });
+                            }
+                            // 2. 调用 JsonHelper 保存文件
+                            JsonHelper.SaveToFile(filePath, exportDataList);
+                            TaskDialog.Show("成功", $"成功导出 {exportDataList.Count} 个构件ID！\n文件路径：{filePath}");
+                        }
+                    }
+                    return Result.Succeeded;
+                }
+                else
+                {  foreach (var item in elemIds)
+                    {
+                        stringBuilder2.AppendLine(item + "\\");
+                    }
+                TaskDialog.Show("element", "所选元素ID=" + stringBuilder2);
+                }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                // 用户取消了操作
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("tt", ex.Message);
+                return Result.Cancelled;
+            }
 
             //////////1204 过滤管道管径选择
             //try
