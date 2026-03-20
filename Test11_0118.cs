@@ -10,6 +10,7 @@ using CreatePipe.Form;
 using CreatePipe.RevitStylePopup;
 using CreatePipe.Utils;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +19,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media.Media3D;
 using Visibility = System.Windows.Visibility;
 
 namespace CreatePipe
@@ -233,6 +235,23 @@ namespace CreatePipe
                 }
             }
         }
+        public void TestTemporaryMovement(Document doc, ElementId wallId)
+        {
+            bool isColliding = false;
+            // 开启测试事务，设置 rollback: true，无论成功失败最后必定回滚
+            doc.NewTransaction(() =>
+            {
+                // 1. 将墙临时偏移 500mm
+                ElementTransformUtils.MoveElement(doc, wallId, new XYZ(500 / 304.8, 0, 0));
+                // 2. 重新生成文档以获取最新的几何图形
+                doc.Regenerate();
+                // 3. 执行干涉检查逻辑，把结果存到外部变量 isColliding 中
+                // isColliding = CheckCollision(...);
+            }, "临时干涉检查", true); // <--- 注意这里的 true 代表强制回滚
+            // 执行到这里时，墙已经恢复到了原来的位置，但你拿到了干涉结果 isColliding
+            TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
+        }
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -240,42 +259,240 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //////0317  管道异常坡度检测，按系统？全部
-            //List<ElementId> selIds = uiDoc.Selection.GetElementIds().ToList();
-            //double angle = 0;
-            //if (selIds.Count != 0)
+            //0319 参照隐藏，cad/rvt分别按类别隐藏和全部打开，设置三个选项？
+            //0319 测试官方隔离构件类别功能
+            try
+            {
+                // 调用重构后的隔离功能
+                // 传入 true 表示允许框选多个图元；传入 false 表示只能点选一个
+                VisibilityHelper.IsolateCategoryBySelection(uiDoc, false);
+                return Result.Succeeded;
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                // 捕获其他意外错误
+                message = ex.Message;
+                return Result.Failed;
+            } 
+            ////0319 风管高宽互换。OK，是否考虑批量处理
+            //Duct targetDuct = null;
+            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds != null && selectedIds.Count > 0)
             //{
-            //    CheckPipeSlope(doc, selIds, angle);
-            //}
-            //else
-            //{
-            //    TaskDialog td = new TaskDialog("重要提示")
+            //    foreach (ElementId id in selectedIds)
             //    {
-            //        MainInstruction = "请确认检查范围",
-            //        MainContent = "未选择任何对象，将检查所有机电系统线性构件坡度，是否继续？",
-            //        MainIcon = TaskDialogIcon.TaskDialogIconWarning,
-            //        CommonButtons = TaskDialogCommonButtons.Close,
-            //        DefaultButton = TaskDialogResult.Close
-            //    };
-            //    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "检查所有系统");
-            //    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "重新选择对象");
-            //    TaskDialogResult result = td.Show();
-            //    if (result == TaskDialogResult.CommandLink1)
-            //    {
-            //        var allPipeIds = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).ToElementIds().ToList();
-            //        CheckPipeSlope(doc, allPipeIds, angle);
+            //        Element elem = doc.GetElement(id);
+            //        if (elem is Duct d) // 判断是否为风管
+            //        {
+            //            targetDuct = d;
+            //            break; // 挑出第一根后直接跳出循环
+            //        }
             //    }
-            //    else
+            //}
+            //if (targetDuct == null)
+            //{
+            //    try
+            //    {
+            //        // filterDuct 是你自定义的 ISelectionFilter
+            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterDuct(), "请选择一根矩形风管");
+            //        targetDuct = doc.GetElement(ref1) as Duct;
+            //    }
+            //    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             //    {
             //        return Result.Cancelled;
             //    }
             //}
+            //if (targetDuct == null)
+            //{
+            //    return Result.Failed;
+            //}
+            //// 2. 获取宽高参数（需判断是否为矩形风管，圆形风管没有宽高）
+            //Parameter widthParameter = targetDuct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM);
+            //Parameter heightParameter = targetDuct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM);
+            //if (widthParameter == null || heightParameter == null)
+            //{
+            //    TaskDialog.Show("错误", "所选风管不是矩形风管！");
+            //    return Result.Failed;
+            //}
+            //double originalWidth = widthParameter.AsDouble();
+            //double originalHeight = heightParameter.AsDouble();
+            //// 准备一个列表，用来临时保存风管两端连接的其他构件的连接器
+            //List<Tuple<Connector, Connector>> connectionsToRestore = new List<Tuple<Connector, Connector>>();
+            //using (Transaction ts = new Transaction(doc, "风管宽高转换及重连"))
+            //{
+            //    ts.Start();
+            //    // 【关键点2：寻找连接并断开】
+            //    ConnectorManager cm = targetDuct.ConnectorManager;
+            //    if (cm != null)
+            //    {
+            //        // 遍历风管自身的每一个连接器
+            //        foreach (Connector ductConn in cm.Connectors)
+            //        {
+            //            if (ductConn.IsConnected)
+            //            {
+            //                // AllRefs 包含了与当前连接器相连的所有连接器（包括自身）
+            //                foreach (Connector refConn in ductConn.AllRefs)
+            //                {
+            //                    // 排除自身，且排除逻辑连接，只找物理相连的外部构件
+            //                    if (refConn.Owner.Id != targetDuct.Id && refConn.ConnectorType != ConnectorType.Logical)
+            //                    {
+            //                        // 1. 记录这对连接关系 (风管连接器, 外部构件连接器)再断开
+            //                        connectionsToRestore.Add(new Tuple<Connector, Connector>(ductConn, refConn));
+            //                        ductConn.DisconnectFrom(refConn);
+            //                    }
+            //                }
+            //            }
+            //        }
+            //    }
 
-            //////0315 窗口及控件测试
-            TestWindow testWindow = new TestWindow(uiApp);
-            testWindow.ShowDialog();
+            //    widthParameter.Set(originalHeight);
+            //    heightParameter.Set(originalWidth);
+            //    doc.Regenerate();
+            //    // 【关键点4：恢复连接】
+            //    foreach (var pair in connectionsToRestore)
+            //    {
+            //        Connector dConn = pair.Item1;
+            //        Connector rConn = pair.Item2;
+            //        try
+            //        {
+            //            // 重新连接
+            //            dConn.ConnectTo(rConn);
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            // 极端情况下（如尺寸相差过大且没有开启自动管件功能），重连可能会失败
+            //            // 这里可以记录日志，防止整个事务崩溃
+            //            System.Diagnostics.Debug.WriteLine($"重连失败: {ex.Message}");
+            //        }
+            //    }
+            //    ts.Commit();
+            //}
+            //TaskDialog.Show("tt", $"已互换选中风管宽高值，其ID为{targetDuct.Id}");
+            ////0319 进度条，新事务处理测试
+            ////事务撤回模板
+            //TestTemporaryMovement(doc, null);
+            /////通用子事务处理模板
+            //try
+            //{
+            //    // 1. 开启主事务
+            //    doc.NewTransaction(() =>
+            //    {
+            //        // --- 业务A（主线安全业务） ---
+            //        // 例如：创建一条标高
+            //        Level newLevel = Level.Create(doc, 10.0);
+            //        // 2. 开启子事务处理危险业务
+            //        try
+            //        {
+            //            doc.NewSubTransaction(() =>
+            //            {
+            //                Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
+            //                Element instance = doc.GetElement(ref1) as Element;
+            //                Parameter markParam = instance.get_Parameter(BuiltInParameter.ALL_MODEL_MARK);
+            //                if (markParam != null && !markParam.IsReadOnly)
+            //                {
+            //                    markParam.Set("修改后的新标记");
+            //                }
+            //                // --- 业务B（可能失败的危险业务） ---
+            //                // 例如：尝试在此标高上生成一些复杂的几何形体
+            //                // 如果这部分报错抛出异常，扩展方法会自动撤销这部分模型更改
 
-            ////369测试窗口
+            //            }); // 默认 rollback = false，正常执行则提交子事务
+            //        }
+            //        catch (Exception)
+            //        {
+            //            // 子事务失败了，但我们拦截了异常。
+            //            // 此时业务B的操作已回滚，但业务A（创建标高）依然保留！
+            //            // 可以记录日志或忽略，主事务继续往下走
+            //        }
+            //    }, "包含子事务的复杂操作");
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("错误", $"整个主事务执行失败: {ex.Message}");
+            //    return Result.Failed;
+            //}
+            ///通用事务处理模板
+            //// 直接调用扩展方法，传入 Lambda 表达式 () => { 你的业务代码 }
+            //doc.NewTransaction(() =>
+            //{
+            //    Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
+            //    Element instance = doc.GetElement(ref1) as Element;
+            //    Parameter markParam = instance.get_Parameter(BuiltInParameter.ALL_MODEL_MARK);
+            //    if (markParam != null && !markParam.IsReadOnly)
+            //    {
+            //        markParam.Set("修改后的新标记");
+            //    }
+            //}, "修改图元标记"); // 传入事务名称
+            //////进度条测试2。OK 通用带进度条事务处理
+            //TransactionWithProgressBarHelper.Execute(doc, "处理构件", (service) =>
+            //{
+            //    List<ElementId> elementsToProcess = uiDoc.Selection.GetElementIds().ToList();
+            //    int totalCount = elementsToProcess.Count;
+            //    service.UpdateMax(totalCount);
+            //    //如果使用foreach还需要增加一个处理顺序int值
+            //    int index = 0;
+            //    foreach (ElementId elem in elementsToProcess)
+            //    {
+            //        //doc.Delete(elem);
+            //        System.Threading.Thread.Sleep(150);
+            //        service.Update(++index, elem.IntegerValue.ToString());
+            //    }
+            //    //for (int i = 0; i < totalCount; i++)
+            //    //{
+            //    //    ElementId elem = elementsToProcess[i];
+            //    //    System.Threading.Thread.Sleep(150);
+            //    //    service.Update(i + 1, elem.IntegerValue.ToString());
+            //    //}
+            //});
+            ////进度条测试1。OK
+            ////// 假设我们要处理一系列构件
+            //List<ElementId> elementsToProcess = uiDoc.Selection.GetElementIds().ToList();
+            //int totalCount = elementsToProcess.Count;
+            //// 1. 初始化进度条服务
+            //ProgressBarService progressService = new ProgressBarService();
+            //// 2. 启动进度条 (非模态，Revit 不会卡住)
+            //progressService.Start(totalCount, "开始提取数据...");
+            //try
+            //{
+            //    using (Transaction trans = new Transaction(doc, "处理构件"))
+            //    {
+            //        trans.Start();
+            //        // 3. 遍历处理
+            //        for (int i = 0; i < totalCount; i++)
+            //        {
+            //            ElementId elem = elementsToProcess[i];
+            //            // --- 你的业务逻辑代码 ---
+            //            // 例如修改参数、提取数据等
+            //            System.Threading.Thread.Sleep(150); // 模拟耗时操作，测试时可打开
+            //            // ------------------------
+            //            // 4. 更新进度条 (传入当前是第几个，以及当前处理的构件名称)
+            //            progressService.Update(i + 1, elem.IntegerValue.ToString());
+            //        }
+            //        trans.Commit();
+            //    }
+            //    TaskDialog.Show("完成", "所有构件处理完毕！");
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+            //finally
+            //{
+            //    // 5. 无论成功失败，确保关闭进度条窗口
+            //    progressService.Stop();
+            //}
+
+            //////0315 窗口及控件测试模板
+            //TestWindow testWindow = new TestWindow(uiApp);
+            //testWindow.ShowDialog();
+            ////369测试窗口。OK
             ////Universal369Buttons universal369Buttons = new Universal369Buttons();
             ////universal369Buttons.ShowDialog();
             /////剪贴文本暂存器。OK 注意需要非模态运行
@@ -288,128 +505,6 @@ namespace CreatePipe
             ////ToastManager.ShowToast(tt, myMessage);
             //////var toast = new ToastWindow(tt, myMessage);
             //////toast.Show();
-
-            ////0313 日志测试
-            //// 初始化日志器
-            //RevitOperationLogger.Initialize(uiApp);
-            //var logger = RevitOperationLogger.Instance;
-            //string commandName = "管道标高修改";
-            //logger.LogCommandStart(commandName);
-            //try
-            //{
-            //    // 1. 选择操作日志
-            //    var selectedIds = uiDoc.Selection.GetElementIds();
-            //    logger.LogSelection("获取当前选择", selectedIds.Count, true);
-            //    // 2. 验证操作日志 - 检查选择数量
-            //    if (selectedIds.Count > 1)
-            //    {
-            //        logger.LogValidation("选择数量检查", false, "选择了多个元素，应只选择一个", true);
-            //        return Result.Cancelled;
-            //    }
-            //    Pipe targetPipe = null;
-            //    if (selectedIds.Count == 0)
-            //    {
-            //        // 3. 选择操作 - 手动选择
-            //        try
-            //        {
-            //            logger.LogGeneral("等待用户手动选择管道", true);
-            //            Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
-            //            logger.LogSelection("手动选择管道", 1, true);
-            //            targetPipe = doc.GetElement(ref1) as Pipe;
-            //            // 4. 空值检查
-            //            logger.LogNullCheck("选择的管道", targetPipe == null, true);
-            //            if (targetPipe == null)
-            //            {
-            //                return Result.Cancelled;
-            //            }
-            //        }
-            //        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //        {
-            //            logger.LogGeneral("用户取消选择操作", false);
-            //            return Result.Cancelled;
-            //        }
-            //    }
-            //    else
-            //    {
-            //        // 处理已选择的管道
-            //        ElementId selectedId = selectedIds.FirstOrDefault();
-            //        targetPipe = doc.GetElement(selectedId) as Pipe;
-            //        // 4. 空值检查
-            //        logger.LogNullCheck("选择的管道", targetPipe == null, true);
-            //        if (targetPipe == null)
-            //        {
-            //            return Result.Cancelled;
-            //        }
-            //    }
-            //    // 5. 参数操作 - 获取标高参数
-            //    Parameter sysParam = targetPipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
-            //    // 6. 空值检查 - 参数
-            //    logger.LogNullCheck("标高参数", sysParam == null, true);
-            //    if (sysParam == null || !sysParam.HasValue)
-            //    {
-            //        return Result.Cancelled;
-            //    }
-            //    // 7. 事务操作
-            //    using (Transaction tx = new Transaction(doc, "更改标高"))
-            //    {
-            //        try
-            //        {
-            //            tx.Start();
-            //            logger.LogTransaction("更改标高", true, "事务开始");
-            //            // 记录修改前后的值
-            //            double oldValue = sysParam.AsDouble() * 304.8; // 转换为mm
-            //            double newValue = 1500.0; // mm
-            //            sysParam.Set(newValue / 304.8);
-            //            // 8. 参数操作日志
-            //            logger.LogParameterOperation("RBS_OFFSET_PARAM", $"管道ID:{targetPipe.Id}", $"{oldValue:F1}mm", $"{newValue:F1}mm", true);
-            //            tx.Commit();
-            //            logger.LogTransaction("更改标高", true, "事务提交成功");
-            //            // 9. 验证操作 - 检查修改结果
-            //            double actualValue = sysParam.AsDouble() * 304.8;
-            //            bool isSuccess = Math.Abs(actualValue - 1500) < 0.1;
-            //            logger.LogValidation("标高修改结果验证", isSuccess, $"当前值: {actualValue:F1}mm, 目标值: 1500mm", !isSuccess);
-            //            if (isSuccess)
-            //            {
-            //                TaskDialog.Show("成功", $"管道标高已修改为 1500mm");
-            //            }
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            if (tx.HasStarted())
-            //            {
-            //                tx.RollBack();
-            //                logger.LogTransaction("更改标高", false, "事务回滚");
-            //            }
-            //            throw; // 重新抛出，由外层catch处理
-            //        }
-            //    }
-            //    logger.LogCommandEnd(commandName, true);
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    // 10. 异常处理日志
-            //    logger.LogException(ex, commandName, true);
-            //    logger.LogCommandEnd(commandName, false);
-            //    return Result.Failed;
-            //}
-
-            //////0313 简化日志测试
-            ////string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            //// 获取当前程序集对象DLL 的完整路径 
-            //Assembly assembly = Assembly.GetExecutingAssembly();
-            //string dllFullPath = assembly.Location;
-            //// 获取 DLL 所在的目录路径 (推荐，通常用于加载配置文件或依赖DLL)
-            //string dllFolder = Path.GetDirectoryName(dllFullPath);
-            ////TaskDialog.Show("DLL 路径", dllFolder);
-            //ToastManager.ShowToast("DLL 路径", dllFolder);
-            //////异常字符处理方案，获取当前程序集的位置
-            ////string codeBase = Assembly.GetExecutingAssembly().Location;
-            ////// 转换为本地文件路径格式 (处理可能的 URI 格式问题)
-            ////// UriBuilder 用于处理路径中包含特殊字符或中文的情况
-            ////UriBuilder uri = new UriBuilder(codeBase);
-            ////string path = Uri.UnescapeDataString(uri.Path);
-
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
             //var selIds = uiDoc.Selection.GetElementIds();
@@ -556,8 +651,111 @@ namespace CreatePipe
             //    //}
             //    trans.Commit();
             //}
-
-            ////0222 改标高1500
+            ////0313 日志测试和模板.OK
+            //// 初始化日志器
+            //RevitOperationLogger.Initialize(uiApp);
+            //var logger = RevitOperationLogger.Instance;
+            //string commandName = "管道标高修改";
+            //logger.LogCommandStart(commandName);
+            //try
+            //{
+            //    // 1. 选择操作日志
+            //    var selectedIds = uiDoc.Selection.GetElementIds();
+            //    logger.LogSelection("获取当前选择", selectedIds.Count, true);
+            //    // 2. 验证操作日志 - 检查选择数量
+            //    if (selectedIds.Count > 1)
+            //    {
+            //        logger.LogValidation("选择数量检查", false, "选择了多个元素，应只选择一个", true);
+            //        return Result.Cancelled;
+            //    }
+            //    Pipe targetPipe = null;
+            //    if (selectedIds.Count == 0)
+            //    {
+            //        // 3. 选择操作 - 手动选择
+            //        try
+            //        {
+            //            logger.LogGeneral("等待用户手动选择管道", true);
+            //            Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
+            //            logger.LogSelection("手动选择管道", 1, true);
+            //            targetPipe = doc.GetElement(ref1) as Pipe;
+            //            // 4. 空值检查
+            //            logger.LogNullCheck("选择的管道", targetPipe == null, true);
+            //            if (targetPipe == null)
+            //            {
+            //                return Result.Cancelled;
+            //            }
+            //        }
+            //        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //        {
+            //            logger.LogGeneral("用户取消选择操作", false);
+            //            return Result.Cancelled;
+            //        }
+            //    }
+            //    else
+            //    {
+            //        // 处理已选择的管道
+            //        ElementId selectedId = selectedIds.FirstOrDefault();
+            //        targetPipe = doc.GetElement(selectedId) as Pipe;
+            //        // 4. 空值检查
+            //        logger.LogNullCheck("选择的管道", targetPipe == null, true);
+            //        if (targetPipe == null)
+            //        {
+            //            return Result.Cancelled;
+            //        }
+            //    }
+            //    // 5. 参数操作 - 获取标高参数
+            //    Parameter sysParam = targetPipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //    // 6. 空值检查 - 参数
+            //    logger.LogNullCheck("标高参数", sysParam == null, true);
+            //    if (sysParam == null || !sysParam.HasValue)
+            //    {
+            //        return Result.Cancelled;
+            //    }
+            //    // 7. 事务操作
+            //    using (Transaction tx = new Transaction(doc, "更改标高"))
+            //    {
+            //        try
+            //        {
+            //            tx.Start();
+            //            logger.LogTransaction("更改标高", true, "事务开始");
+            //            // 记录修改前后的值
+            //            double oldValue = sysParam.AsDouble() * 304.8; // 转换为mm
+            //            double newValue = 1500.0; // mm
+            //            sysParam.Set(newValue / 304.8);
+            //            // 8. 参数操作日志
+            //            logger.LogParameterOperation("RBS_OFFSET_PARAM", $"管道ID:{targetPipe.Id}", $"{oldValue:F1}mm", $"{newValue:F1}mm", true);
+            //            tx.Commit();
+            //            logger.LogTransaction("更改标高", true, "事务提交成功");
+            //            // 9. 验证操作 - 检查修改结果
+            //            double actualValue = sysParam.AsDouble() * 304.8;
+            //            bool isSuccess = Math.Abs(actualValue - 1500) < 0.1;
+            //            logger.LogValidation("标高修改结果验证", isSuccess, $"当前值: {actualValue:F1}mm, 目标值: 1500mm", !isSuccess);
+            //            if (isSuccess)
+            //            {
+            //                TaskDialog.Show("成功", $"管道标高已修改为 1500mm");
+            //            }
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            if (tx.HasStarted())
+            //            {
+            //                tx.RollBack();
+            //                logger.LogTransaction("更改标高", false, "事务回滚");
+            //            }
+            //            throw; // 重新抛出，由外层catch处理
+            //        }
+            //    }
+            //    logger.LogCommandEnd(commandName, true);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    // 10. 异常处理日志
+            //    logger.LogException(ex, commandName, true);
+            //    logger.LogCommandEnd(commandName, false);
+            //    return Result.Failed;
+            //}
+            ////0222 批量改标高1500.OK 待深化
             //var selectedIds = uiDoc.Selection.GetElementIds();
             //if (selectedIds.Count > 1)
             //{
@@ -603,7 +801,6 @@ namespace CreatePipe
             //{
             //    throw;
             //}
-
             ////0205 查找特定属性风口构建
             //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
             //List<FamilyInstance> terminalNames = new List<FamilyInstance>();
@@ -642,7 +839,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", stringBuilder.ToString());
             ////uiDoc.Selection.SetElementIds(selectedElementIds);
-
             ////0310 继续日志测试。依赖有些过多，暂时放弃使用官方ILogger
             //var loggerFactory = LoggerFactory.Create(builder =>
             //    {
@@ -654,7 +850,6 @@ namespace CreatePipe
             //var age = 30;
             ////logger.LogInformation($"{name}just turned:{age}");
             //logger.LogInformation("{Name}just turned:{Age}",name,age); 
-
             //0212 日志功能测试 安装Text.Json 和Externsion.Logging
             //https://www.bilibili.com/video/BV1k7HyzNEpQ
             //默认日志接口使用
@@ -664,8 +859,22 @@ namespace CreatePipe
             //});
             //ILogger logger = loggerFactory.Create();
             //结构化日志不应直接字符串拼接记录变量，而应当适用指定变量与要显示的值挂接
-            //ILogger<Test11_0118> logger = null; 
-
+            //ILogger<Test11_0118> logger = null;          
+            //////0313 简化日志测试
+            ////string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            //// 获取当前程序集对象DLL 的完整路径 
+            //Assembly assembly = Assembly.GetExecutingAssembly();
+            //string dllFullPath = assembly.Location;
+            //// 获取 DLL 所在的目录路径 (推荐，通常用于加载配置文件或依赖DLL)
+            //string dllFolder = Path.GetDirectoryName(dllFullPath);
+            ////TaskDialog.Show("DLL 路径", dllFolder);
+            //ToastManager.ShowToast("DLL 路径", dllFolder);
+            //////异常字符处理方案，获取当前程序集的位置
+            ////string codeBase = Assembly.GetExecutingAssembly().Location;
+            ////// 转换为本地文件路径格式 (处理可能的 URI 格式问题)
+            ////// UriBuilder 用于处理路径中包含特殊字符或中文的情况
+            ////UriBuilder uri = new UriBuilder(codeBase);
+            ////string path = Uri.UnescapeDataString(uri.Path);
             //0317 坡度参数测试 
             /////桥架坡度测试 CURVE_ELEM_LENGTH
             //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterCableTray(), "请选择第一根桥架");
@@ -679,12 +888,10 @@ namespace CreatePipe
             //    jd = deltaHeight / horizontalLength;
             //}
             //TaskDialog.Show("tt", (jd * 100).ToString("0.00"));
-
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterCableTray(), "请选择第一根桥架");
-            //MEPCurve curve = doc.GetElement(ref1) as MEPCurve;
-            //double jd=MEPSlopeHelper.GetSlope(curve);
-            //TaskDialog.Show("tt", (jd * 100).ToString("0.00"));
-
+            ////Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterCableTray(), "请选择第一根桥架");
+            ////MEPCurve curve = doc.GetElement(ref1) as MEPCurve;
+            ////double jd=MEPSlopeHelper.GetSlope(curve);
+            ////TaskDialog.Show("tt", (jd * 100).ToString("0.00"));
             ////0318 csvHelper测试.OK
             ////// 基本CSV操作示例
             //string filePath = @"D:\CACCWPF\test.csv";
@@ -757,9 +964,41 @@ namespace CreatePipe
             //}
             //// 追加数据
             //csv.Append(new Person { Name = "赵六", Age = 35, City = "深圳", Salary = 15000.00m });
+            //////0317  管道异常坡度检测，按系统？全部
+            //List<ElementId> selIds = uiDoc.Selection.GetElementIds().ToList();
+            //double angle = 0;
+            //if (selIds.Count != 0)
+            //{
+            //    CheckPipeSlope(doc, selIds, angle);
+            //}
+            //else
+            //{
+            //    TaskDialog td = new TaskDialog("重要提示")
+            //    {
+            //        MainInstruction = "请确认检查范围",
+            //        MainContent = "未选择任何对象，将检查所有机电系统线性构件坡度，是否继续？",
+            //        MainIcon = TaskDialogIcon.TaskDialogIconWarning,
+            //        CommonButtons = TaskDialogCommonButtons.Close,
+            //        DefaultButton = TaskDialogResult.Close
+            //    };
+            //    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "检查所有系统");
+            //    td.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "重新选择对象");
+            //    TaskDialogResult result = td.Show();
+            //    if (result == TaskDialogResult.CommandLink1)
+            //    {
+            //        var allPipeIds = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).ToElementIds().ToList();
+            //        CheckPipeSlope(doc, allPipeIds, angle);
+            //    }
+            //    else
+            //    {
+            //        return Result.Cancelled;
+            //    }
+            //}
             return Result.Succeeded;
         }
-    } 
+        //private int _maximum;
+        //public int Maximum { get => _maximum; set => SetProperty(ref _maximum, value); }
+    }
     public class Person
     {
         public string Name { get; set; }

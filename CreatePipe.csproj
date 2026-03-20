@@ -97,6 +97,7 @@
     <Compile Include="Form\ClipboardCatcher.xaml.cs">
       <DependentUpon>ClipboardCatcher.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\Converter\BackgroundToForegroundConverter.cs" />
     <Compile Include="Form\Converter\BoolToVisibilityConverter.cs" />
     <Compile Include="Form\Converter\ContentTemplateSelector.cs" />
     <Compile Include="Form\Converter\IsStringConverter.cs" />
@@ -109,6 +110,9 @@
     </Compile>
     <Compile Include="Form\GapWidthWindow.xaml.cs">
       <DependentUpon>GapWidthWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\MEPSlopeCheckView.xaml.cs">
+      <DependentUpon>MEPSlopeCheckView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\OverView1.xaml.cs">
       <DependentUpon>OverView1.xaml</DependentUpon>
@@ -332,9 +336,6 @@
     <Compile Include="Form\PipeSystemTest.xaml.cs">
       <DependentUpon>PipeSystemTest.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Form\ProgressBarDialog.xaml.cs">
-      <DependentUpon>ProgressBarDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Form\ProgressBarTest1.xaml.cs">
       <DependentUpon>ProgressBarTest1.xaml</DependentUpon>
     </Compile>
@@ -422,10 +423,15 @@
     <Compile Include="Utils\CsvHelper.cs" />
     <Compile Include="Utils\EncodingHelper.cs" />
     <Compile Include="Utils\FailurePreProcessor.cs" />
+    <Compile Include="Utils\Interfaces\IProgressBarService.cs" />
+    <Compile Include="Utils\Interfaces\IProgressScope.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
     <Compile Include="Utils\JsonHelper.cs" />
     <Compile Include="Utils\JsonHelperSystem.cs" />
     <Compile Include="Utils\MEPSlopeHelper.cs" />
+    <Compile Include="Utils\ProgressBarDialog.xaml.cs">
+      <DependentUpon>ProgressBarDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Utils\RevitProgressBar.cs" />
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
     <Compile Include="Utils\RobustFailureProcessor.cs" />
@@ -454,6 +460,7 @@
     <Compile Include="Utils\UserControls\LabelTextInput\TextInput.xaml.cs">
       <DependentUpon>TextInput.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Utils\VisibilityControlHelper.cs" />
     <Compile Include="Utils\WindowHelper.cs" />
     <Compile Include="Utils\XMLUtil.cs" />
     <Compile Include="Obselete\ViewFilters\Command.cs" />
@@ -541,6 +548,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ListboxTest.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\MEPSlopeCheckView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -688,10 +699,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Form\ProgressBarDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Form\ProgressBarTest1.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -789,6 +796,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="UniversalMultiParameterSelect.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Utils\ProgressBarDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
