@@ -36,76 +36,120 @@ namespace CreatePipe
             }
             return Result.Succeeded;
         }
-
-        public MEPCurve BreakMEPCurveByOne(ExternalCommandData commandData, MEPCurve mEPCurve, XYZ xYZ)
+        public MEPCurve BreakMEPCurveByOne(ExternalCommandData commandData, MEPCurve mEPCurve, XYZ breakPoint)
         {
-            Document doc = commandData.Application.ActiveUIDocument.Document;
-            try
+            Document doc = mEPCurve.Document;
+
+            // 1. 投影点确保在中心线上
+            Curve oriCurve = (mEPCurve.Location as LocationCurve).Curve;
+            breakPoint = oriCurve.Project(breakPoint).XYZPoint;
+
+            // 2. 识别原管两端的连接信息 (此处以End0和End1逻辑替代Hardcode的Id)
+            XYZ startPoint = oriCurve.GetEndPoint(0);
+            XYZ endPoint = oriCurve.GetEndPoint(1);
+
+            // 找到原管靠近 End1 (终点) 的连接器并断开，记录它连接的对象
+            Connector endConnector = ConnectorService.GetClosestConnector(mEPCurve, endPoint);
+            Connector remotePartner = ConnectorService.DisconnectFromVendor(endConnector);
+
+            // 3. 拷贝元素
+            ICollection<ElementId> ids = ElementTransformUtils.CopyElement(doc, mEPCurve.Id, XYZ.Zero);
+            MEPCurve mEPCurveCopy = doc.GetElement(ids.First()) as MEPCurve;
+
+            // 4. 更新几何
+            (mEPCurve.Location as LocationCurve).Curve = Line.CreateBound(startPoint, breakPoint);
+            (mEPCurveCopy.Location as LocationCurve).Curve = Line.CreateBound(breakPoint, endPoint);
+
+            // 5. 恢复连接
+            if (remotePartner != null)
             {
-                XYZ breakXYZ = xYZ;
-                MEPCurve mEPCurveCopy = null;//变量声明放到事务外才能访问
-
-                //拷贝一根管
-                ICollection<ElementId> ids = ElementTransformUtils.CopyElement(doc, mEPCurve.Id, new XYZ(0, 0, 0));
-                ElementId newId = ids.FirstOrDefault();
-                mEPCurveCopy = doc.GetElement(newId) as MEPCurve;
-                //原管的线
-                Curve curve = (mEPCurve.Location as LocationCurve).Curve;
-                XYZ startXYZ = curve.GetEndPoint(0);
-                XYZ endXYZ = curve.GetEndPoint(1);
-                //把点xyz轴映射到线上避免错误 ??这个映射方法没搞懂
-                breakXYZ = curve.Project(breakXYZ).XYZPoint;
-                //给原管用的线
-                Line line = Line.CreateBound(startXYZ, breakXYZ);
-                //找连接器并取消多余连接，保存连接信息P28
-                Connector othercon = null;
-                foreach (Connector con in mEPCurve.ConnectorManager.Connectors)
+                // 在新管上找到对应的端点连接器，连接回原来的 remotePartner
+                Connector copyEndConn = ConnectorService.GetClosestConnector(mEPCurveCopy, endPoint);
+                if (copyEndConn != null)
                 {
-                    bool isBreak = false;
-                    //获取id后，找连接的情况，再解除连接
-                    if (con.Id == 1 && con.IsConnected)
-                    {
-                        foreach (Connector con2 in con.AllRefs)
-                        {
-                            if (con2.Owner is FamilyInstance)
-                            {
-                                con.DisconnectFrom(con2);
-                                othercon = con2;
-                                isBreak = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (isBreak)
-                    {
-                        break;
-                    }
+                    copyEndConn.ConnectTo(remotePartner);
                 }
-
-                        (mEPCurve.Location as LocationCurve).Curve = line;
-                //拷贝管用的线
-                Line line1 = Line.CreateBound(breakXYZ, endXYZ);
-                (mEPCurveCopy.Location as LocationCurve).Curve = line1;
-                //拷贝管连接老管的连接器
-                if (othercon != null)
-                {
-                    foreach (Connector con in mEPCurveCopy.ConnectorManager.Connectors)
-                    {
-                        if (con.Id == 1)
-                        {
-                            con.ConnectTo(othercon);
-                        }
-                    }
-
-                }
-
-                return mEPCurveCopy;
             }
-            catch (Exception ex)
+
+            // 6. 自动连接断开处的两根管 (可选)
+            Connector connAtBreak1 = ConnectorService.GetClosestConnector(mEPCurve, breakPoint);
+            Connector connAtBreak2 = ConnectorService.GetClosestConnector(mEPCurveCopy, breakPoint);
+            if (connAtBreak1 != null && connAtBreak2 != null)
             {
-                TaskDialog.Show("功能退出", ex.Message);
+                // doc.Create.NewUnionFitting(connAtBreak1, connAtBreak2); // 如果需要自动生成直接头
             }
-            return null;
+
+            return mEPCurveCopy;
         }
+        //public MEPCurve BreakMEPCurveByOne(ExternalCommandData commandData, MEPCurve mEPCurve, XYZ xYZ)
+        //{
+        //    Document doc = commandData.Application.ActiveUIDocument.Document;
+        //    try
+        //    {
+        //        XYZ breakXYZ = xYZ;
+        //        MEPCurve mEPCurveCopy = null;//变量声明放到事务外才能访问
+
+        //        //拷贝一根管
+        //        ICollection<ElementId> ids = ElementTransformUtils.CopyElement(doc, mEPCurve.Id, new XYZ(0, 0, 0));
+        //        ElementId newId = ids.FirstOrDefault();
+        //        mEPCurveCopy = doc.GetElement(newId) as MEPCurve;
+        //        //原管的线
+        //        Curve curve = (mEPCurve.Location as LocationCurve).Curve;
+        //        XYZ startXYZ = curve.GetEndPoint(0);
+        //        XYZ endXYZ = curve.GetEndPoint(1);
+        //        //把点xyz轴映射到线上避免错误 ??这个映射方法没搞懂
+        //        breakXYZ = curve.Project(breakXYZ).XYZPoint;
+        //        //给原管用的线
+        //        Line line = Line.CreateBound(startXYZ, breakXYZ);
+        //        //找连接器并取消多余连接，保存连接信息P28
+        //        Connector othercon = null;
+        //        foreach (Connector con in mEPCurve.ConnectorManager.Connectors)
+        //        {
+        //            bool isBreak = false;
+        //            //获取id后，找连接的情况，再解除连接
+        //            if (con.Id == 1 && con.IsConnected)
+        //            {
+        //                foreach (Connector con2 in con.AllRefs)
+        //                {
+        //                    if (con2.Owner is FamilyInstance)
+        //                    {
+        //                        con.DisconnectFrom(con2);
+        //                        othercon = con2;
+        //                        isBreak = true;
+        //                        break;
+        //                    }
+        //                }
+        //            }
+        //            if (isBreak)
+        //            {
+        //                break;
+        //            }
+        //        }
+
+        //                (mEPCurve.Location as LocationCurve).Curve = line;
+        //        //拷贝管用的线
+        //        Line line1 = Line.CreateBound(breakXYZ, endXYZ);
+        //        (mEPCurveCopy.Location as LocationCurve).Curve = line1;
+        //        //拷贝管连接老管的连接器
+        //        if (othercon != null)
+        //        {
+        //            foreach (Connector con in mEPCurveCopy.ConnectorManager.Connectors)
+        //            {
+        //                if (con.Id == 1)
+        //                {
+        //                    con.ConnectTo(othercon);
+        //                }
+        //            }
+
+        //        }
+
+        //        return mEPCurveCopy;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        TaskDialog.Show("功能退出", ex.Message);
+        //    }
+        //    return null;
+        //}
     }
 }

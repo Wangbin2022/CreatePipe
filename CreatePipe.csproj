@@ -80,6 +80,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectorService.cs" />
     <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\AirTerminalSelectionFilter.cs" />
     <Compile Include="filter\DuctTerminalFilter.cs" />

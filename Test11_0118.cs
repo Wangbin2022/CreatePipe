@@ -12,20 +12,23 @@ using CreatePipe.Utils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Forms;
 using System.Windows.Media.Media3D;
 using Visibility = System.Windows.Visibility;
 
 namespace CreatePipe
 {
     [Transaction(TransactionMode.Manual)]
-    public class Test11_0118 : IExternalCommand
+    public class Test11_0118 : IExternalCommand, INotifyPropertyChanged
     {
 
         //0118 新开规则，
@@ -252,6 +255,18 @@ namespace CreatePipe
             TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
         }
 
+
+
+        public static bool IsHiddenElement(Autodesk.Revit.DB.View view, ElementId id)
+        {
+            // 复杂逻辑，简化版本：尝试获取元素的 Category 是否被隐藏，或元素本身是否在 HiddenElements 集合
+            // Revit API 没有直接提供 "IsElementHidden" 方法给普通视图。
+            // 但我们知道 HideElements 和 UnhideElements 是成对出现的。
+
+            // 实际上，对于链接CAD，通常通过 Category 隐藏，或者 Element 隐藏。
+            // 这里的逻辑比较深，建议使用下面的“安全收集器”方案。
+            return false;
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -259,25 +274,261 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0319 参照隐藏，cad/rvt分别按类别隐藏和全部打开，设置三个选项？
-            //0319 测试官方隔离构件类别功能
-            try
-            {
-                // 调用重构后的隔离功能
-                // 传入 true 表示允许框选多个图元；传入 false 表示只能点选一个
-                VisibilityHelper.IsolateCategoryBySelection(uiDoc, false);
-                return Result.Succeeded;
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return Result.Cancelled;
-            }
-            catch (Exception ex)
-            {
-                // 捕获其他意外错误
-                message = ex.Message;
-                return Result.Failed;
-            } 
+            //////0320 cad链接隐藏测试。OK
+            ////一键全显
+            //VisibilityHelper.ShowAllCategories(doc);
+            ////例程结束
+            ///还要细化，以multiBombobox形式动态显隐比较合适,动态控制revit/dwg
+            //var allCadInstances = new FilteredElementCollector(doc).OfClass(typeof(ImportInstance)).WhereElementIsNotElementType()
+            //                       .Cast<ImportInstance>().ToList();
+            //// 2. 筛选出在当前视图中存在的 CAD 实例
+            //// 说明：只有被添加到视图中的元素才能被隐藏/显示
+            //var cadInstanceIds = new List<ElementId>();
+            //foreach (var instance in allCadInstances)
+            //{
+            //    if (instance.ViewSpecific == false || instance.OwnerViewId == activeView.Id)
+            //    {
+            //        cadInstanceIds.Add(instance.Id);
+            //    }
+            //}
+            //if (!cadInstanceIds.Any())
+            //{
+            //    TaskDialog.Show("提示", "当前项目中没有找到CAD链接实例。");
+            //    return Result.Succeeded;
+            //}
+            //// 3. 智能判断当前状态（翻转逻辑）
+            //bool shouldHide = true;
+            //foreach (var id in cadInstanceIds)
+            //{
+            //    // 如果发现有一个 CAD 是显示状态，说明当前任务是“隐藏”
+            //    //if (!activeView.IsHidden(id)) // 或者 !activeView.GetCategoryHidden(...)
+            //    Element element = doc.GetElement(id);
+            //    if (element.IsHidden(activeView))
+            //    {
+            //        shouldHide = false;
+            //        break;
+            //    }
+            //}
+            //// 如果所有 CAD 都是隐藏状态，说明当前任务是“显示”
+            //string transactionName = shouldHide ? "隐藏CAD链接" : "显示CAD链接";
+            //NewTransaction.Execute(doc, transactionName, () =>
+            //{
+            //    if (shouldHide)
+            //    {
+            //        activeView.HideElements(cadInstanceIds);
+            //    }
+            //    else
+            //    {
+            //        activeView.UnhideElements(cadInstanceIds);
+            //    }
+            //});
+            ////例程结束
+            //// 收集所有 CAD 导入/链接实例
+            //var cadInstances = new FilteredElementCollector(doc, activeView.Id).OfClass(typeof(ImportInstance))
+            //                       .WhereElementIsNotElementType().Cast<ImportInstance>().ToList();
+            //List<ElementId> cadInstanceIds = cadInstances.Select(e => e.Id).ToList();
+            //if (cadInstanceIds.Any())
+            //{
+            //    NewTransaction.Execute(doc, Visible ? "显示CAD链接" : "隐藏CAD链接", () =>
+            //    {
+            //        if (Visible)
+            //        {
+            //            activeView.UnhideElements(cadInstanceIds); // 显示元素
+            //        }
+            //        else
+            //        {
+            //            activeView.HideElements(cadInstanceIds);   // 隐藏元素
+            //        }
+            //    });
+            //}
+            //else
+            //{
+            //    TaskDialog.Show("提示", "当前视图中没有找到CAD链接实例。");
+            //}
+
+            //TaskDialog.Show("tt", elems.Count.ToString());
+            ////0319 参照隐藏，cad/rvt分别按类别隐藏和全部打开，设置三个选项？
+            ////0320 测试改后通用可见性控制类
+            //if (!VisibilityHelper.CanModifyViewVisibility(activeView)) return Result.Cancelled;
+            //NewTransaction.Execute(doc, "开关保温层显示", () =>
+            //{
+            //    VisibilityHelper.ToggleCategoriesVisibility(doc, activeView,
+            //        new[] { BuiltInCategory.OST_PipeInsulations, BuiltInCategory.OST_DuctInsulations });
+            //});
+            //doc.NewTransaction(() =>
+            //{
+            //    VisibilityHelper.ToggleCategoriesVisibility(doc, activeView,
+            //        new[] { BuiltInCategory.OST_PipeInsulations, BuiltInCategory.OST_DuctInsulations });
+            //}, "开关保温层显示");
+            //doc.NewTransaction(() =>
+            //{
+            //    // 场地、基点、测量点全部开启
+            //    VisibilityHelper.SetCategoriesVisibility(doc, activeView,
+            //        new[] { BuiltInCategory.OST_Site, BuiltInCategory.OST_ProjectBasePoint, BuiltInCategory.OST_SharedBasePoint }, true);
+            //    // 获取基点和测量点
+            //    BasePoint prjPoint = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_ProjectBasePoint).FirstOrDefault() as BasePoint;
+            //    BasePoint surPoint = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_SharedBasePoint).FirstOrDefault() as BasePoint;
+            //    if (prjPoint != null && surPoint != null)
+            //    {
+            //        // Revit内部单位是英尺，转毫米需乘以 304.8
+            //        string msg = $"项目基点坐标：{(int)(prjPoint.Position.X * 304.8)}, {(int)(prjPoint.Position.Y * 304.8)}, {(int)(prjPoint.Position.Z * 304.8)}\n" +
+            //                     $"测量点坐标：{(int)(surPoint.Position.X * 304.8)}, {(int)(surPoint.Position.Y * 304.8)}, {(int)(surPoint.Position.Z * 304.8)}";
+            //        TaskDialog.Show("CADC", msg);
+            //    }
+            //}, "显示基点");
+            //doc.NewTransaction(() =>
+            //{
+            //    VisibilityHelper.SetCategoriesVisibility(doc, activeView, new[] { BuiltInCategory.OST_Site }, true);
+            //    VisibilityHelper.SetCategoriesVisibility(doc, activeView, new[] { BuiltInCategory.OST_ProjectBasePoint, BuiltInCategory.OST_SharedBasePoint }, false);
+            //}, "关闭基点显示");
+            ////0319 测试官方隔离构件类别功能。OK 小bug推后解决，点击到保温层将导致无法后续操作
+            //try
+            //{
+            //    // 调用重构后的隔离功能
+            //    // 传入 true 表示允许框选多个图元；传入 false 表示只能点选一个
+            //    VisibilityHelper.IsolateCategoryBySelection(uiDoc, false);
+            //    return Result.Succeeded;
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    // 捕获其他意外错误
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+            ////1111 显示全部图层测试
+            //////1111 显示所有隐藏的参照CAD图层
+            //string info = null;
+            //ICollection<ElementId> ids = ExternalFileUtils.GetAllExternalFileReferences(doc);
+            //IList<Subelement> subElements = null;
+            //StringBuilder stringBuilder = new StringBuilder();
+            //foreach (ElementId id in ids)
+            //{
+            //    Element elem = doc.GetElement(id);
+            //    if (elem.Category != null)
+            //        activeView.SetCategoryHidden(elem.Category.Id, false);
+            //    //    info += elem.Category.Name + "\n";
+            //    //foreach (Category item in elem.Category.SubCategories)
+            //    //{
+            //    //    stringBuilder.AppendLine(item.Name);
+            //    //} 
+            //}
+            //MessageBox.Show(info);
+            //TaskDialog.Show("tt", stringBuilder.ToString());
+            //TaskDialog.Show("tt", info);
+            //TaskDialog.Show("tt", ids.Count.ToString());
+            //try
+            //{
+            //    //开始事务
+            //    using (Autodesk.Revit.DB.Transaction ts = new Autodesk.Revit.DB.Transaction(doc, "显示所有隐藏的参照CAD图层"))
+            //    {
+            //        ts.Start();
+            //        // 获取所有导入类别（CAD参照）
+            //        var importCategories = doc.Settings.Categories
+            //            .OfType<Category>()
+            //            .Where(cat => cat.CategoryType != CategoryType.Annotation)
+            //            .ToList();
+            //        StringBuilder stringBuilder = new StringBuilder();
+            //        //TaskDialog.Show("tt", importCategories.Count.ToString());
+            //        foreach (var category in importCategories)
+            //        {
+            //            stringBuilder.Append(category.Name);
+            //        }
+            //        TaskDialog.Show("tt", stringBuilder.ToString());
+            //        //int unhiddenCount = 0;
+            //        //// 遍历所有导入类别，显示被隐藏的图层
+            //        //foreach (Category category in importCategories)
+            //        //{
+            //        //    try
+            //        //    {
+            //        //        // 检查该类别在当前视图中是否被隐藏
+            //        //        if (activeView.GetCategoryHidden(category.Id))
+            //        //        {
+            //        //            // 显示该类别
+            //        //            activeView.SetCategoryHidden(category.Id, false);
+            //        //            unhiddenCount++;
+            //        //        }
+            //        //    }
+            //        //    catch (Exception ex)
+            //        //    {
+            //        //        // 忽略无法处理的类别，继续处理其他类别
+            //        //        continue;
+            //        //    }
+            //        //}
+            //        //ts.Commit();
+            //        //TaskDialog.Show("完成", $"已显示 {unhiddenCount} 个被隐藏的CAD参照图层");
+            //        return Result.Succeeded;
+            //    }
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    // 用户取消了操作
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    TaskDialog.Show("错误", $"执行过程中发生错误: {ex.Message}");
+            //    return Result.Failed;
+            //}
+            ////1111 点击隐藏参照图层
+            //try
+            //{
+            //    //开始事务
+            //    using (Autodesk.Revit.DB.Transaction ts = new Autodesk.Revit.DB.Transaction(doc, "隐藏参照dwg中图层"))
+            //    {
+            //        ts.Start();
+            //        Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement, new DWGReferenceFilter()); //获取对象
+            //        string ss = r.ConvertToStableRepresentation(doc); //转化为字符串
+            //        Element elem = doc.GetElement(r);
+            //        // 获取几何图元
+            //        GeometryElement geoElem = elem.get_Geometry(new Options());
+            //        GeometryObject geoObj = elem.GetGeometryObjectFromReference(r);
+            //        //获取选中的cad图层
+            //        Category targetCategory = null;
+            //        ElementId graphicsStyleId = ElementId.InvalidElementId;
+            //        //判断所选取的几何对象样式不为元素无效值
+            //        if (geoObj != null && geoObj.GraphicsStyleId != ElementId.InvalidElementId)
+            //        {
+            //            graphicsStyleId = geoObj.GraphicsStyleId;
+            //            GraphicsStyle gs = doc.GetElement(geoObj.GraphicsStyleId) as GraphicsStyle; //获得所选对象图形样式
+            //            if (gs != null)
+            //            {
+            //                //图层及图层名字
+            //                targetCategory = gs.GraphicsStyleCategory;
+            //                string layerName = gs.GraphicsStyleCategory.Name;
+            //            }
+            //            double offsetHeight = 2000 / 304.8;
+            //            ////隐藏选中的cad图层
+            //            if (targetCategory != null)
+            //            {
+            //                doc.ActiveView.SetCategoryHidden(targetCategory.Id, true);
+            //            }
+            //            ts.Commit();
+            //        }
+            //        else
+            //        {
+            //            ts.RollBack();
+            //            TaskDialog.Show("错误", "无法获取有效的图形样式信息");
+            //            return Result.Failed;
+            //        }
+            //        return Result.Succeeded;
+            //    }
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    // 用户取消了选择操作
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    TaskDialog.Show("错误", $"执行过程中发生错误: {ex.Message}");
+            //    return Result.Failed;
+            //}
             ////0319 风管高宽互换。OK，是否考虑批量处理
             //Duct targetDuct = null;
             //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
@@ -348,7 +599,6 @@ namespace CreatePipe
             //            }
             //        }
             //    }
-
             //    widthParameter.Set(originalHeight);
             //    heightParameter.Set(originalWidth);
             //    doc.Regenerate();
@@ -399,7 +649,6 @@ namespace CreatePipe
             //                // --- 业务B（可能失败的危险业务） ---
             //                // 例如：尝试在此标高上生成一些复杂的几何形体
             //                // 如果这部分报错抛出异常，扩展方法会自动撤销这部分模型更改
-
             //            }); // 默认 rollback = false，正常执行则提交子事务
             //        }
             //        catch (Exception)
@@ -998,6 +1247,16 @@ namespace CreatePipe
         }
         //private int _maximum;
         //public int Maximum { get => _maximum; set => SetProperty(ref _maximum, value); }
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        protected virtual void SetProperty<T>(ref T store, T v, [CallerMemberName] string propertyName = null)
+        {
+            store = v;
+            this.OnPropertyChanged(propertyName);
+        }
     }
     public class Person
     {
