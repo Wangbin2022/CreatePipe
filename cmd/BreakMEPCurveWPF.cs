@@ -1,14 +1,4 @@
-﻿using Autodesk.Revit.ApplicationServices;
-using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.filter;
-using CreatePipe.MEPevent;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace CreatePipe.cmd
+﻿namespace CreatePipe.cmd
 {
     //[Transaction(TransactionMode.Manual)]
     //public class BreakMEPCurveWPF : IExternalCommand

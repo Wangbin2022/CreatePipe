@@ -4,26 +4,13 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.RevitStylePopup;
 using CreatePipe.Utils;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Forms;
-using System.Windows.Media.Media3D;
-using Visibility = System.Windows.Visibility;
 
 namespace CreatePipe
 {
@@ -254,25 +241,35 @@ namespace CreatePipe
             // 执行到这里时，墙已经恢复到了原来的位置，但你拿到了干涉结果 isColliding
             TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
         }
-
-
-
-        public static bool IsHiddenElement(Autodesk.Revit.DB.View view, ElementId id)
-        {
-            // 复杂逻辑，简化版本：尝试获取元素的 Category 是否被隐藏，或元素本身是否在 HiddenElements 集合
-            // Revit API 没有直接提供 "IsElementHidden" 方法给普通视图。
-            // 但我们知道 HideElements 和 UnhideElements 是成对出现的。
-
-            // 实际上，对于链接CAD，通常通过 Category 隐藏，或者 Element 隐藏。
-            // 这里的逻辑比较深，建议使用下面的“安全收集器”方案。
-            return false;
-        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
             Document doc = uiDoc.Document;
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
+
+            //0323 交互隐藏逻辑 非模态，包括cad和revit ，能否找到导入cad组？
+            var cadInstances = new FilteredElementCollector(doc, activeView.Id).OfClass(typeof(ImportInstance)).WhereElementIsNotElementType().Cast<ImportInstance>().ToList();
+            List<ElementId> cadInstanceIds = cadInstances.Select(e => e.Id).ToList();
+            TaskDialog.Show("tt", cadInstanceIds.Count().ToString());
+
+
+            ////0323 参照管理，直接调用系统窗口
+            //var commandId = RevitCommandId.LookupPostableCommandId(PostableCommand.ManageLinks);
+            //uiApp.PostCommand(commandId);
+            ////0323 房间管理过程版
+            //RoomManagerView roomManagerView = new RoomManagerView(uiApp);
+            //roomManagerView.ShowDialog();
+            //0323 进度条调用模板，无需单独声明ProgressBar
+            //    TransactionWithProgressBarHelper.Execute(doc, "提取构件信息", (service) =>
+            //    {
+            //        service.UpdateMax(sortedIds.Count());
+            //        int index = 0;
+            //        foreach (var id in sortedIds)
+            //        {
+            //            service.Update(++index, id.Value.ToString());
+            //        }
+            //    });
 
             //////0320 cad链接隐藏测试。OK
             ////一键全显
@@ -749,11 +746,11 @@ namespace CreatePipe
             //clipboard.Show();
             //////双联按钮 圆形按钮。OK
             ////0313//////0131 测试窗口。OK
-            ////string tt = "测试定时消隐窗口";
-            ////string myMessage = "使用。。。已完成";
-            ////ToastManager.ShowToast(tt, myMessage);
-            //////var toast = new ToastWindow(tt, myMessage);
-            //////toast.Show();
+            //string tt = "测试定时消隐窗口";
+            //string myMessage = "使用。。。已完成";
+            //ToastManager.ShowToast(tt, myMessage);
+            ////var toast = new ToastWindow(tt, myMessage);
+            ////toast.Show();
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
             //var selIds = uiDoc.Selection.GetElementIds();

@@ -1,11 +1,8 @@
 ﻿using Autodesk.Revit.DB;
 //using Autodesk.Revit.Exceptions;
 using Autodesk.Revit.UI;
-using CreatePipe.Utils.Interfaces;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace CreatePipe.Utils
 {
@@ -27,12 +24,12 @@ namespace CreatePipe.Utils
                 t.Start();
                 try
                 {
-                    action?.Invoke(); 
-                    t.Commit();      
+                    action?.Invoke();
+                    t.Commit();
                 }
                 catch (Exception ex)
                 {
-                    t.RollBack();   
+                    t.RollBack();
                     throw new Exception($"事务【{transactionName}】执行失败: {ex.Message}", ex);
                 }
             }

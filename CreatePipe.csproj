@@ -146,7 +146,7 @@
     </Compile>
     <Compile Include="ProjectParameterData.cs" />
     <Compile Include="RevitOperationLogger.cs" />
-    <Compile Include="RevitStylePopup\ToastWindow.xaml.cs">
+    <Compile Include="Form\RevitStylePopup\ToastWindow.xaml.cs">
       <DependentUpon>ToastWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="SplitColumnByLevel.cs" />
@@ -497,6 +497,7 @@
     <Compile Include="Obselete\ViewTemplateManagerViewModel.cs" />
     <Compile Include="Obselete\ViewManagerViewModel.cs" />
     <Compile Include="Obselete\WallSurfaceFunc.cs" />
+    <Compile Include="VisibilityControlCmd.cs" />
     <Compile Include="VocabularyReverse.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -780,7 +781,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="RevitStylePopup\ToastWindow.xaml">
+    <Page Include="Form\RevitStylePopup\ToastWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

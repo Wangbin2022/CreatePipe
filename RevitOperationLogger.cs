@@ -1,10 +1,6 @@
 ﻿using Autodesk.Revit.UI;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe
 {
@@ -123,7 +119,7 @@ namespace CreatePipe
         private string GetOperationTypeName(OperationType type)
         {
             switch (type)
-            {   
+            {
                 case OperationType.Transaction:
                     return "事务操作";
                 case OperationType.NullCheck:

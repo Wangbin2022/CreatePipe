@@ -1,6 +1,4 @@
-﻿using CreatePipe.cmd;
-
-namespace CreatePipe.models
+﻿namespace CreatePipe.models
 {
     //public class ProgressBarViewModel : ObserverableObject
     //{

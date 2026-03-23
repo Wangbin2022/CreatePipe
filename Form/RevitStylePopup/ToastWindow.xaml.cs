@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Windows;
 
-namespace CreatePipe.RevitStylePopup
+namespace CreatePipe.Form.RevitStylePopup
 {
     /// <summary>
     /// ToastWindow.xaml 的交互逻辑
     /// </summary>
-    public partial class ToastWindow : Window
+    public partial class RevitStylePopupView : Window
     {
-        public ToastWindow(string title, string message)
+        public RevitStylePopupView(string title, string message)
         {
             InitializeComponent();
             MessageTitle.Text = title;
@@ -19,24 +19,23 @@ namespace CreatePipe.RevitStylePopup
             this.Close();
         }
     }
-
     // 1. 创建一个辅助类，例如 ToastManager.cs
-    public static class ToastManager
+    public static class RevitStylePopup
     {
-        public static void ShowToast(string title, string message)
+        public static void Show(string title, string message)
         {
             // 可以在这里添加一些线程安全检查，确保在UI线程上创建和显示窗口
             if (Application.Current != null && Application.Current.Dispatcher.CheckAccess() == false)
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    var toast = new ToastWindow(title, message);
+                    var toast = new RevitStylePopupView(title, message);
                     toast.Show();
                 });
             }
             else
             {
-                var toast = new ToastWindow(title, message);
+                var toast = new RevitStylePopupView(title, message);
                 toast.Show();
             }
         }
