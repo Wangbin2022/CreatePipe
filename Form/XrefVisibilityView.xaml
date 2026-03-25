@@ -1,0 +1,49 @@
+﻿<Window x:Class="CreatePipe.Form.XrefVisibilityView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d" 
+        Title="XrefVisibilityView" Topmost="True"   
+        Height="300" Width="380">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <TabControl Grid.Row="0" Margin="5">
+            <TabItem Header="DWG管理">
+                <StackPanel Margin="5">
+                    <TextBlock Text="{Binding DwgLinkInfo}" Margin="5" VerticalAlignment="Center"/>
+                    <local:MultiSelectListBoxDynamic 
+    ItemsSource="{Binding DwgLinkNames}" 
+    SelectedItems="{Binding SelectedDwgLinkNames, Mode=TwoWay}" 
+    DefaultText="请选择DWG..." />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="RVT管理">
+                <StackPanel Margin="5">
+                    <TextBlock Text="{Binding RevitLinkInfo}" Margin="5" VerticalAlignment="Center"/>
+                    <local:MultiSelectListBoxDynamic 
+    ItemsSource="{Binding RevitLinkNames}" 
+    SelectedItems="{Binding SelectedRevitLinkNames, Mode=TwoWay}" 
+    DefaultText="请选择以显隐链接RVT" />
+                </StackPanel>                
+            </TabItem>
+            <TabItem Header="已导入DWG">
+                <StackPanel Margin="5">
+                    <TextBlock Text="{Binding DwgImportInfo}" Margin="5" VerticalAlignment="Center"/>
+                <local:MultiSelectListBoxDynamic 
+    ItemsSource="{Binding DwgImportNames}" 
+    SelectedItems="{Binding SelectedImportDwgNames, Mode=TwoWay}" 
+    DefaultText="请选择以显隐链接RVT" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+        <DockPanel Grid.Row="1" Margin="5">
+            <Button  Content="退出" Command="{Binding DrawTableCommand}"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -5,7 +5,7 @@ using CreatePipe.Utils;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CreatePipe.RoomAttr
+namespace CreatePipe.Obselete.RoomAttr
 {
     public class RoomEntity : ObserverableObject
     {

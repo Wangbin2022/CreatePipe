@@ -92,6 +92,7 @@
     <Compile Include="filter\LinkedPipeAndDuctSelectionFilter.cs" />
     <Compile Include="filter\LinkedPipeDuctSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
+    <Compile Include="filter\XReferenceSelectionFilter.cs" />
     <Compile Include="Form\CircleImageButton.xaml.cs">
       <DependentUpon>CircleImageButton.xaml</DependentUpon>
     </Compile>
@@ -115,6 +116,9 @@
     <Compile Include="Form\MEPSlopeCheckView.xaml.cs">
       <DependentUpon>MEPSlopeCheckView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\MultiSelectListBoxDynamic.xaml.cs">
+      <DependentUpon>MultiSelectListBoxDynamic.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\OverView1.xaml.cs">
       <DependentUpon>OverView1.xaml</DependentUpon>
     </Compile>
@@ -133,15 +137,18 @@
     <Compile Include="Form\UniversialSplitButton.xaml.cs">
       <DependentUpon>UniversialSplitButton.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\XrefVisibilityView.xaml.cs">
+      <DependentUpon>XrefVisibilityView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ImportParameters.cs" />
     <Compile Include="Form\ManualCropZaxisView.xaml.cs">
       <DependentUpon>ManualCropZaxisView.xaml</DependentUpon>
     </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
-    <Compile Include="PipeSelectFromSelectionView.xaml.cs">
+    <Compile Include="Obselete\PipeSelectFromSelectionView.xaml.cs">
       <DependentUpon>PipeSelectFromSelectionView.xaml</DependentUpon>
     </Compile>
-    <Compile Include="PipeSelectView.xaml.cs">
+    <Compile Include="Obselete\PipeSelectView.xaml.cs">
       <DependentUpon>PipeSelectView.xaml</DependentUpon>
     </Compile>
     <Compile Include="ProjectParameterData.cs" />
@@ -436,6 +443,7 @@
     <Compile Include="Utils\RevitProgressBar.cs" />
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
     <Compile Include="Utils\RobustFailureProcessor.cs" />
+    <Compile Include="Utils\TaskDialogHelper.cs" />
     <Compile Include="Utils\UserControls\ProgressWindow.xaml.cs">
       <DependentUpon>ProgressWindow.xaml</DependentUpon>
     </Compile>
@@ -497,7 +505,7 @@
     <Compile Include="Obselete\ViewTemplateManagerViewModel.cs" />
     <Compile Include="Obselete\ViewManagerViewModel.cs" />
     <Compile Include="Obselete\WallSurfaceFunc.cs" />
-    <Compile Include="VisibilityControlCmd.cs" />
+    <Compile Include="Obselete\VisibilityControlCmd.cs" />
     <Compile Include="VocabularyReverse.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -554,6 +562,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\MEPSlopeCheckView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\MultiSelectListBoxDynamic.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -642,6 +654,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ManualCropZaxisView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\XrefVisibilityView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -773,11 +789,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="PipeSelectFromSelectionView.xaml">
+    <Page Include="Obselete\PipeSelectFromSelectionView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="PipeSelectView.xaml">
+    <Page Include="Obselete\PipeSelectView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

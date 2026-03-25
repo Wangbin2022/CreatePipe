@@ -14,7 +14,7 @@ using System.Windows.Forms;
 using System.Windows.Input;
 
 
-namespace CreatePipe.RoomAttr
+namespace CreatePipe.Obselete.RoomAttr
 {
     public class RoomAttrViewModel : ObserverableObject
     {

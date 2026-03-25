@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 
-namespace CreatePipe
+namespace CreatePipe.Obselete
 {
     /// <summary>
     /// PipeSelectFromSelectionView.xaml 的交互逻辑

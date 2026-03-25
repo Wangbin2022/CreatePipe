@@ -1,7 +1,7 @@
 ﻿using Autodesk.Revit.UI;
 using System.Windows;
 
-namespace CreatePipe.RoomAttr
+namespace CreatePipe.Obselete.RoomAttr
 {
     /// <summary>
     /// RoomAttrForm.xaml 的交互逻辑
