@@ -441,6 +441,7 @@
     </Compile>
     <Compile Include="Utils\BaseExternalHandler.cs" />
     <Compile Include="Utils\CategoryVisibilityService.cs" />
+    <Compile Include="Utils\ChineseToSpellService.cs" />
     <Compile Include="Utils\CsvHelper.cs" />
     <Compile Include="Utils\EncodingHelper.cs" />
     <Compile Include="Utils\FailurePreProcessor.cs" />

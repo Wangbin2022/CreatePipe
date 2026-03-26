@@ -20,15 +20,15 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="28"/>
         </Grid.RowDefinitions>
-        <TextBlock Text="{Binding FileName}" />
+        <TextBlock Text="{Binding ViewName}" />
         <Grid Grid.Row="1" >
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                 <TextBox Width="80"  Margin="5"
 bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <TextBlock Text="找到图层数量：" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding AllXrefLayers.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <TextBlock Text="找到类别数量：" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding AllCategoryNames.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
             </StackPanel>
         </Grid>
         <Grid Grid.Row="2">
@@ -36,10 +36,10 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="28"/>
             </Grid.RowDefinitions>
-            <local:MultiSelectListBoxDynamicWithColorSample 
-      ItemsSource="{Binding AllXrefLayers}" 
-      SelectedItems="{Binding SelectedXrefLayers, Mode=TwoWay}" />
-            <TextBlock Text="仅支持显隐当前视图内类别，点退出恢复" 
+            <local:MultiSelectListBoxDynamic 
+      ItemsSource="{Binding AllCategoryNames}" 
+      SelectedItems="{Binding SelectedCategoryNames, Mode=TwoWay}" />
+            <TextBlock Text="仅支持显隐当前视图内类别,点退出恢复" 
                      Grid.Row="1"
                      VerticalAlignment="Center"/>
         </Grid>

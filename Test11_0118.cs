@@ -12,6 +12,7 @@ using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -245,6 +246,46 @@ namespace CreatePipe
             // 执行到这里时，墙已经恢复到了原来的位置，但你拿到了干涉结果 isColliding
             TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
         }
+        private bool ProcessRVT(Document doc, string pathName)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(pathName);
+            // 查找现有的 LinkType (而不是 Instance)，因为 Instance 删除后 Type 还在
+            RevitLinkType existingType = new FilteredElementCollector(doc).OfClass(typeof(RevitLinkType)).Cast<RevitLinkType>().FirstOrDefault(l => l.Name.Contains(fileName));
+            if (existingType != null) doc.Delete(existingType.Id);
+            FilePath path = new FilePath(pathName);
+            RevitLinkOptions options = new RevitLinkOptions(false);
+            LinkLoadResult result = RevitLinkType.Create(doc, path, options);
+            if (result.ElementId != ElementId.InvalidElementId)
+            {
+                RevitLinkInstance.Create(doc, result.ElementId);
+                return true;
+            }
+            return false;
+        }
+        private bool ProcessDWG(Document doc, string pathName, View activeView)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(pathName);
+            // 查找现有的 ImportInstance
+            var existing = new FilteredElementCollector(doc).OfClass(typeof(ImportInstance)).Cast<ImportInstance>().FirstOrDefault(i => i.IsLinked && i.Category.Name.Contains(fileName));
+            if (existing != null) doc.Delete(existing.Id);
+            DWGImportOptions options = new DWGImportOptions
+            {
+                Placement = ImportPlacement.Origin,
+                OrientToView = true,
+                Unit = ImportUnit.Millimeter
+            };
+            return doc.Link(pathName, options, activeView, out _);
+        }
+        private bool ProcessRFA(Document doc, string pathName)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(pathName);
+            // 载入族（Revit 会自动处理同名族，LoadFamily 最后一个参数决定如何处理已存在的族）
+            // 这里手动删除旧族以确保完全刷新（可选）
+            Family existingFamily = new FilteredElementCollector(doc).OfClass(typeof(Family)).Cast<Family>().FirstOrDefault(f => f.Name == fileName);
+            if (existingFamily != null) doc.Delete(existingFamily.Id);
+            return doc.LoadFamily(pathName);
+        }
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -252,9 +293,10 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0326 
-            CategoryVisibilityView categoryVisibilityView = new CategoryVisibilityView(uiApp);
-            categoryVisibilityView.ShowDialog();
+
+            ////0326 视图显隐测试——》引出viewmodel的释放问题-》批量链接功能卡死测试
+            //CategoryVisibilityView categoryVisibilityView = new CategoryVisibilityView(uiApp);
+            //categoryVisibilityView.ShowDialog();
 
             //////0325 链接图层信息测试
             //XrefCADLayerView xrefCADLayerView = new XrefCADLayerView(uiApp);
