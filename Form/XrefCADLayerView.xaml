@@ -1,0 +1,51 @@
+﻿<Window x:Class="CreatePipe.Form.XrefCADLayerView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="临时隐藏参考链接图层" Topmost="True"
+        Height="420" Width="240" WindowStartupLocation="CenterScreen"
+        xmlns:conv="clr-namespace:CreatePipe.Utils.ValueConverter"
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        >
+    <Grid Margin="8">
+        <Grid.Resources>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="28"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="{Binding FileName}" />
+        <Grid Grid.Row="1" >
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBox Width="80"  Margin="5"
+  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <TextBlock Text="找到图层数量：" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding AllXrefLayers.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="28"/>
+            </Grid.RowDefinitions>     
+            <local:MultiSelectListBoxDynamicWithColorSample 
+        ItemsSource="{Binding AllXrefLayers}" 
+        SelectedItems="{Binding SelectedXrefLayers, Mode=TwoWay}" />
+            <TextBlock Text="仅支持显隐已协调图层，退出取消效果" 
+                       Grid.Row="1"
+                       VerticalAlignment="Center"/>
+        </Grid>
+        <DockPanel Grid.Row="3" >
+            <Button  Content="退出" Height="25" Command="{Binding ShowAllLayersCommand}"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

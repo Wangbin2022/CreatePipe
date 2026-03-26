@@ -1,0 +1,48 @@
+﻿<UserControl x:Class="CreatePipe.Form.MultiSelectListBoxDynamicWithColorSample"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:CreatePipe.Form"
+             xmlns:conv="clr-namespace:CreatePipe.Form.Converter"
+             mc:Ignorable="d" 
+             d:DesignHeight="250" d:DesignWidth="200" Background="Beige">
+    <UserControl.Resources>
+        <conv:RevitColorConverter x:Key="RevitColorConverter"/>
+        <conv:AllToHiddenConverter x:Key="AllToHiddenConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <ListBox         
+            x:Name="MultiSelectLsBox"  
+            SnapsToDevicePixels="True"
+            HorizontalContentAlignment="Stretch"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Auto"
+            ScrollViewer.CanContentScroll="False">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 这里的 Binding 路径必须对应 Node 类的属性名 -->
+                        <Rectangle Grid.Column="0" 
+                                   Width="12" Height="12" Margin="5,0"
+                                   RadiusX="2" RadiusY="2"
+                                   Stroke="#888888" StrokeThickness="0.5"
+                                   Visibility="{Binding Title, Converter={StaticResource AllToHiddenConverter}}"
+                                   Fill="{Binding LayerColor, Converter={StaticResource RevitColorConverter}}"/>
+
+                        <CheckBox Grid.Column="1" 
+                                  Content="{Binding Title}" 
+                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  Click="CheckBox_Click" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

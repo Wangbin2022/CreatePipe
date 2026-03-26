@@ -606,75 +606,6 @@ namespace CreatePipe
         //    CableTray cableTray = CableTray.Create(doc, connector.Level.Id, connector.Origin, length, connector.Direction);
         //    cableTray.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
         //}
-        public MEPCurve BreakMEPCurveByOne(Document document, MEPCurve mEPCurve, XYZ xYZ)
-        {
-            try
-            {
-                XYZ breakXYZ = xYZ;
-                MEPCurve mEPCurveCopy = null;//变量声明放到事务外才能访问
-
-                //拷贝一根管
-                ICollection<ElementId> ids = ElementTransformUtils.CopyElement(document, mEPCurve.Id, new XYZ(0, 0, 0));
-                ElementId newId = ids.FirstOrDefault();
-                mEPCurveCopy = document.GetElement(newId) as MEPCurve;
-                //原管的线
-                Curve curve = (mEPCurve.Location as LocationCurve).Curve;
-                XYZ startXYZ = curve.GetEndPoint(0);
-                XYZ endXYZ = curve.GetEndPoint(1);
-                //把点xyz轴映射到线上避免错误 ??这个映射方法没搞懂
-                breakXYZ = curve.Project(breakXYZ).XYZPoint;
-                //给原管用的线
-                Line line = Line.CreateBound(startXYZ, breakXYZ);
-                //找连接器并取消多余连接，保存连接信息P28
-                Connector othercon = null;
-                foreach (Connector con in mEPCurve.ConnectorManager.Connectors)
-                {
-                    bool isBreak = false;
-                    //获取id后，找连接的情况，再解除连接
-                    if (con.Id == 1 && con.IsConnected)
-                    {
-                        foreach (Connector con2 in con.AllRefs)
-                        {
-                            if (con2.Owner is FamilyInstance)
-                            {
-                                con.DisconnectFrom(con2);
-                                othercon = con2;
-                                isBreak = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (isBreak)
-                    {
-                        break;
-                    }
-                }
-
-                        (mEPCurve.Location as LocationCurve).Curve = line;
-                //拷贝管用的线
-                Line line1 = Line.CreateBound(breakXYZ, endXYZ);
-                (mEPCurveCopy.Location as LocationCurve).Curve = line1;
-                //拷贝管连接老管的连接器
-                if (othercon != null)
-                {
-                    foreach (Connector con in mEPCurveCopy.ConnectorManager.Connectors)
-                    {
-                        if (con.Id == 1)
-                        {
-                            con.ConnectTo(othercon);
-                        }
-                    }
-
-                }
-
-                return mEPCurveCopy;
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("功能退出", ex.Message);
-            }
-            return null;
-        }
         // 在指定点查找MEP曲线
         private MEPCurve FindMEPCurveAtPoint(UIDocument uiDoc, double offsetHeight, XYZ point)
         {
@@ -844,67 +775,7 @@ namespace CreatePipe
         //        return false;
         //    }
         //}
-        private string GetCadLayerName(Solid subSolid, ImportInstance cadLink)
-        {
-            return null;
-        }
-        /// <summary>
-        /// 检查管道是否水平
-        /// </summary>
-        private bool IsHorizontal(Pipe pipe)
-        {
-            Line line = (pipe.Location as LocationCurve).Curve as Line;
-            return Math.Abs(line.Direction.Z) < 0.001; // 允许微小误差
-        }
-
-        /// <summary>
-        /// 获取指定位置的连接器
-        /// </summary>
-        private Connector GetConnectorAtPoint(Pipe pipe, XYZ point)
-        {
-            ConnectorManager cm = pipe.ConnectorManager;
-            foreach (Connector c in cm.Connectors)
-            {
-                if (c.Origin.IsAlmostEqualTo(point))
-                {
-                    return c;
-                }
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// 计算两条直线在XY平面上的投影交点
-        /// </summary>
-        private XYZ GetIntersectionPoint2D(Line line1, Line line2)
-        {
-            // 提取XY平面的坐标方程: P = Origin + t * Direction
-            double x1 = line1.Origin.X;
-            double y1 = line1.Origin.Y;
-            double dx1 = line1.Direction.X;
-            double dy1 = line1.Direction.Y;
-
-            double x2 = line2.Origin.X;
-            double y2 = line2.Origin.Y;
-            double dx2 = line2.Direction.X;
-            double dy2 = line2.Direction.Y;
-
-            // 解线性方程组求解交点
-            // x = x1 + t1*dx1
-            // y = y1 + t1*dy1
-            // x = x2 + t2*dx2
-            // y = y2 + t2*dy2
-
-            double det = dx1 * dy2 - dy1 * dx2;
-
-            // 如果行列式为0，说明平行
-            if (Math.Abs(det) < 0.00001) return null;
-
-            double t1 = ((x2 - x1) * dy2 - (y2 - y1) * dx2) / det;
-
-            // 计算交点坐标 (Z值这里先暂定为0，后续业务逻辑会覆盖)
-            return new XYZ(x1 + t1 * dx1, y1 + t1 * dy1, 0);
-        }
+ 
         //public void ConnectPipes(Document doc, ElementId pipeId1, ElementId pipeId2, ElementId pipeId3, ElementId pipeId4 = null)
         public void ConnectPipes(Document doc, ElementId pipeId1, ElementId pipeId2, ElementId pipeId3, ElementId pipeId4 = null)
         {

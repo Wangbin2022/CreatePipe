@@ -252,8 +252,38 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0325 链接图层信息测试
+            //0326 
+            CategoryVisibilityView categoryVisibilityView = new CategoryVisibilityView(uiApp);
+            categoryVisibilityView.ShowDialog();
 
+            //////0325 链接图层信息测试
+            //XrefCADLayerView xrefCADLayerView = new XrefCADLayerView(uiApp);
+            //xrefCADLayerView.Show();
+            //Reference pickedRef = uiDoc.Selection.PickObject(ObjectType.Element, new CadSelectionFilter(), "请选择一个 CAD 链接或导入文件");
+            //ImportInstance cadInstance = doc.GetElement(pickedRef) as ImportInstance;
+            //CategoryNameMap subCategories = cadInstance.Category.SubCategories;
+            //List<CadLayerItem> layerList = new List<CadLayerItem>();
+            //int layerCount = 0;
+            //foreach (Category subCat in subCategories)
+            //{
+            //    // 检查该图层当前是否可以被隐藏
+            //    if (activeView.CanCategoryBeHidden(subCat.Id))
+            //    {
+            //        layerCount++;
+            //        //Color color = subCat.LineColor;
+            //        //string rgb = color.IsValid ? $"({color.Red}, {color.Green}, {color.Blue})" : "无效颜色";
+            //        //bool isHidden = activeView.GetCategoryHidden(subCat.Id);
+            //        //layerList.Add(new CadLayerItem
+            //        //{
+            //        //    LayerName = subCat.Name,
+            //        //    CategoryId = subCat.Id,
+            //        //    LayerColor = color,
+            //        //    IsVisible = !isHidden // 如果未被隐藏，则状态为可见(true)
+            //        //});
+            //    }
+            //}
+            //TaskDialog.Show("tt", layerCount.ToString());
+            ////TaskDialog.Show("tt", layerList.FirstOrDefault().LayerColor.Red.ToString());
 
             //////////1111 显示所有隐藏的参照CAD图层
             ////string info = null;
@@ -610,9 +640,9 @@ namespace CreatePipe
             //////0315 窗口及控件测试模板
             //TestWindow testWindow = new TestWindow(uiApp);
             //testWindow.ShowDialog();
-            ////369测试窗口。OK
-            ////Universal369Buttons universal369Buttons = new Universal369Buttons();
-            ////universal369Buttons.ShowDialog();
+            //////369测试窗口。OK
+            //Universal369Buttons universal369Buttons = new Universal369Buttons();
+            //universal369Buttons.ShowDialog();
             /////剪贴文本暂存器。OK 注意需要非模态运行
             //ClipboardCatcher clipboard = new ClipboardCatcher();
             //clipboard.Show();

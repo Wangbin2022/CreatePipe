@@ -83,6 +83,7 @@
     <Compile Include="ConnectorService.cs" />
     <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\AirTerminalSelectionFilter.cs" />
+    <Compile Include="filter\CadSelectionFilter.cs" />
     <Compile Include="filter\DuctTerminalFilter.cs" />
     <Compile Include="filter\DWGReferenceFilter.cs" />
     <Compile Include="filter\FamilyFilterClass.cs" />
@@ -93,16 +94,21 @@
     <Compile Include="filter\LinkedPipeDuctSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
     <Compile Include="filter\XReferenceSelectionFilter.cs" />
+    <Compile Include="Form\CategoryVisibilityView.xaml.cs">
+      <DependentUpon>CategoryVisibilityView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\CircleImageButton.xaml.cs">
       <DependentUpon>CircleImageButton.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\ClipboardCatcher.xaml.cs">
       <DependentUpon>ClipboardCatcher.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\Converter\AllToHiddenConverter.cs" />
     <Compile Include="Form\Converter\BackgroundToForegroundConverter.cs" />
     <Compile Include="Form\Converter\BoolToVisibilityConverter.cs" />
     <Compile Include="Form\Converter\ContentTemplateSelector.cs" />
     <Compile Include="Form\Converter\IsStringConverter.cs" />
+    <Compile Include="Form\Converter\RevitColorConverter.cs" />
     <Compile Include="Form\Converter\TextTruncateConverter.cs" />
     <Compile Include="Form\DuctSystemManagerView.xaml.cs">
       <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
@@ -118,6 +124,9 @@
     </Compile>
     <Compile Include="Form\MultiSelectListBoxDynamic.xaml.cs">
       <DependentUpon>MultiSelectListBoxDynamic.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\MultiSelectListBoxDynamicWithColorSample.xaml.cs">
+      <DependentUpon>MultiSelectListBoxDynamicWithColorSample.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\OverView1.xaml.cs">
       <DependentUpon>OverView1.xaml</DependentUpon>
@@ -136,6 +145,9 @@
     </Compile>
     <Compile Include="Form\UniversialSplitButton.xaml.cs">
       <DependentUpon>UniversialSplitButton.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\XrefCADLayerView.xaml.cs">
+      <DependentUpon>XrefCADLayerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\XrefVisibilityView.xaml.cs">
       <DependentUpon>XrefVisibilityView.xaml</DependentUpon>
@@ -428,6 +440,7 @@
       <DependentUpon>UniversalMultiParameterSelect.xaml</DependentUpon>
     </Compile>
     <Compile Include="Utils\BaseExternalHandler.cs" />
+    <Compile Include="Utils\CategoryVisibilityService.cs" />
     <Compile Include="Utils\CsvHelper.cs" />
     <Compile Include="Utils\EncodingHelper.cs" />
     <Compile Include="Utils\FailurePreProcessor.cs" />
@@ -517,6 +530,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\CategoryVisibilityView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\CircleGaugePlaceView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -566,6 +583,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\MultiSelectListBoxDynamic.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\MultiSelectListBoxDynamicWithColorSample.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -654,6 +675,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ManualCropZaxisView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\XrefCADLayerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
