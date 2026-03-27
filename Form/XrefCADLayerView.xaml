@@ -23,7 +23,7 @@
         <TextBlock Text="{Binding FileName}" />
         <Grid Grid.Row="1" >
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <TextBox Width="80"  Margin="5"
+                <TextBox Width="80"  Margin="0,5"
   bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">

@@ -25,7 +25,7 @@
             <TabItem Header="RVT管理">
                 <StackPanel Margin="5">
                     <TextBlock Text="{Binding RevitLinkInfo}" Margin="5" VerticalAlignment="Center"/>
-                    <local:MultiSelectListBoxDynamic 
+                    <local:MultiSelectListBox
     ItemsSource="{Binding RevitLinkNames}" 
     SelectedItems="{Binding SelectedRevitLinkNames, Mode=TwoWay}" 
     DefaultText="请选择以显隐链接RVT" />
@@ -34,7 +34,7 @@
             <TabItem Header="已导入DWG">
                 <StackPanel Margin="5">
                     <TextBlock Text="{Binding DwgImportInfo}" Margin="5" VerticalAlignment="Center"/>
-                <local:MultiSelectListBoxDynamic 
+                <local:MultiSelectListBox
     ItemsSource="{Binding DwgImportNames}" 
     SelectedItems="{Binding SelectedImportDwgNames, Mode=TwoWay}" 
     DefaultText="请选择以显隐链接RVT" />

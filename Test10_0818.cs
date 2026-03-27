@@ -342,14 +342,12 @@ namespace CreatePipe
         //private static View3D FindBest3DView(Document doc)
         //{
         //    var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
-
         //    // 优先寻找默认的 {3D} 视图
         //    View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
         //    if (default3DView != null)
         //    {
         //        return default3DView;
         //    }
-
         //    // 如果找不到，再寻找任何一个非模板的3D视图作为备用
         //    return collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
         //}
@@ -566,14 +564,10 @@ namespace CreatePipe
         //    {
         //        if (bh == listFa[i].Name)
         //        {
-
         //            bo = true;
-
         //            j = i;
-
         //        }
         //    }
-
         //    if (bo == true)
         //    {
         //        doc.Create.NewFamilyInstance(point, listFa[j], StructuralType.Column);

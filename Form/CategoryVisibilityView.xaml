@@ -23,7 +23,7 @@
         <TextBlock Text="{Binding ViewName}" />
         <Grid Grid.Row="1" >
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <TextBox Width="80"  Margin="5"
+                <TextBox Width="80"  Margin="0,5"
 bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
@@ -38,7 +38,9 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </Grid.RowDefinitions>
             <local:MultiSelectListBoxDynamic 
       ItemsSource="{Binding AllCategoryNames}" 
-      SelectedItems="{Binding SelectedCategoryNames, Mode=TwoWay}" />
+      SelectedItems="{Binding SelectedCategoryNames, Mode=TwoWay}"
+                SelectionChangedCommand="{Binding SelectionChangedUpdateCommand}" 
+                DefaultText="请选择以显隐" />
             <TextBlock Text="仅支持显隐当前视图内类别,点退出恢复" 
                      Grid.Row="1"
                      VerticalAlignment="Center"/>

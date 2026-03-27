@@ -447,6 +447,7 @@
     <Compile Include="Utils\FailurePreProcessor.cs" />
     <Compile Include="Utils\Interfaces\IProgressBarService.cs" />
     <Compile Include="Utils\Interfaces\IProgressScope.cs" />
+    <Compile Include="Utils\Interfaces\IQueryViewModel.cs" />
     <Compile Include="Utils\IntToStringConverter.cs" />
     <Compile Include="Utils\JsonHelper.cs" />
     <Compile Include="Utils\JsonHelperSystem.cs" />

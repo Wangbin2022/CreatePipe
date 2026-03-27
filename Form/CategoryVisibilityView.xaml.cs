@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -37,23 +38,40 @@ namespace CreatePipe.Form
             this.Close();
         }
     }
-
     public class CategoryVisibilityViewModel : ObserverableObject
     {
-        private ImportInstance cadInstance;
+        private Document _doc;
         private View activeView;
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+        private Dictionary<string, ElementId> categoryDict = new Dictionary<string, ElementId>();
         public CategoryVisibilityViewModel(UIApplication uiApp)
         {
             UIDocument uiDoc = uiApp.ActiveUIDocument;
-            Document doc = uiDoc.Document;
-            activeView = doc.ActiveView;
+            _doc = uiDoc.Document;
+            activeView = _doc.ActiveView;
             ViewName = activeView.Name;
 
-            // 1. 收集当前视图所有可见元素
-            FilteredElementCollector collector = new FilteredElementCollector(doc, activeView.Id).WhereElementIsNotElementType();
+            InitLayers();
+            //SelectedCategoryNames.CollectionChanged += OnSelectedCategoriesChanged;
+        }
+        //private void OnSelectedCategoriesChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        //{
+        //    // 将现有的集合传给更新方法
+        //    UpdateCategoryVisibility(SelectedCategoryNames);
+        //}
+        private void InitLayers()
+        {
+            ICollection<ElementId> idsToExclude = new FilteredElementCollector(_doc, activeView.Id)
+                .WhereElementIsNotElementType()
+                .WherePasses(new LogicalOrFilter(
+                    new ElementClassFilter(typeof(RevitLinkInstance)),
+                    new ElementClassFilter(typeof(ImportInstance)))
+                ).ToElementIds();
+            ExclusionFilter exclusionFilter = new ExclusionFilter(idsToExclude);
+            // 1. 收集当前视图所有可见元素排除掉链接元素
+            FilteredElementCollector collector = new FilteredElementCollector(_doc, activeView.Id).WhereElementIsNotElementType().WherePasses(exclusionFilter);
             // 用于保存 显示名称 -> CategoryId 的映射
-            Dictionary<string, ElementId> categoryDict = new Dictionary<string, ElementId>();
+            categoryDict = new Dictionary<string, ElementId>();
             foreach (Element elem in collector)
             {
                 Category cat = elem.Category;
@@ -71,6 +89,7 @@ namespace CreatePipe.Form
                     if (!categoryDict.ContainsKey(displayName))
                     {
                         categoryDict.Add(displayName, cat.Id);
+                        _rawCategoryNames.Add(displayName);
                     }
                 }
             }
@@ -79,69 +98,101 @@ namespace CreatePipe.Form
                 TaskDialog.Show("提示", "当前视图中没有可供隐藏的类别！");
                 return;
             }
-            AllCategoryNames = new ObservableCollection<string>(categoryDict.Keys.OrderBy(k => k).ToList());
-
-
-            //// 3. 将显示名称提取为 List 并按字母 A-Z 排序
-            //List<string> displayNames = categoryDict.Keys.OrderBy(k => k).ToList();
-            //// 4. 打开 WPF 窗口，传入选项
-            //CategorySelectWindow window = new CategorySelectWindow(displayNames);
-            //bool? result = window.ShowDialog();
-            //// 5. 如果用户点击了确认
-            //if (result == true)
-            //{
-            //    // 获取用户在界面勾选的字符串列表
-            //    List<string> selectedNames = window.SelectedCategories;
-            //    if (selectedNames != null && selectedNames.Count > 0)
-            //    {
-            //        // 将字符串反向映射回 CategoryId
-            //        List<ElementId> targetCategoryIds = new List<ElementId>();
-            //        foreach (string name in selectedNames)
-            //        {
-            //            if (categoryDict.TryGetValue(name, out ElementId catId))
-            //            {
-            //                targetCategoryIds.Add(catId);
-            //            }
-            //        }
-            //        // 6. 执行批量隐藏（这里以“隐藏选中的类别”为例）
-            //        CategoryVisibilityService.SetCategoriesVisibility(doc, activeView, targetCategoryIds, hide: true);
-            //    }
-            //}
-
-        }
-        private void InitLayers(Document _doc)
-        {
             QueryELement(null);
         }
-        private void UpdateCategoryVisibility(IList selectedNames)
+        // 【修改】: 创建一个命令，用于响应控件的选择变化
+        public ICommand SelectionChangedUpdateCommand => new RelayCommand<ObservableCollection<string>>(UpdateCategoryVisibility);
+
+        private void UpdateCategoryVisibility(ObservableCollection<string> selectedNames)
         {
+            if (selectedNames == null || categoryDict == null) return;
+
+            // 1. 准备两个集合：一个存需要显示的，一个存需要隐藏的
+            List<BuiltInCategory> categoriesToShow = new List<BuiltInCategory>();
+            List<BuiltInCategory> categoriesToHide = new List<BuiltInCategory>();
+
+            // 2. 遍历所有的类别字典 (假定 categoryDict 包含了列表中所有的待操作项)
+            foreach (var kvp in categoryDict)
+            {
+                string categoryName = kvp.Key;
+                ElementId catId = kvp.Value;
+                BuiltInCategory bic = (BuiltInCategory)catId.IntegerValue;
+                if (selectedNames.Contains(categoryName))
+                {
+                    categoriesToShow.Add(bic); // 在选中列表 -> 显示
+                }
+                else
+                {
+                    categoriesToHide.Add(bic); // 不在选中列表 -> 隐藏
+                }
+            }
+            // 3. 将对 Revit 文档的操作交给外部事件处理器 (回到 Revit API 主线程)
+            _externalHandler.Run(app =>
+            {
+                NewTransaction.Execute(app.ActiveUIDocument.Document, "修改类别可见性", () =>
+                {
+                    if (categoriesToShow.Count > 0)
+                    {
+                        CategoryVisibilityService.SetCategoriesVisibility(app.ActiveUIDocument.Document, activeView, categoriesToShow, true);
+                    }
+                    if (categoriesToHide.Count > 0)
+                    {
+                        CategoryVisibilityService.SetCategoriesVisibility(app.ActiveUIDocument.Document, activeView, categoriesToHide, false);
+                    }
+                });
+            });
         }
         public ICommand ShowAllLayersCommand => new BaseBindingCommand(ShowAllLayers);
         private void ShowAllLayers(object obj)
-        { }
+        {
+            _externalHandler.Run(app =>
+            {
+                List<BuiltInCategory> categoriesToShow = new List<BuiltInCategory>();
+                foreach (var kvp in categoryDict)
+                {
+                    string categoryName = kvp.Key;
+                    ElementId catId = kvp.Value;
+                    BuiltInCategory bic = (BuiltInCategory)catId.IntegerValue;
+                    categoriesToShow.Add(bic);
+                }
+                NewTransaction.Execute(app.ActiveUIDocument.Document, "恢复类别显示", () =>
+                {
+                    CategoryVisibilityService.SetCategoriesVisibility(app.ActiveUIDocument.Document, activeView, categoriesToShow, true);
+                });
+            });
+        }
         public ICommand QueryElementCommand => new RelayCommand<string>(QueryELement);
         private void QueryELement(string filterText)
         {
-
+            AllCategoryNames.Clear();
+            SelectedCategoryNames.Clear();
+            var filtered = _rawCategoryNames.AsEnumerable();
+            foreach (var item in filtered)
+            {
+                if (string.IsNullOrEmpty(filterText) || item.Contains(filterText) || item.IndexOf(filterText, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    AllCategoryNames.Add(item);
+                    SelectedCategoryNames.Add(item);
+                }
+            }
         }
-        private IList _selectedCategoryNames = new List<string>();
-        public IList SelectedCategoryNames
+        private ObservableCollection<string> _selectedCategoryNames = new ObservableCollection<string>();
+        public ObservableCollection<string> SelectedCategoryNames
         {
             get => _selectedCategoryNames;
             set
             {
                 _selectedCategoryNames = value;
                 OnPropertyChanged(); // 触发通知
-                UpdateCategoryVisibility(value); // 手动触发更新逻辑
             }
         }
-        private ObservableCollection<string> _AllCategoryNames = new ObservableCollection<string>();
+        private ObservableCollection<string> _allCategoryNames = new ObservableCollection<string>();
         public ObservableCollection<string> AllCategoryNames
         {
-            get => _AllCategoryNames;
-            set => SetProperty(ref _AllCategoryNames, value);
+            get => _allCategoryNames;
+            set => SetProperty(ref _allCategoryNames, value);
         }
-        //private List<CadLayerItem> _rawLayers = new List<CadLayerItem>();
+        private List<string> _rawCategoryNames = new List<string>();
         public string ViewName { get; set; } = string.Empty;
     }
 }

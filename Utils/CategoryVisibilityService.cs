@@ -55,49 +55,10 @@ namespace CreatePipe.Utils
                 SetCategoriesVisibility(doc, view, builtInCats, isCurrentlyHidden);
             }
         }
-        #endregion
-
-        #region 业务复合方法（根据之前逻辑集成）
-        /// <summary>
-        /// 隔离选中图元的类别
-        /// </summary>
-        public static void IsolateCategoryBySelection(UIDocument uiDoc, bool isMultipleSelect = true)
-        {
-            Document doc = uiDoc.Document;
-            View activeView = doc.ActiveView;
-            IList<Reference> refs = isMultipleSelect
-                ? uiDoc.Selection.PickObjects(ObjectType.Element, "请框选要保留类别的图元")
-                : new List<Reference> { uiDoc.Selection.PickObject(ObjectType.Element, "请点选要保留类别的图元") };
-            HashSet<ElementId> targetCategoryIds = new HashSet<ElementId>();
-            foreach (Reference r in refs)
-            {
-                Category cat = doc.GetElement(r).Category;
-                if (cat != null) targetCategoryIds.Add(cat.Id);
-            }
-            using (Transaction t = new Transaction(doc, "隔离类别"))
-            {
-                t.Start();
-                SetAllCategoriesVisibility(doc, activeView, false);
-                SetTargetCategoriesVisibility(activeView, targetCategoryIds, true);
-                t.Commit();
-            }
-        }
-        /// <summary>
-        /// 一键显示所有类别
-        /// </summary>
-        public static void ShowAllCategories(Document doc)
-        {
-            using (Transaction t = new Transaction(doc, "显示所有类别"))
-            {
-                t.Start();
-                SetAllCategoriesVisibility(doc, doc.ActiveView, true);
-                t.Commit();
-            }
-        }
-        #endregion
+        #endregion 
 
         #region 私有辅助方法
-        private static void SetAllCategoriesVisibility(Document doc, View view, bool visible)
+        public static void SetAllCategoriesVisibility(Document doc, View view, bool visible)
         {
             foreach (Category cat in doc.Settings.Categories)
             {
@@ -107,7 +68,7 @@ namespace CreatePipe.Utils
                 }
             }
         }
-        private static void SetTargetCategoriesVisibility(View view, IEnumerable<ElementId> categoryIds, bool visible)
+        public static void SetTargetCategoriesVisibility(View view, IEnumerable<ElementId> categoryIds, bool visible)
         {
             foreach (ElementId catId in categoryIds)
             {
