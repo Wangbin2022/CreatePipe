@@ -417,13 +417,53 @@ namespace CreatePipe.Form
     }
     public class Node : ObserverableObject
     {
+        //0328Gemini更改测试
         private string _title;
         private bool _isSelected;
-        public Node(string title)
+        private int? _count;
+
+        // 【新增】无参构造函数，支持 new Node { Title = "All", Count = null } 这种写法
+        public Node() { }
+
+        public Node(string title, int? count = null)
         {
             Title = title;
+            Count = count;
         }
+
         public string Title { get => _title; set => SetProperty(ref _title, value); }
         public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
+
+        // int? 允许 "All" 节点传入 null，从而不显示数量
+        public int? Count
+        {
+            get => _count;
+            set { _count = value; OnPropertyChanged(); OnPropertyChanged(nameof(CountDisplay)); }
+        }
+
+        public string CountDisplay => Count.HasValue ? $"({Count.Value})" : "";
+        public CountableItem OriginalItem { get; set; } // 保存外部原始对象的引用，方便事件同步
+        //private string _title;
+        //private bool _isSelected;
+        //private int? _count;
+        //public Node(string title, int count = 0)
+        //{
+        //    Title = title;
+        //    _count = count;
+        //}
+        //public string Title { get => _title; set => SetProperty(ref _title, value); }
+        //public bool IsSelected { get => _isSelected; set => SetProperty(ref _isSelected, value); }
+
+        //// int? 允许 "All" 节点传入 null，从而不显示数量
+        //public int? Count
+        //{
+        //    get => _count;
+        //    set { _count = value; OnPropertyChanged(); OnPropertyChanged(nameof(CountDisplay)); }
+        //}
+
+        //public string CountDisplay => Count.HasValue ? $"({Count.Value})" : "";
+
+        //public CountableItem OriginalItem { get; set; } // 保存外部原始对象的引用，方便事件同步
+
     }
 }

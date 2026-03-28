@@ -6,7 +6,7 @@
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True"
         WindowStartupLocation="CenterScreen"
-        Width="320" Height="130">
+        Width="320" Height="118">
     <Window.Resources>
         <sys:Int32 x:Key="DelaySeconds">1</sys:Int32>
     </Window.Resources>

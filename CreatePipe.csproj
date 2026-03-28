@@ -128,11 +128,17 @@
     <Compile Include="Form\MultiSelectListBoxDynamicWithColorSample.xaml.cs">
       <DependentUpon>MultiSelectListBoxDynamicWithColorSample.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\MultiSelectListBoxDynamicWithItemCount.xaml.cs">
+      <DependentUpon>MultiSelectListBoxDynamicWithItemCount.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\OverView1.xaml.cs">
       <DependentUpon>OverView1.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\OverView2.xaml.cs">
       <DependentUpon>OverView2.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\PipeDiameterSelectView.xaml.cs">
+      <DependentUpon>PipeDiameterSelectView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\PipeSystemManagerView.xaml.cs">
       <DependentUpon>PipeSystemManagerView.xaml</DependentUpon>
@@ -142,6 +148,9 @@
     </Compile>
     <Compile Include="Form\SequentialSelectorTest.xaml.cs">
       <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\ToggleVisibilityView.xaml.cs">
+      <DependentUpon>ToggleVisibilityView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\UniversialSplitButton.xaml.cs">
       <DependentUpon>UniversialSplitButton.xaml</DependentUpon>
@@ -592,6 +601,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\MultiSelectListBoxDynamicWithItemCount.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\OpenningManagerSubView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -605,6 +618,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\OverView2.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\PipeDiameterSelectView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -645,6 +662,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\TableTemplateViewHorizon.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ToggleVisibilityView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -928,6 +949,10 @@
   <ItemGroup>
     <Resource Include="Resources\minus16.png" />
     <Resource Include="Resources\plus16.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\5九宫格16.png" />
+    <Resource Include="Resources\5九宫格32.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
