@@ -1,7 +1,9 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
+using CreatePipe.Utils;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -25,112 +27,180 @@ namespace CreatePipe
     }
     public class ManualCropZaxisViewModel : ObserverableObject
     {
-        Document Document;
-        View ActiveView;
-        UIDocument uiDoc;
+        private Document doc;
+        private UIDocument uiDoc;
+        private View activeView;
+        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+
+        // 1. 数据绑定集合
+        public List<Level> LevelList { get; set; }
+
+        private Level _selectedLevel;
+        public Level SelectedLevel
+        {
+            get => _selectedLevel;
+            set
+            {
+                _selectedLevel = value;
+                OnPropertyChanged(nameof(SelectedLevel));
+                UpdateLevelMetrics(); // 切换标高时，更新滑动条上下限
+            }
+        }
+
         public ManualCropZaxisViewModel(UIApplication uIApplication)
         {
             uiDoc = uIApplication.ActiveUIDocument;
-            Document = uIApplication.ActiveUIDocument.Document;
-            ActiveView = uIApplication.ActiveUIDocument.ActiveView;
-            if (uIApplication.ActiveUIDocument.ActiveView.ViewType != ViewType.FloorPlan)
+            doc = uiDoc.Document;
+            activeView = uiDoc.ActiveView;
+
+            // 1. 预先获取全项目标高（排序好）
+            var allLevels = new FilteredElementCollector(doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .OrderBy(l => l.Elevation)
+                .ToList();
+
+            // 2. 确定当前视图关联的标高
+            // 注意：有些视图的 GenLevel 可能是 null，需要做兼容
+            Level viewLevel = activeView.GenLevel;
+
+            // 3. 根据视图类型填充 LevelList
+            if (activeView is ViewPlan)
             {
-                TaskDialog.Show("tt", "请在平面视图执行剖面框生成功能");
-                IsViewValid = false;
-                return;
-            }
-            Level currentLevel = ActiveView.GenLevel;
-            CurrentLevel = currentLevel.Name;
-            double levelElevationFt = currentLevel.Elevation;
-            CurrentLevelHeight = levelElevationFt * 304.8;
-            // 找下一层标高
-            Level nextLevel = new FilteredElementCollector(Document).OfClass(typeof(Level)).Cast<Level>()
-                .Where(l => l.Elevation > currentLevel.Elevation).OrderBy(l => l.Elevation)
-                .FirstOrDefault();
-            double heightDiffMm;
-            double DEFAULT_MAX_HEIGHT_MM = 1500.0;
-            if (nextLevel != null)
-            {
-                // 如果找到了下一层，计算实际高差
-                heightDiffMm = nextLevel.Elevation * 304.8 - CurrentLevelHeight;
+                // 平面视图：仅加载当前标高
+                // 如果 GenLevel 为空（极少见），则加载全部防止报错
+                if (viewLevel != null)
+                    LevelList = allLevels.Where(l => l.Id == viewLevel.Id).ToList();
+                else
+                    LevelList = allLevels;
             }
             else
             {
-                // 如果没有下一层，使用默认高度
-                heightDiffMm = DEFAULT_MAX_HEIGHT_MM;
+                // 三维视图或其他：加载全部标高
+                LevelList = allLevels;
             }
-            CropZaxisBottomValueMax = Math.Max(heightDiffMm, DEFAULT_MAX_HEIGHT_MM);
-            CropZaxisTopValueMax = Math.Max(heightDiffMm, DEFAULT_MAX_HEIGHT_MM);
-            // 4. 初始化滑块的当前值
-            CropZaxisBottomValue = CropZaxisBottomValueMin;
-            CropZaxisTopValue = CropZaxisTopValueMax;
+
+            // 4. 【关键步骤】默认选中逻辑
+            // 必须从 LevelList 集合中去找那个对象，否则 ComboBox 无法识别选中态
+            if (viewLevel != null)
+            {
+                SelectedLevel = LevelList.FirstOrDefault(l => l.Id == viewLevel.Id);
+            }
+
+            // 如果还没选上（比如在没有关联标高的三维视图里），默认选第一个
+            if (SelectedLevel == null && LevelList.Count > 0)
+            {
+                SelectedLevel = LevelList.FirstOrDefault();
+            }
+
+            // 5. 初始化滑块（如果 SelectedLevel 此时已有值，UpdateLevelMetrics 会在 Setter 中触发）
+            if (SelectedLevel != null)
+            {
+                UpdateLevelMetrics();
+            }
         }
+        private void UpdateLevelMetrics()
+        {
+            if (SelectedLevel == null) return;
+
+            // 1. 更新当前高度显示 (mm)
+            CurrentLevelHeight = SelectedLevel.Elevation * 304.8;
+            OnPropertyChanged(nameof(CurrentLevelHeight));
+
+            // 2. 计算与下一层的间距
+            Level nextLevel = new FilteredElementCollector(doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .Where(l => l.Elevation > SelectedLevel.Elevation)
+                .OrderBy(l => l.Elevation)
+                .FirstOrDefault();
+
+            double layerHeightMm = 4000; // 默认值
+            if (nextLevel != null)
+            {
+                layerHeightMm = (nextLevel.Elevation - SelectedLevel.Elevation) * 304.8;
+            }
+
+            // 3. 动态调整滑块最大值 (允许用户切到本层以上1米)
+            CropZaxisBottomValueMax = layerHeightMm;
+            CropZaxisTopValueMax = layerHeightMm + 1000;
+
+            // 4. 默认值设置：底为0，顶为层高
+            CropZaxisBottomValue = 0;
+            CropZaxisTopValue = layerHeightMm;
+
+            // 5. 通知 UI 更新
+            OnPropertyChanged(nameof(CropZaxisBottomValueMax));
+            OnPropertyChanged(nameof(CropZaxisTopValueMax));
+            OnPropertyChanged(nameof(CropZaxisBottomValue));
+            OnPropertyChanged(nameof(CropZaxisTopValue));
+        }
+        // 当选中的标高改变时，重新计算滑动条限制
+        //private void UpdateLevelMetrics()
+        //{
+        //    if (SelectedLevel == null) return;
+        //    // 当前标高高度 (mm)
+        //    CurrentLevelHeight = SelectedLevel.Elevation * 304.8;
+        //    OnPropertyChanged(nameof(CurrentLevelHeight));
+        //    // 查找下一层，计算层高
+        //    Level nextLevel = new FilteredElementCollector(doc)
+        //        .OfClass(typeof(Level))
+        //        .Cast<Level>()
+        //        .Where(l => l.Elevation > SelectedLevel.Elevation)
+        //        .OrderBy(l => l.Elevation)
+        //        .FirstOrDefault();
+        //    double DEFAULT_MAX_HEIGHT_MM = 4000.0; // 默认给4米范围
+        //    double layerHeight = nextLevel != null
+        //        ? (nextLevel.Elevation - SelectedLevel.Elevation) * 304.8
+        //        : DEFAULT_MAX_HEIGHT_MM;
+        //    // 动态调整滑动条范围：底标高通常在 [0, 层高]，顶标高在 [0, 层高+1000]
+        //    CropZaxisBottomValueMax = layerHeight;
+        //    CropZaxisTopValueMax = layerHeight + 1000;
+        //    // 如果当前值超过了新上限，重置一下
+        //    if (CropZaxisBottomValue > CropZaxisBottomValueMax) CropZaxisBottomValue = 0;
+        //    if (CropZaxisTopValue > CropZaxisTopValueMax) CropZaxisTopValue = layerHeight;
+        //    OnPropertyChanged(nameof(CropZaxisBottomValueMax));
+        //    OnPropertyChanged(nameof(CropZaxisTopValueMax));
+        //}
         public ICommand PlaceCropViewCommand => new BaseBindingCommand(PlaceCropView);
         private void PlaceCropView(object obj)
         {
-            try
+            _externalHandler.Run(app =>
             {
-                double levelElevation = ActiveView.GenLevel.ProjectElevation;
-                //// 3. 让用户框选一个区域
-                XYZ p1, p2;
-                p1 = uiDoc.Selection.PickPoint("请选择剖面框范围的第一个角点");
-                p2 = uiDoc.Selection.PickPoint("请选择剖面框范围的对角点");
-                //// 定义剖面框的高度（可以替换为用户输入）
-                //// 例如，从标高线下 -0.5 米到标高线上 3 米
-                //double bottomOffset = -0.5 / 3.28084; // -0.5m in feet
-                double bottomOffset = CropZaxisBottomValue / 304.8; // -0.5m in feet
-                double topOffset = CropZaxisTopValue / 304.8;    // 3.0m in feet
-                // 4. 创建 BoundingBoxXYZ
-                double minX = Math.Min(p1.X, p2.X);
-                double minY = Math.Min(p1.Y, p2.Y);
-                double maxX = Math.Max(p1.X, p2.X);
-                double maxY = Math.Max(p1.Y, p2.Y);
-                // Z 坐标基于标高和偏移量
-                double minZ = levelElevation + bottomOffset;
-                double maxZ = levelElevation + topOffset;
-                BoundingBoxXYZ sectionBox = new BoundingBoxXYZ
+                try
                 {
-                    Min = new XYZ(minX, minY, minZ),
-                    Max = new XYZ(maxX, maxY, maxZ)
-                };
-                //// 5. 创建一个新的三维视图并应用剖面框
-                using (Transaction tx = new Transaction(Document, "创建指定标高剖面视图"))
-                {
-                    tx.Start();
-                    // 找到一个三维视图类型用于创建新视图
-                    ViewFamilyType viewFamilyType3D = new FilteredElementCollector(Document)
-                        .OfClass(typeof(ViewFamilyType))
-                        .Cast<ViewFamilyType>()
-                        .FirstOrDefault(vft => vft.ViewFamily == ViewFamily.ThreeDimensional);
-                    if (viewFamilyType3D == null)
+                    // 获取选定标高的物理高度
+                    double baseElevation = SelectedLevel.ProjectElevation;
+                    // 1. 交互拾取点
+                    XYZ p1 = uiDoc.Selection.PickPoint("请选择剖面框范围的第一个角点");
+                    XYZ p2 = uiDoc.Selection.PickPoint("请选择剖面框范围的对角点");
+                    // 2. 计算 Z 轴范围 (基于 SelectedLevel)
+                    double minZ = baseElevation + (CropZaxisBottomValue / 304.8);
+                    double maxZ = baseElevation + (CropZaxisTopValue / 304.8);
+                    BoundingBoxXYZ sectionBox = new BoundingBoxXYZ
                     {
-                        TaskDialog.Show("tt", "项目中没有找到三维视图类型");
-                        return;
+                        Min = new XYZ(Math.Min(p1.X, p2.X), Math.Min(p1.Y, p2.Y), minZ),
+                        Max = new XYZ(Math.Max(p1.X, p2.X), Math.Max(p1.Y, p2.Y), maxZ)
+                    };
+                    // 3. 执行生成
+                    using (Transaction tx = new Transaction(doc, "手动剖切生成"))
+                    {
+                        tx.Start();
+                        ViewFamilyType vft3D = new FilteredElementCollector(doc)
+                            .OfClass(typeof(ViewFamilyType))
+                            .Cast<ViewFamilyType>()
+                            .FirstOrDefault(v => v.ViewFamily == ViewFamily.ThreeDimensional);
+
+                        View3D newView = View3D.CreateIsometric(doc, vft3D.Id);
+                        newView.Name = GetUniqueViewName(doc, $"剖切_{SelectedLevel.Name}");
+                        newView.IsSectionBoxActive = true;
+                        newView.SetSectionBox(sectionBox);
+                        tx.Commit();
+                        uiDoc.ActiveView = newView;
                     }
-                    string uniqueViewName = GetUniqueViewName(Document, $"指定标高剖面{CurrentLevel}");
-                    // 创建一个新的三维视图
-                    View3D newView = View3D.CreateIsometric(Document, viewFamilyType3D.Id);
-                    newView.Name = uniqueViewName;
-                    // 启用并设置剖面框
-                    newView.IsSectionBoxActive = true;
-                    newView.SetSectionBox(sectionBox);
-                    // (可选但推荐) 调整相机视角为俯视，并缩放到合适大小
-                    //newView.LookupParameter("Display Style").Set("Shaded"); // 设置视觉样式
-                    //OrientToTop(newView);
-                    newView.CropBoxActive = false; // 关闭裁剪区域，只用剖面框
-                    tx.Commit();
-                    // 切换到新创建的视图
-                    uiDoc.ActiveView = newView;
                 }
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("tt", ex.Message.ToString());
-            }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
+            });
         }
         private string GetUniqueViewName(Document doc, string baseName)
         {
@@ -153,49 +223,26 @@ namespace CreatePipe
             }
             // 注意：因为是 while(true) 循环且总能找到一个名称，所以循环外的 return 是不需要的。
         }
-        public string CurrentLevel { get; }
-        public double CurrentLevelHeight { get; }
-        public double SliderTickFrequency { get; private set; } = 300;
-        public double CropZaxisBottomValueMin { get; set; } = 0;
+        // 属性定义
+        public double CurrentLevelHeight { get; private set; }
         public double CropZaxisBottomValueMax { get; set; }
+        public double CropZaxisTopValueMax { get; set; }
+
         private double _cropZaxisBottomValue = 0;
         public double CropZaxisBottomValue
         {
             get => _cropZaxisBottomValue;
-            set
-            {
-                if (_cropZaxisBottomValue != value)
-                {
-                    _cropZaxisBottomValue = value;
-                    OnPropertyChanged(nameof(CropZaxisBottomValue));
-                    OnPropertyChanged(nameof(CanPlaceCropView));
-                }
-            }
-            //set => SetProperty(ref _cropZaxisBottomValue, value);
+            set { _cropZaxisBottomValue = value; OnPropertyChanged(nameof(CropZaxisBottomValue)); OnPropertyChanged(nameof(CanPlaceCropView)); }
         }
-        public double CropZaxisTopValueMin { get; set; } = 300;
-        public double CropZaxisTopValueMax { get; set; }
-        private double _cropZaxisTopValue = 300;
+
+        private double _cropZaxisTopValue = 3000;
         public double CropZaxisTopValue
         {
             get => _cropZaxisTopValue;
-            set
-            {
-                if (_cropZaxisTopValue != value)
-                {
-                    _cropZaxisTopValue = value;
-                    OnPropertyChanged(nameof(CropZaxisTopValue));
-                    OnPropertyChanged(nameof(CanPlaceCropView));
-                }
-            }
+            set { _cropZaxisTopValue = value; OnPropertyChanged(nameof(CropZaxisTopValue)); OnPropertyChanged(nameof(CanPlaceCropView)); }
         }
-        public bool IsViewValid { get; private set; } = true;
-        public bool CanPlaceCropView
-        {
-            get
-            {
-                return IsViewValid && CropZaxisTopValue > CropZaxisBottomValue;
-            }
-        }
+
+        public bool CanPlaceCropView => CropZaxisTopValue > CropZaxisBottomValue;
+        public double SliderTickFrequency => 100;
     }
 }

@@ -20,13 +20,19 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
-        <TextBlock Text="当前平面标高" Margin="5"/>
+        <TextBlock Text="参考平面" Margin="5"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="5" >
-            <TextBlock Text="{Binding CurrentLevel}"/>
+            <!--<TextBlock Text="{Binding CurrentLevel}"/>-->
+            <ComboBox ItemsSource="{Binding LevelList}" 
+              SelectedItem="{Binding SelectedLevel}" 
+              DisplayMemberPath="Name" IsReadOnly="True"
+              Width="66"/>
             <TextBlock Text="  "/>
-            <TextBlock Text="本层相对内部原点高度"/>
+            <TextBlock Text="相对原点高度："/>
             <TextBlock Text="  "/>
-            <TextBlock Text="{Binding CurrentLevelHeight,StringFormat={}{0:N0}}"/>
+            <TextBlock Text="{Binding CurrentLevelHeight, StringFormat={}{0:N0}}" 
+               VerticalAlignment="Center" FontWeight="Bold"/>
+            <TextBlock Text=" mm" VerticalAlignment="Center"/>
         </StackPanel>
         <Grid Grid.Row="1" Margin="5">
             <Grid.RowDefinitions>
@@ -61,7 +67,7 @@
         IsSnapToTickEnabled="True"
         Value="{Binding CropZaxisTopValue, Mode=TwoWay}"/>
         <DockPanel Grid.Row="3" Margin="5,2" Grid.ColumnSpan="2">
-            <Button  Content="选取平面两角点生成剖面框" Height="20" IsDefault="True"
+            <Button  Content="选取平面两角点生成剖面框" Height="auto" IsDefault="True"
                      Command="{Binding PlaceCropViewCommand}"
                      HorizontalAlignment="Stretch"
                       IsEnabled="{Binding CanPlaceCropView}" Click="btn_OK_Click"/>

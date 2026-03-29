@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Data;
 
-namespace CreatePipe.Form.Converter
+namespace CreatePipe.Form.Converters
 {
     public class RevitColorConverter : IValueConverter
     {

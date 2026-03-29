@@ -103,13 +103,14 @@
     <Compile Include="Form\ClipboardCatcher.xaml.cs">
       <DependentUpon>ClipboardCatcher.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Form\Converter\AllToHiddenConverter.cs" />
-    <Compile Include="Form\Converter\BackgroundToForegroundConverter.cs" />
-    <Compile Include="Form\Converter\BoolToVisibilityConverter.cs" />
-    <Compile Include="Form\Converter\ContentTemplateSelector.cs" />
-    <Compile Include="Form\Converter\IsStringConverter.cs" />
-    <Compile Include="Form\Converter\RevitColorConverter.cs" />
-    <Compile Include="Form\Converter\TextTruncateConverter.cs" />
+    <Compile Include="Form\Converters\AllToHiddenConverter.cs" />
+    <Compile Include="Form\Converters\BackgroundToForegroundConverter.cs" />
+    <Compile Include="Form\Converters\BoolToVisibilityConverter.cs" />
+    <Compile Include="Form\Converters\ContentTemplateSelector.cs" />
+    <Compile Include="Form\Converters\IntToStringConverter.cs" />
+    <Compile Include="Form\Converters\IsStringConverter.cs" />
+    <Compile Include="Form\Converters\RevitColorConverter.cs" />
+    <Compile Include="Form\Converters\TextTruncateConverter.cs" />
     <Compile Include="Form\DuctSystemManagerView.xaml.cs">
       <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
     </Compile>
@@ -142,6 +143,9 @@
     </Compile>
     <Compile Include="Form\PipeSystemManagerView.xaml.cs">
       <DependentUpon>PipeSystemManagerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\SelectByWindowView.xaml.cs">
+      <DependentUpon>SelectByWindowView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\SequentialSelector.xaml.cs">
       <DependentUpon>SequentialSelector.xaml</DependentUpon>
@@ -457,7 +461,6 @@
     <Compile Include="Utils\Interfaces\IProgressBarService.cs" />
     <Compile Include="Utils\Interfaces\IProgressScope.cs" />
     <Compile Include="Utils\Interfaces\IQueryViewModel.cs" />
-    <Compile Include="Utils\IntToStringConverter.cs" />
     <Compile Include="Utils\JsonHelper.cs" />
     <Compile Include="Utils\JsonHelperSystem.cs" />
     <Compile Include="Utils\MEPSlopeHelper.cs" />
@@ -634,6 +637,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\RoomManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\SelectByWindowView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

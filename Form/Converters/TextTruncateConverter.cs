@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace CreatePipe.Form.Converter
+namespace CreatePipe.Form.Converters
 {
     /// <summary>
     /// 文本截断转换器 - 当文本超过指定长度时显示为...

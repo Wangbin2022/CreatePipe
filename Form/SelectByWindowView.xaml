@@ -1,0 +1,54 @@
+﻿<Window x:Class="CreatePipe.Form.SelectByWindowView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="显隐视图可见类别" Topmost="True"
+        Height="420" Width="240" WindowStartupLocation="CenterScreen"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        xmlns:uc="clr-namespace:CreatePipe.Form"
+        >
+    <Grid Margin="8">
+        <Grid.Resources>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="28"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="{Binding ViewName}" />
+        <Grid Grid.Row="1" >
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBox Width="80"  Margin="0,5"
+bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <TextBlock Text="找到类别数量：" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="28"/>
+            </Grid.RowDefinitions>
+            <uc:MultiSelectListBoxDynamicWithItemCount 
+      ItemsSource="{Binding Collection}" 
+      SelectedItems="{Binding SelectedNames, Mode=TwoWay}"
+                SelectionChangedCommand="{Binding SelectionChangedUpdateCommand}" 
+                DefaultText="请选择选择过滤类别" />
+            <TextBlock Text="仅支持选择当前视图内对象" 
+                     Grid.Row="1"
+                     VerticalAlignment="Center"/>
+        </Grid>
+        <DockPanel Grid.Row="3" >
+            <Button  Content="退出" Height="25" 
+                   HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

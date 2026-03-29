@@ -2,13 +2,18 @@
 using System.Globalization;
 using System.Windows.Data;
 
-namespace CreatePipe.Utils
+namespace CreatePipe.Form.Converters
 {
-    public class IntToStringConverter : IValueConverter
+    public class IsStringConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-            => value?.ToString() ?? "0";
+        {
+            // 如果内容是字符串，返回 True，否则返回 False
+            return value is string;
+        }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+        {
+            return Binding.DoNothing;
+        }
     }
 }

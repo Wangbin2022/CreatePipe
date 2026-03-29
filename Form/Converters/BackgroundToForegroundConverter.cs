@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace CreatePipe.Form.Converter
+namespace CreatePipe.Form.Converters
 {
     //注意存在潜在问题，转换器中： return luma > 0.45 ? ... Black : ... White; 如果 value 传入的是 Transparent（透明），color.A 为 0，
     //但 R, G, B 通常也为 0。计算出的 luma 也会是 0。 0 不大于 0.45，所以它会返回 White。 如果你在 Revit 中依然看到的是黑色，那说明：

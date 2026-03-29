@@ -7,10 +7,10 @@
         mc:Ignorable="d"
         Title="复制族类型" Height="360" Width="240"
         Topmost="True" WindowStartupLocation="CenterScreen"
-        xmlns:vc="clr-namespace:CreatePipe.Utils">
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
     <Grid>
         <Grid.Resources>
-            <vc:IntToStringConverter x:Key="IntToStringConverter"/>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
         </Grid.Resources>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0.4*"/>

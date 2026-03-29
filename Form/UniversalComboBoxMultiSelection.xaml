@@ -8,6 +8,7 @@
         Title="UniversalComboBoxMultiSelection" 
         Height="140" Width="280" Topmost="True"
         WindowStartupLocation="CenterScreen" 
+        xmlns:uc="clr-namespace:CreatePipe.Form"
         >
     <Grid>
         <Grid.ColumnDefinitions>
@@ -20,7 +21,7 @@
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5">选项列表：</TextBlock>
-        <local:MultiSelectComboBox Grid.Column="1" Margin="5" 
+        <uc:MultiSelectComboBox Grid.Column="1" Margin="5" 
                                    VerticalAlignment="Center" 
             ItemsSource="{Binding Datasource}" 
             SelectedItems="{Binding SelectedItems}"/>
@@ -30,7 +31,6 @@
            Grid.ColumnSpan="2" Width="180"/>
         <Button Grid.Row="2" Margin="5" Grid.ColumnSpan="2"
                 Content="确认" x:Name="btn_OK" IsDefault="True"
-                Command="{Binding ResultExportCommand}" 
-                Click="Button_Click"/>
+                Command="{Binding ResultExportCommand}" />
     </Grid>
 </Window>

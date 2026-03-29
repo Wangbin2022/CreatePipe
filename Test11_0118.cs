@@ -18,6 +18,7 @@ using System.IO;
 using System.Linq;
 using System.Management.Instrumentation;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Annotations;
@@ -198,24 +199,45 @@ namespace CreatePipe
             // 执行到这里时，墙已经恢复到了原来的位置，但你拿到了干涉结果 isColliding
             TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
         }
-        // 辅助方法：统一设置选择集并弹窗
-        void SelectAndShow(UIDocument uiDoc, List<ElementId> ids, string categoryName)
+        /// <summary>
+        /// 兼容性获取构件的偏移参数
+        /// </summary>
+        //private double GetElementOffset(Element el)
+        //{
+        //    // 尝试获取常见的偏移参数 ID// 大多数基于标高的族（插座、家具、机械设备等）
+        //    BuiltInParameter[] offsetParams = new[]
+        //    {
+        //        BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM,
+        //        BuiltInParameter.WALL_BASE_OFFSET,
+        //        BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM
+        //    };
+        //    foreach (var bip in offsetParams)
+        //    {
+        //        Parameter p = el.get_Parameter(bip);
+        //        if (p != null && p.HasValue)
+        //        {
+        //            return p.AsDouble();
+        //        }
+        //    }
+        //    return 0;
+        //}
+        /// <summary>
+        /// 兼容性获取构件的标高ID
+        /// </summary>
+        private ElementId GetElementLevelId(Element el)
         {
-            uiDoc.Selection.SetElementIds(ids);
-            RevitStylePopup.Show("选择完成", $"已选择 {ids.Count} 个 {categoryName}");
-        }
-        // --- 提取的辅助方法 ---
-        private Result SelectByFamilyId(Document doc, UIDocument uiDoc, ElementId familyId, string label)
-        {
-            List<ElementId> ids = new FilteredElementCollector(doc)
-                .OfClass(typeof(FamilyInstance))
-                .Cast<FamilyInstance>()
-                .Where(x => x.Symbol.Family.Id == familyId)
-                .Select(x => x.Id).ToList();
-
-            uiDoc.Selection.SetElementIds(ids);
-            RevitStylePopup.Show("选择完成", $"已选择 {ids.Count} 个相同的{label}");
-            return Result.Succeeded;
+            // 方式1：标准属性
+            if (el.LevelId != ElementId.InvalidElementId) return el.LevelId;
+            // 方式2：常用内置参数 (针对族实例、管道、风管等)
+            Parameter p = el.get_Parameter(BuiltInParameter.FAMILY_LEVEL_PARAM);
+            if (p != null && p.HasValue) return p.AsElementId();
+            // 方式3：针对房间/空间
+            p = el.get_Parameter(BuiltInParameter.ROOM_LEVEL_ID);
+            if (p != null && p.HasValue) return p.AsElementId();
+            // 方式4：针对 MEP 管线特定偏移参数
+            p = el.get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM);
+            if (p != null && p.HasValue) return p.AsElementId();
+            return ElementId.InvalidElementId;
         }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -224,655 +246,258 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //CableTray ct = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new filterCableTray(), "请选择一个元素")) as CableTray;
-            //TaskDialog.Show("tt", ct.Name);
-            ////0328 选择同类深化
-            ///优化后测试，没有筛选类别需补充
-            try
+            //0329 选择同层构件，基于通用多选窗口UniversalComboBoxMultiSelection
+            // 1. 初始选择检查
+            ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            if (selectedIds.Count == 0)
             {
-                // 1. 统一获取目标元素 (无论预选还是点选)
-                Element element = null;
-                var selectedIds = uiDoc.Selection.GetElementIds();
-                if (selectedIds.Count == 0)
-                {
-                    var reference = uiDoc.Selection.PickObject(ObjectType.Element, "请选择一个元素");
-                    element = doc.GetElement(reference.ElementId);
-                }
-                else if (selectedIds.Count == 1)
-                {
-                    element = doc.GetElement(selectedIds.FirstOrDefault());
-                }
-                else
-                {
-                    TaskDialog.Show("提示", "请单选元素后再执行此命令");
-                    return Result.Cancelled;
-                }
-                if (element == null) return Result.Failed;
-                // 2. 管道处理 (特有逻辑：需要弹窗选择管径)
-                if (element is Pipe pipe)
-                {
-                    //1.获取选定管道的系统类型 ID
-                    Parameter systemParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
-                    ElementId sysTypeId = systemParam.AsElementId();
-                    // 2. 调出窗体
-                    PipeDiameterSelectView pipeSelectView = new PipeDiameterSelectView(pipe);
-                    if (pipeSelectView.ShowDialog() != true || pipeSelectView.Strings == null || pipeSelectView.Strings.Count == 0)
-                    {
-                        TaskDialog.Show("提示", "未选择有效管径或已取消操作。");
-                        return Result.Cancelled;
-                    }
-                    // 3. 构建底层过滤器（使用 ElementId，绝对不能用 String！）
-                    ElementParameterFilter filter = new ElementParameterFilter(
-                        ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), sysTypeId));
-                    // 4. 【核心优化】只在文档中全量收集一次！不要放在 foreach 循环里
-                    IList<Element> allpipes = new FilteredElementCollector(doc).WhereElementIsNotElementType()
-                        .OfCategory(BuiltInCategory.OST_PipeCurves).WherePasses(filter)
-                        .ToElements();
-                    List<ElementId> selectedElementIds = new List<ElementId>();
-                    // 5. 将用户选中的字符串转化为 HashSet，查询速度 O(1)
-                    HashSet<string> targetDNs = new HashSet<string>(pipeSelectView.Strings);
-                    foreach (Element p in allpipes)
-                    {
-                        string pipeDN = p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString();
-                        Match match = Regex.Match(pipeDN, @"(\d+)");
-                        if (match.Success)
-                        {
-                            // 组装成跟 UI 一样的格式，比如 "100 mm"
-                            string formattedDN = match.Groups[1].Value + " mm";
-                            // 如果这个管径在用户选中的列表里，就加到选择集中
-                            if (targetDNs.Contains(formattedDN))
-                            {
-                                selectedElementIds.Add(p.Id);
-                            }
-                        }
-                    }
-                    // 6. 更新选择集
-                    if (selectedElementIds.Count > 0)
-                    {
-                        uiDoc.Selection.SetElementIds(selectedElementIds);
-                        SelectAndShow(uiDoc, selectedElementIds, "管道");
-                        //RevitStylePopup.Show("选择完成", $"已选择 {selectedElementIds.Count} 个匹配管径的管道。");
-                    }
-                    else
-                    {
-                        TaskDialog.Show("提示", "未找到符合选中管径的管道。");
-                    }
-                    return Result.Succeeded;
-                }
-                // 3. 风管处理 (修正参数获取：ElementId)
-                else if (element is Duct duct)
-                {
-                    ElementId sysTypeId = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId();
-                    var ductIds = new FilteredElementCollector(doc).OfClass(typeof(Duct)).WhereElementIsNotElementType()
-                        .Where(d => d.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM).AsElementId() == sysTypeId)
-                        .Select(d => d.Id).ToList();
-                    SelectAndShow(uiDoc, ductIds, "风管");
-                    return Result.Succeeded;
-                }
-                // 4. 桥架处理 (深化两种执行逻辑，按桥架名称或内置服务系统参数)
-                else if (element is CableTray ct)
-                {
-                    // 使用 TaskDialog 提示，明确区分“类型”与“服务系统”
-                    var options = new List<string> { "按照桥架类型筛选 (如: 梯级式)", "按照服务系统筛选 (标识数据: 服务类型)" };
-                    int choice = TaskDialogHelper.ShowCommandLinks("桥架筛选确认", 1,
-                        "请选择筛选方式",
-                        "类型：基于桥架的系统族类型名称\n服务系统：基于参数 [服务类型] (RBS_CTC_SERVICE_TYPE)", options);
-                    if (choice == -1) return Result.Cancelled;
-                    // 预定义收集器
-                    var collector = new FilteredElementCollector(doc).OfClass(typeof(CableTray)).WhereElementIsNotElementType();
-                    List<ElementId> resultIds = new List<ElementId>();
-                    if (choice == 0)
-                    {
-                        // 【优化】使用 TypeId 比对，比字符串比对更精准、更安全
-                        ElementId targetTypeId = ct.GetTypeId();
-                        resultIds = collector
-                            .Where(c => c.GetTypeId() == targetTypeId)
-                            .Select(c => c.Id)
-                            .ToList();
-                    }
-                    else if (choice == 1)
-                    {
-                        // 【优化】增加空值检查提示
-                        string serviceType = ct.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE)?.AsString();
-                        if (string.IsNullOrEmpty(serviceType))
-                        {
-                            TaskDialog.Show("提示", "当前选中的桥架 [服务类型] 参数为空，按此逻辑筛选可能不准确。");
-                        }
-                        resultIds = collector
-                            .Where(c => (c.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE)?.AsString() ?? "") == serviceType)
-                            .Select(c => c.Id).ToList();
-                    }
-                    // 统一执行选中
-                    if (resultIds.Count > 0)
-                    {
-                        uiDoc.Selection.SetElementIds(resultIds);
-                        RevitStylePopup.Show("选择完成", $"已选择 {resultIds.Count} 个相同的桥架");
-                    }
-                    else
-                    {
-                        TaskDialog.Show("提示", "未找到匹配的桥架");
-                    }
-                    return Result.Succeeded;
-                }
-                // 5. 族实例处理 (FamilyInstance: 阀门、管件、设备等)
-                else if (element is FamilyInstance familyInstance)
-                {
-                    ElementId familyId = familyInstance.Symbol.Family.Id;
-
-                    // 1. 如果根本没有 MEP 连接管理器，直接按族筛选并返回
-                    if (familyInstance.MEPModel?.ConnectorManager == null)
-                    {
-                        return SelectByFamilyId(doc, uiDoc, familyId, "构件");
-                    }
-
-                    // 2. 尝试获取系统参数 (桥架服务类型 / 管道系统 / 风管系统)
-                    Parameter sysParam = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE)
-                                      ?? familyInstance.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
-                                      ?? familyInstance.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM);
-
-                    // 3. 判定参数有效性，若无效则退回到按族筛选
-                    if (sysParam == null || !sysParam.HasValue || sysParam.AsValueString() == "未定义" || sysParam.AsValueString() == "Undefined")
-                    {
-                        return SelectByFamilyId(doc, uiDoc, familyId, "构件 (系统未定义)");
-                    }
-
-                    // 4. 进入 MEP 细分逻辑
-                    // A. 桥架配件处理逻辑 (基于 RBS_CTC_SERVICE_TYPE)
-                    if (sysParam.Definition.Name.Contains("服务类型") || sysParam.Id.IntegerValue == (int)BuiltInParameter.RBS_CTC_SERVICE_TYPE)
-                    {
-                        var options = new List<string> { "按照类型筛选 (Family Symbol)", "按照服务系统筛选 (Service Type)" };
-                        int choice = TaskDialogHelper.ShowCommandLinks("桥架配件筛选确认", 1, "请选择筛选方式", "基于类型或服务系统参数进行过滤", options);
-                        if (choice == -1) return Result.Cancelled;
-
-                        var ctfCollector = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_CableTrayFitting).WhereElementIsNotElementType();
-                        List<ElementId> resultIds;
-
-                        if (choice == 0) // 按类型
-                        {
-                            ElementId targetTypeId = familyInstance.GetTypeId();
-                            resultIds = ctfCollector.Where(c => c.GetTypeId() == targetTypeId).Select(c => c.Id).ToList();
-                        }
-                        else // 按服务系统
-                        {
-                            string serviceType = sysParam.AsString() ?? "";
-                            if (string.IsNullOrEmpty(serviceType)) TaskDialog.Show("提示", "当前选中的桥架 [服务类型] 参数为空，按此逻辑筛选可能不准确。");
-                            resultIds = ctfCollector.Where(c => (c.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE)?.AsString() ?? "") == serviceType).Select(c => c.Id).ToList();
-                        }
-
-                        uiDoc.Selection.SetElementIds(resultIds);
-                        RevitStylePopup.Show("完成", $"已选择 {resultIds.Count} 个匹配的桥架配件");
-                        return Result.Succeeded;
-                    }
-
-                    // B. 管道/风管配件及设备处理逻辑 (基于 ElementId 匹配系统)
-                    else
-                    {
-                        ElementId targetSystemId = sysParam.AsElementId();
-                        BuiltInParameter targetBip = sysParam.Definition.Name.Contains("PIPING")
-                            ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
-                            : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
-
-                        List<ElementId> resultIds = new FilteredElementCollector(doc)
-                            .OfClass(typeof(FamilyInstance))
-                            .Cast<FamilyInstance>()
-                            .Where(x => x.Symbol.Family.Id == familyId) // 必须是同一个族
-                            .Where(x => x.MEPModel?.ConnectorManager != null) // 必须有连接
-                            .Where(x => x.get_Parameter(targetBip)?.AsElementId() == targetSystemId) // 系统ID匹配
-                            .Select(x => x.Id).ToList();
-
-                        uiDoc.Selection.SetElementIds(resultIds);
-                        RevitStylePopup.Show("完成", $"已选择 {resultIds.Count} 个相同系统的族实例");
-                        return Result.Succeeded;
-
-                        //if (familyInstance != null && familyInstance.MEPModel?.ConnectorManager != null)
-                        //{
-                        //    Parameter systemTypeParam = null;
-                        //    var parameters = new[]
-                        //    {BuiltInParameter.RBS_CTC_SERVICE_TYPE, BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM };
-                        //    foreach (var paramId in parameters)
-                        //    {
-                        //        systemTypeParam = familyInstance.get_Parameter(paramId);
-                        //        if (systemTypeParam != null && systemTypeParam.HasValue) break;
-                        //    }
-                        //    if (systemTypeParam == null || !systemTypeParam.HasValue)
-                        //    {
-                        //        ElementId familyId = familyInstance.Symbol.Family.Id;
-                        //        List<ElementId> fanilyInatanceIds = new List<ElementId>();
-                        //        List<FamilyInstance> ctr = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
-                        //        foreach (FamilyInstance instance in ctr)
-                        //        {
-                        //            if (instance.Symbol.Family.Id == familyId)
-                        //            {
-                        //                fanilyInatanceIds.Add(instance.Id);
-                        //            }
-                        //        }
-                        //        uiDoc.Selection.SetElementIds(fanilyInatanceIds);
-                        //        RevitStylePopup.Show("选择完成", $"已选择 {fanilyInatanceIds.Count} 个相同的构件");
-                        //        return Result.Succeeded;
-
-                        //        //TaskDialog.Show("提示", "该构件系统类型未定义");
-                        //        //return Result.Failed;
-                        //    }
-                        //    string paramValue = systemTypeParam.AsValueString();
-                        //    if (paramValue == "Undefined" || paramValue == "未定义")
-                        //    {
-                        //        TaskDialog.Show("提示", "该构件系统类型未定义");
-                        //        return Result.Failed;
-                        //    }
-                        //    // 获取匹配的构件
-                        //    ElementId familySymbolId = familyInstance.Symbol.Family.Id;
-                        //    List<ElementId> selectedElementIds = new List<ElementId>();
-                        //    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
-                        //    if (!(familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE) is null))
-                        //    {
-                        //        // 使用 TaskDialog 提示，明确区分“类型”与“服务系统”
-                        //        var options = new List<string> { "按照桥架类型筛选 (如: 梯级式)", "按照服务系统筛选 (标识数据: 服务类型)" };
-                        //        int choice = TaskDialogHelper.ShowCommandLinks("桥架配件筛选确认", 1,
-                        //            "请选择筛选方式",
-                        //            "类型：基于桥架的系统族类型名称\n服务系统：基于参数 [服务类型] (RBS_CTC_SERVICE_TYPE)", options);
-                        //        if (choice == -1) return Result.Cancelled;
-                        //        // 预定义收集器
-                        //        var ctfCollector = new FilteredElementCollector(doc).
-                        //            OfCategory(BuiltInCategory.OST_CableTrayFitting).WhereElementIsNotElementType();
-                        //        List<ElementId> resultIds = new List<ElementId>();
-                        //        if (choice == 0)
-                        //        {
-                        //            // 【优化】使用 TypeId 比对，比字符串比对更精准、更安全
-                        //            ElementId targetTypeId = familyInstance.GetTypeId();
-                        //            resultIds = ctfCollector
-                        //                .Where(c => c.GetTypeId() == targetTypeId)
-                        //                .Select(c => c.Id)
-                        //                .ToList();
-                        //        }
-                        //        else if (choice == 1)
-                        //        {
-                        //            // 【优化】增加空值检查提示
-                        //            string serviceType = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE)?.AsString();
-                        //            if (string.IsNullOrEmpty(serviceType))
-                        //            {
-                        //                TaskDialog.Show("提示", "当前选中的桥架 [服务类型] 参数为空，按此逻辑筛选可能不准确。");
-                        //            }
-                        //            resultIds = ctfCollector
-                        //                .Where(c => (c.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE)?.AsString() ?? "") == serviceType)
-                        //                .Select(c => c.Id).ToList();
-                        //        }
-                        //        // 统一执行选中
-                        //        if (resultIds.Count > 0)
-                        //        {
-                        //            uiDoc.Selection.SetElementIds(resultIds);
-                        //            RevitStylePopup.Show("选择完成", $"已选择 {resultIds.Count} 个相同的桥架配件");
-                        //            return Result.Succeeded;
-                        //        }
-                        //        else
-                        //        {
-                        //            TaskDialog.Show("提示", "未找到匹配的桥架");
-                        //            return Result.Failed;
-                        //        }
-                        //    }
-                        //    else
-                        //    {
-                        //        foreach (FamilyInstance instance in collector)
-                        //        {
-                        //            if (instance.MEPModel?.ConnectorManager == null) continue;
-                        //            // 电气系统特殊处理          
-                        //            // 管道/风管系统处理
-                        //            BuiltInParameter targetParameter = systemTypeParam.Definition.Name.Contains("PIPING")
-                        //                ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
-                        //                : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
-                        //            Parameter systemParam = instance.get_Parameter(targetParameter);
-                        //            if (systemParam != null && systemParam.AsElementId() == systemTypeParam.AsElementId() && instance.Symbol.Family.Id == familySymbolId)
-                        //            {
-                        //                selectedElementIds.Add(instance.Id);
-                        //            }
-                        //        }
-                        //        // 更新选择集
-                        //        uiDoc.Selection.SetElementIds(selectedElementIds);
-                        //        RevitStylePopup.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
-                        //    }
-                        //}
-                        //else
-                        //{
-                        //    //// 如果没有 MEP 连接管理器选全部
-                        //    if (familyInstance != null)
-                        //    {
-                        //        ElementId familyId = familyInstance.Symbol.Family.Id;
-                        //        List<ElementId> fanilyInatanceIds = new List<ElementId>();
-                        //        List<FamilyInstance> collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
-                        //        foreach (FamilyInstance instance in collector)
-                        //        {
-                        //            if (instance.Symbol.Family.Id == familyId)
-                        //            {
-                        //                fanilyInatanceIds.Add(instance.Id);
-                        //            }
-                        //        }
-                        //        uiDoc.Selection.SetElementIds(fanilyInatanceIds);
-                        //        RevitStylePopup.Show("选择完成", $"已选择 {fanilyInatanceIds.Count} 个相同的构件");
-                        //        return Result.Succeeded;
-                        //    }
-                        //}
-                    }
-                }
-                // 6. 系统族处理 (墙、板、天花板、屋顶、楼梯等)
-                // 修正：使用更稳健的类型判定
-                else if (element is Wall || element is Floor || element is Ceiling || element is ExtrusionRoof || element is FootPrintRoof || element is Stairs || element is Railing || element is Grid || element is Dimension || element is Level || element is View || element is TextNote || element is ReferencePlane)
-                {
-                    ElementId symbolId = element.GetTypeId();
-                    Type elementType = element.GetType(); // 动态获取当前构件的真实类型 (比如 typeof(Wall))
-                                                          // 2. 将动态类型 elementType 传给 OfClass，一套逻辑搞定所有类别！
-                    List<ElementId> elementIds = new FilteredElementCollector(doc).OfClass(elementType)
-                        .WhereElementIsNotElementType().Where(e => e.GetTypeId() == symbolId)
-                        .Select(e => e.Id).ToList();
-                    // 3. 统一处理选中和弹窗
-                    uiDoc.Selection.SetElementIds(elementIds);
-                    RevitStylePopup.Show("选择完成", $"已选择 {elementIds.Count} 个相同的构件");
-                    return Result.Succeeded;
-                }
-                else TaskDialog.Show("提示", "不支持该构件的同类选择");
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
+                TaskDialog.Show("提示", "请先选择一批构件。");
                 return Result.Cancelled;
             }
-            catch (Exception ex)
+            // 2. 标高预处理：按高度分组并处理重叠逻辑
+            // Key: UI显示的名称, Value: 该高度对应的所有标高ID
+            Dictionary<string, List<ElementId>> levelMapping = new Dictionary<string, List<ElementId>>();
+            var levelGroups = new FilteredElementCollector(doc).OfClass(typeof(Level))
+                .Cast<Level>().GroupBy(l => Math.Round(l.Elevation, 6)); // 精度处理，防止微小浮点误差
+            foreach (var group in levelGroups.OrderBy(g => g.Key))
             {
-                TaskDialog.Show("错误", ex.Message);
-                return Result.Failed;
+                List<Level> levelsAtThisHeight = group.ToList();
+                Level primary = levelsAtThisHeight.First();
+                string displayName = primary.Name;
+                // 如果存在重叠标高
+                if (levelsAtThisHeight.Count > 1)
+                {
+                    var others = levelsAtThisHeight.Skip(1).Select(l => l.Name);
+                    displayName += $" (重叠: {string.Join(", ", others)})";
+                }
+                // 存储映射关系
+                levelMapping.Add(displayName, levelsAtThisHeight.Select(l => l.Id).ToList());
+            }
+            // 3. 弹出通用多选窗体
+            var dialog = new UniversalComboBoxMultiSelection(levelMapping.Keys.ToList(), "请选择目标楼层（同高已合并）：");
+            if (dialog.ShowDialog() != true) return Result.Cancelled;
+            // 4. 获取所有被选中的物理标高 ID (Flatten 所有的 List)
+            HashSet<ElementId> targetLevelIds = new HashSet<ElementId>();
+            foreach (string uiName in dialog.SelectedResult)
+            {
+                if (levelMapping.ContainsKey(uiName))
+                {
+                    foreach (var id in levelMapping[uiName]) targetLevelIds.Add(id);
+                }
+            }
+            if (targetLevelIds.Count == 0) return Result.Cancelled;
+            // 5. 构件过滤逻辑
+            List<ElementId> finalIds = new List<ElementId>();
+            int noLevelCount = 0;
+            foreach (ElementId id in selectedIds)
+            {
+                Element el = doc.GetElement(id);
+                ElementId elLevelId = GetElementLevelId(el);
+                if (elLevelId == ElementId.InvalidElementId)
+                {
+                    noLevelCount++;
+                    continue;
+                }
+                // 核心判定：构件的标高ID是否在用户选择的“高度组”ID池中
+                if (targetLevelIds.Contains(elLevelId))
+                {
+                    finalIds.Add(id);
+                }
+            }
+            // 6. 结果反馈
+            if (finalIds.Count > 0)
+            {
+                uiDoc.Selection.SetElementIds(finalIds);
+                string info = $"过滤完成！\n原始选中：{selectedIds.Count} 个\n属于目标楼层：{finalIds.Count} 个";
+                if (noLevelCount > 0) info += $"\n排除无标高属性构件：{noLevelCount} 个";
+                TaskDialog.Show("成功", info);
+            }
+            else
+            {
+                TaskDialog.Show("结果", "所选构件均不属于指定的楼层。");
             }
 
-            ////1110增加管道管径选择逻辑 1101.1026 按构件机电类别选择
-            //原始代码
-            //try
+            ////// 1. 准备测试数据
+            ////List<string> testData = new List<string> { "选项 A", "选项 B", "选项 C", "选项 D" };
+            ////string prompt = "请选择需要处理的构件类型：";
+            ////// 2. 实例化并显示窗体
+            ////var dialog = new UniversalComboBoxMultiSelection(testData, prompt);
+            ////// 3. 逻辑判断
+            ////if (dialog.ShowDialog() == true)
+            ////{
+            ////    // 获取结果
+            ////    var result = dialog.SelectedResult;
+            ////    string msg = string.Join(", ", result);
+            ////    TaskDialog.Show("测试成功", $"你选择了: {msg}");
+            ////}
+            ////else
+            ////{
+            ////    TaskDialog.Show("测试取消", "用户关闭了窗口或取消了操作。");
+            ////}
+
+            //////0329 关闭水暖系统的后台计算。OK
+            //using (Transaction t = new Transaction(doc, "关闭机电系统计算"))
             //{
-            //    // 获取用户选择的元素
-            //    FamilyInstance familyInstance = null;
-            //    Pipe pipe = null;
-            //    Duct duct = null;
-            //    CableTray ct = null;
-            //    Element element = null;
-            //    ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-            //    if (selectedIds.Count == 0)
+            //    t.Start();
+            //    int ductChangedCount = 0;
+            //    int pipeChangedCount = 0;
+            //    // 1. 获取并修改所有【风管系统类型】
+            //    var ductSystemTypes = new FilteredElementCollector(doc)
+            //        .OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>();
+            //    foreach (MechanicalSystemType dst in ductSystemTypes)
             //    {
-            //        var reference = uiDoc.Selection.PickObject(ObjectType.Element, "选择元素");
-            //        element = doc.GetElement(reference.ElementId);
-            //        if (element is FamilyInstance)
-            //        {
-            //            familyInstance = doc.GetElement(reference.ElementId) as FamilyInstance;
-            //        }
-            //        else if (element is Pipe)
-            //        {
-            //            pipe = doc.GetElement(reference.ElementId) as Pipe;
-            //        }
-            //        else if (element is Duct)
-            //        {
-            //            duct = doc.GetElement(reference.ElementId) as Duct;
-            //        }
-            //        else if (element is CableTray)
-            //        {
-            //            ct = doc.GetElement(reference.ElementId) as CableTray;
-            //        }
-            //        else if (element is Wall || element is Floor || element is Ceiling || element is ExtrusionRoof || element is FootPrintRoof || element is Stairs || element is Railing || element is Grid || element is Dimension || element is Level || element is View || element is TextNote || element is ReferencePlane)
-            //        {
-            //        }
-            //        else
-            //        {
-            //            TaskDialog.Show("tt", "不支持该项按同类选择");
-            //            return Result.Cancelled;
-            //        }
+            //        var para = dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM);
+            //        para.Set(0);
+            //        ductChangedCount++;
+            //    }
+            //    //// 2. 获取并修改所有【管道系统类型】
+            //    var pipeSystemTypes = new FilteredElementCollector(doc)
+            //        .OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>();
+            //    foreach (var pst in pipeSystemTypes)
+            //    {
+            //        var para = pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM);
+            //        para.Set(0);
+            //        pipeChangedCount++;
+            //    }
+            //    t.Commit();
+            //    //// 可选：弹窗提示结果
+            //    TaskDialog.Show("优化完成",
+            //    $"成功关闭了计算：\n{ductChangedCount} 个风管系统类型\n{pipeChangedCount} 个管道系统类型\n\n现在修改机电管线将不会触发后台卡顿。");
+            //}
+
+            ////0329 选择偏移量（Offset）设置过大构件，逻辑还不够清晰，误差太大
+            //// 1. 获取并排序所有标高
+            //List<Level> sortedLevels = new FilteredElementCollector(doc).OfClass(typeof(Level))
+            //    .Cast<Level>().OrderBy(l => l.Elevation).ToList();
+            //if (sortedLevels.Count < 1) return Result.Cancelled;
+            //// 2. 收集需要检查的构件（排除链接和类型）
+            //List<Element> allElements = new FilteredElementCollector(doc, doc.ActiveView.Id).WhereElementIsNotElementType()
+            //    .Where(e => e.Category != null && e.LevelId != ElementId.InvalidElementId).ToList();
+            //List<ElementId> anomalyIds = new List<ElementId>();
+            //foreach (Element el in allElements)
+            //{
+            //    // 获取构件关联的标高
+            //    Level currentLevel = sortedLevels.FirstOrDefault(l => l.Id == el.LevelId);
+            //    if (currentLevel == null) continue;
+            //    // 获取当前层的层间高差（寻找上一层）
+            //    int currentIndex = sortedLevels.IndexOf(currentLevel);
+            //    double heightToNextLevel = double.MaxValue;
+            //    double heightToBelowLevel = double.MaxValue;
+            //    if (currentIndex < sortedLevels.Count - 1)
+            //    {
+            //        // 有上一层，计算差值
+            //        heightToNextLevel = sortedLevels[currentIndex + 1].Elevation - currentLevel.Elevation;
             //    }
             //    else
             //    {
-            //        if (selectedIds.Count > 1)
-            //        {
-            //            TaskDialog.Show("tt", "不支持选择多个，请单选后重新执行");
-            //            return Result.Cancelled;
-            //        }
-            //        element = doc.GetElement(selectedIds.First());
-            //        if (element is FamilyInstance)
-            //        {
-            //            familyInstance = doc.GetElement(element.Id) as FamilyInstance;
-            //        }
-            //        else if (element is Pipe)
-            //        {
-            //            pipe = doc.GetElement(element.Id) as Pipe;
-            //        }
-            //        else if (element is Duct)
-            //        {
-            //            duct = doc.GetElement(element.Id) as Duct;
-            //        }
-            //        else if (element is CableTray)
-            //        {
-            //            ct = doc.GetElement(element.Id) as CableTray;
-            //        }
-            //        else if (element is Wall || element is Floor || element is Ceiling || element is ExtrusionRoof || element is FootPrintRoof || element is Stairs || element is Railing || element is Grid || element is Dimension || element is Level || element is View || element is TextNote || element is ReferencePlane)
-            //        {
-            //        }
-            //        else
-            //        {
-            //            TaskDialog.Show("tt", "不支持该项按同类选择");
-            //            return Result.Cancelled;
-            //        }
+            //        // 顶层，设定一个经验阈值（如 5米）
+            //        heightToNextLevel = 5000 / 304.8;
             //    }
-            //    //// 管道处理，获取管径参数并按系统选择
-            //    if (pipe != null)
+            //    if (currentIndex > 0)
             //    {
-            //        // 1. 获取选定管道的系统类型 ID
-            //        Parameter systemParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM);
-            //        ElementId sysTypeId = systemParam.AsElementId();
-            //        // 2. 调出窗体
-            //        PipeDiameterSelectView pipeSelectView = new PipeDiameterSelectView(pipe);
-            //        if (pipeSelectView.ShowDialog() != true || pipeSelectView.Strings == null || pipeSelectView.Strings.Count == 0)
-            //        {
-            //            TaskDialog.Show("提示", "未选择有效管径或已取消操作。");
-            //            return Result.Cancelled;
-            //        }
-            //        // 3. 构建底层过滤器（使用 ElementId，绝对不能用 String！）
-            //        ElementParameterFilter filter = new ElementParameterFilter(
-            //            ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), sysTypeId));
-            //        // 4. 【核心优化】只在文档中全量收集一次！不要放在 foreach 循环里
-            //        IList<Element> allpipes = new FilteredElementCollector(doc).WhereElementIsNotElementType()
-            //            .OfCategory(BuiltInCategory.OST_PipeCurves).WherePasses(filter)
-            //            .ToElements();
-            //        List<ElementId> selectedElementIds = new List<ElementId>();
-            //        // 5. 将用户选中的字符串转化为 HashSet，查询速度 O(1)
-            //        HashSet<string> targetDNs = new HashSet<string>(pipeSelectView.Strings);
-            //        foreach (Element p in allpipes)
-            //        {
-            //            string pipeDN = p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString();
-            //            Match match = Regex.Match(pipeDN, @"(\d+)");
-            //            if (match.Success)
-            //            {
-            //                // 组装成跟 UI 一样的格式，比如 "100 mm"
-            //                string formattedDN = match.Groups[1].Value + " mm";
-            //                // 如果这个管径在用户选中的列表里，就加到选择集中
-            //                if (targetDNs.Contains(formattedDN))
-            //                {
-            //                    selectedElementIds.Add(p.Id);
-            //                }
-            //            }
-            //        }
-            //        // 6. 更新选择集
-            //        if (selectedElementIds.Count > 0)
-            //        {
-            //            uiDoc.Selection.SetElementIds(selectedElementIds);
-            //            RevitStylePopup.Show("选择完成", $"已选择 {selectedElementIds.Count} 个匹配管径的管道。");
-            //        }
-            //        else
-            //        {
-            //            TaskDialog.Show("提示", "未找到符合选中管径的管道。");
-            //        }
+            //        // 有下一层
+            //        heightToBelowLevel = currentLevel.Elevation - sortedLevels[currentIndex - 1].Elevation;
             //    }
-            //    //风管处理,按系统选择
-            //    if (duct != null)
+            //    // 3. 提取偏移量参数 (尝试常见的内置参数)
+            //    double offset = GetElementOffset(el);
+            //    // 4. 判定异常：偏移值大于层高，或者负偏移超过下层高度
+            //    if (offset > heightToNextLevel || (offset < 0 && Math.Abs(offset) > heightToBelowLevel))
             //    {
-            //        Parameter serviceParam = duct.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM);
-            //        if (serviceParam == null)
-            //        {
-            //            RevitStylePopup.Show("提示", "该风管不支持类型参数！");
-            //            return Result.Cancelled;
-            //        }
-            //        string targetDuctSystem = serviceParam.AsString() ?? "";
-            //        List<ElementId> elementIds = new FilteredElementCollector(doc)
-            //            .OfClass(typeof(Duct)).WhereElementIsNotElementType()
-            //            .Where(item =>
-            //            {
-            //                Parameter p = item.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM);
-            //                // 确保被遍历的桥架也有这个参数，并且提取它的字符串值与目标值进行比对
-            //                return p != null && (p.AsString() ?? "") == targetDuctSystem;
-            //            }).Select(item => item.Id).ToList();
-            //        if (elementIds.Count > 0)
-            //        {
-            //            uiDoc.Selection.SetElementIds(elementIds);
-            //            RevitStylePopup.Show("选择完成", $"已选择 {elementIds.Count} 个相同系统类型的风管");
-            //        }
-            //        else
-            //        {
-            //            RevitStylePopup.Show("提示", "未找到相同系统类型的风管");
-            //        }
-            //        return Result.Succeeded;
-            //    }
-            //    //桥架处理,按系统选择
-            //    if (ct != null)
-            //    {
-            //        // 1. 获取源桥架的参数对象
-            //        Parameter serviceParam = ct.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-            //        if (serviceParam == null)
-            //        {
-            //            RevitStylePopup.Show("提示", "该桥架不支持服务类型参数！");
-            //            return Result.Cancelled;
-            //        }
-            //        // 2. 【关键修复】提取真正的字符串值！
-            //        // 使用 ?? "" 语法：如果该桥架没填服务类型(为null)，就当做空字符串处理，完美避免报错！
-            //        string targetServiceType = serviceParam.AsString() ?? "";
-            //        // 3. 【终极优化】使用 LINQ 结合收集器，安全且高效地过滤
-            //        List<ElementId> elementIds = new FilteredElementCollector(doc)
-            //            .OfClass(typeof(CableTray))
-            //            .WhereElementIsNotElementType()
-            //            .Where(item =>
-            //            {
-            //                Parameter p = item.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-            //                // 确保被遍历的桥架也有这个参数，并且提取它的字符串值与目标值进行比对
-            //                return p != null && (p.AsString() ?? "") == targetServiceType;
-            //            })
-            //            .Select(item => item.Id)
-            //            .ToList();
-            //        // 4. 更新选择集并提示
-            //        if (elementIds.Count > 0)
-            //        {
-            //            uiDoc.Selection.SetElementIds(elementIds);
-            //            RevitStylePopup.Show("选择完成", $"已选择 {elementIds.Count} 个相同服务类型的桥架");
-            //        }
-            //        else
-            //        {
-            //            RevitStylePopup.Show("提示", "未找到相同服务类型的桥架");
-            //        }
-            //        return Result.Succeeded;
-            //    }
-            //    // 1. 判断是否属于我们想要处理的类别（如果未来想支持屋顶，直接在这里加 "|| selectedElement is RoofBase" 即可）
-            //    if (element is Wall || element is Floor || element is Ceiling || element is ExtrusionRoof || element is FootPrintRoof || element is Stairs || element is Railing || element is Grid || element is Dimension || element is Level || element is View || element is TextNote || element is ReferencePlane)
-            //    {
-            //        ElementId symbolId = element.GetTypeId();
-            //        Type elementType = element.GetType(); // 动态获取当前构件的真实类型 (比如 typeof(Wall))
-            //        // 2. 将动态类型 elementType 传给 OfClass，一套逻辑搞定所有类别！
-            //        List<ElementId> elementIds = new FilteredElementCollector(doc).OfClass(elementType)
-            //            .WhereElementIsNotElementType().Where(e => e.GetTypeId() == symbolId)
-            //            .Select(e => e.Id).ToList();
-            //        // 3. 统一处理选中和弹窗
-            //        uiDoc.Selection.SetElementIds(elementIds);
-            //        RevitStylePopup.Show("选择完成", $"已选择 {elementIds.Count} 个相同的构件");
-            //        return Result.Succeeded;
-            //    }
-            //    //// 可载入实例处理，获取系统参数并选择全部
-            //    if (familyInstance != null && familyInstance.MEPModel?.ConnectorManager != null)
-            //    {
-            //        Parameter systemTypeParam = null;
-            //        var parameters = new[]
-            //        {BuiltInParameter.RBS_CTC_SERVICE_TYPE, BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM };
-            //        foreach (var paramId in parameters)
-            //        {
-            //            systemTypeParam = familyInstance.get_Parameter(paramId);
-            //            if (systemTypeParam != null && systemTypeParam.HasValue) break;
-            //        }
-            //        if (systemTypeParam == null || !systemTypeParam.HasValue)
-            //        {
-            //            TaskDialog.Show("提示", "该构件系统类型未定义");
-            //            return Result.Failed;
-            //        }
-            //        string paramValue = systemTypeParam.AsValueString();
-            //        if (paramValue == "Undefined" || paramValue == "未定义")
-            //        {
-            //            TaskDialog.Show("提示", "该构件系统类型未定义");
-            //            return Result.Failed;
-            //        }
-            //        // 获取匹配的构件
-            //        ElementId familySymbolId = familyInstance.Symbol.Family.Id;
-            //        List<ElementId> selectedElementIds = new List<ElementId>();
-            //        FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance));
-            //        foreach (FamilyInstance instance in collector)
-            //        {
-            //            if (instance.MEPModel?.ConnectorManager == null) continue;
-            //            // 电气系统特殊处理                    
-            //            if (!(familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE) is null))
-            //            {
-            //                paramValue = familyInstance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE).AsString();
-            //                Parameter systemParam = instance.get_Parameter(BuiltInParameter.RBS_CTC_SERVICE_TYPE);
-            //                if (systemParam != null && systemParam.AsValueString() == paramValue && instance.Symbol.Family.Id == familySymbolId)
-            //                {
-            //                    selectedElementIds.Add(instance.Id);
-            //                }
-            //            }
-            //            else
-            //            {
-            //                // 管道/风管系统处理
-            //                BuiltInParameter targetParameter = systemTypeParam.Definition.Name.Contains("PIPING")
-            //                    ? BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM
-            //                    : BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM;
-            //                Parameter systemParam = instance.get_Parameter(targetParameter);
-            //                if (systemParam != null && systemParam.AsElementId() == systemTypeParam.AsElementId() && instance.Symbol.Family.Id == familySymbolId)
-            //                {
-            //                    selectedElementIds.Add(instance.Id);
-            //                }
-            //            }
-            //        }
-            //        // 更新选择集
-            //        uiDoc.Selection.SetElementIds(selectedElementIds);
-            //        RevitStylePopup.Show("选择完成", $"已选择 {selectedElementIds.Count} 个相同系统类型的构件");
-            //    }
-            //    else
-            //    {
-            //        //// 如果没有 MEP 连接管理器选全部
-            //        if (familyInstance != null)
-            //        {
-            //            ElementId familyId = familyInstance.Symbol.Family.Id;
-            //            List<ElementId> fanilyInatanceIds = new List<ElementId>();
-            //            List<FamilyInstance> collector = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
-            //            foreach (FamilyInstance instance in collector)
-            //            {
-            //                if (instance.Symbol.Family.Id == familyId)
-            //                {
-            //                    fanilyInatanceIds.Add(instance.Id);
-            //                }
-            //            }
-            //            uiDoc.Selection.SetElementIds(fanilyInatanceIds);
-            //            RevitStylePopup.Show("选择完成", $"已选择 {fanilyInatanceIds.Count} 个相同的构件");
-            //            return Result.Succeeded;
-            //        }
+            //        anomalyIds.Add(el.Id);
             //    }
             //}
-            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //// 5. 反馈结果并选中
+            //if (anomalyIds.Any())
             //{
-            //    return Result.Cancelled;
+            //    uiDoc.Selection.SetElementIds(anomalyIds);
+            //    TaskDialog.Show("检测结果", $"发现 {anomalyIds.Count} 个标高异常构件（偏移量超出层高范围）。已在视图中选中这些构件。");
             //}
-            //catch (Exception ex)
+            //else
             //{
-            //    TaskDialog.Show("错误", ex.Message);
-            //    return Result.Failed;
+            //    TaskDialog.Show("检测结果", "未发现明显的标高偏移异常构件。");
             //}
 
-            //0327 快捷类型显隐
-            //ToggleVisibilityView toggleVisibilityView = new ToggleVisibilityView(uiApp);
-            //toggleVisibilityView.Show();
+            //////0329 选择当前视图 中对象
+            //SelectByWindowView selectByWindowView = new SelectByWindowView(uiApp);
+            //selectByWindowView.Show();
 
-            //////0326 视图显隐测试——》引出viewmodel的释放问题-》批量链接功能卡死测试(可能是2026的BUG，单例能成功执行，与其他同开不行(待后期考察是否是进度条的锅))
+            ////0329 视图上下无限设置
+            ////一行验证
+            //if (!CategoryVisibilityService.CanModifyViewVisibility(activeView)) return Result.Cancelled;
+            //var options = new List<string> { "向上无限 (Top Unlimited)", "向下无限 (Bottom Unlimited)", "上下无限 (Both Unlimited)", "恢复标准设置 (Reset)" };
+            //int choice = TaskDialogHelper.ShowCommandLinks("平面视图范围快速切换", 2, "请选择视图可见性预设", "该操作将调整当前平面视图的 View Range 参数。", options);
+            //// 如果用户点击右上角X或按ESC
+            //if (choice == -1) return Result.Cancelled;
+            //ViewPlan viewPlan = uiDoc.ActiveView as ViewPlan;
+            //Level currentLevel = viewPlan.GenLevel;
+            //using (Transaction tx = new Transaction(doc, "快速设置视图范围"))
+            //{
+            //    tx.Start();
+            //    // 获取视图范围对象
+            //    PlanViewRange viewRange = viewPlan.GetViewRange();
+            //    if (choice == 0)
+            //    {
+            //        // 顶部和顶部偏移设为无限
+            //        viewRange.SetLevelId(PlanViewPlane.TopClipPlane, PlanViewRange.Unlimited);
+            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, viewRange.GetLevelId(PlanViewPlane.BottomClipPlane)); // 深度保持与底一致
+            //    }
+            //    if (choice == 1)
+            //    {
+            //        // 底部和视图深度设为无限
+            //        viewRange.SetLevelId(PlanViewPlane.BottomClipPlane, PlanViewRange.Unlimited);
+            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, PlanViewRange.Unlimited);
+            //    }
+            //    if (choice == 2)
+            //    {
+            //        viewRange.SetLevelId(PlanViewPlane.TopClipPlane, PlanViewRange.Unlimited);
+            //        viewRange.SetLevelId(PlanViewPlane.BottomClipPlane, PlanViewRange.Unlimited);
+            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, PlanViewRange.Unlimited);
+            //    }
+            //    if (choice == 3)
+            //    {
+            //        // 1. 查找上一层标高
+            //        Level nextLevel = new FilteredElementCollector(doc)
+            //            .OfClass(typeof(Level))
+            //            .Cast<Level>()
+            //            .Where(l => l.Elevation > currentLevel.Elevation)
+            //            .OrderBy(l => l.Elevation)
+            //            .FirstOrDefault();
+            //        double topOffset = 0;
+            //        double cutPlaneOffset = 1200 / 304.8; // 默认 1200mm
+            //        if (nextLevel != null)
+            //        {
+            //            double heightDiff = (nextLevel.Elevation - currentLevel.Elevation); // 内部单位 feet
+            //            topOffset = heightDiff; // 顶部设在上一层标高位置（偏移0）
+            //            // 逻辑：如果层高小于 1200mm (约3.93英尺)，剖切面设在中间
+            //            if (heightDiff < cutPlaneOffset)
+            //            {
+            //                cutPlaneOffset = heightDiff / 2.0;
+            //            }
+            //        }
+            //        else
+            //        {
+            //            // 如果没有上一层，顶部默认 2300mm
+            //            topOffset = 2300 / 304.8;
+            //        }
+            //        // 设置恢复参数
+            //        viewRange.SetLevelId(PlanViewPlane.TopClipPlane, currentLevel.Id);
+            //        viewRange.SetOffset(PlanViewPlane.TopClipPlane, topOffset);
+            //        viewRange.SetLevelId(PlanViewPlane.CutPlane, currentLevel.Id);
+            //        viewRange.SetOffset(PlanViewPlane.CutPlane, cutPlaneOffset);
+            //        viewRange.SetLevelId(PlanViewPlane.BottomClipPlane, currentLevel.Id);
+            //        viewRange.SetOffset(PlanViewPlane.BottomClipPlane, 0.0);
+            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, currentLevel.Id);
+            //        viewRange.SetOffset(PlanViewPlane.ViewDepthPlane, 0.0);
+            //    }
+            //    viewPlan.SetViewRange(viewRange);
+            //    tx.Commit();
+            //}
+
+            //ManualCropZaxisView manualCropZaxisView = new ManualCropZaxisView(uiApp);
+            //manualCropZaxisView.Show();
+
+            ////0328 选择同位置构件,也是仅支持单个，需要验证名称，XY坐标与当前元素相同，仅Z值不同对象并选中，含原构件
+
             //////0315 窗口及控件测试模板
             //TestWindow testWindow = new TestWindow(uiApp);
             //testWindow.ShowDialog();
