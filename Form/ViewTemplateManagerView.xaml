@@ -4,36 +4,34 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CreatePipe.Form"
-        xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
-        xmlns:vm="clr-namespace:CreatePipe"
-        xmlns:Form="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
         Title="ViewTemplateManagerView" Height="450" Width="720"
-        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize">
+        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
+       xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
+       xmlns:uc="clr-namespace:CreatePipe.Form"
+        xmlns:helper="clr-namespace:CreatePipe.Utils">
     <Grid Margin="10">
+        <Grid.Resources>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+        </Grid.Resources>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="3.5*"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
-        <Grid Grid.ColumnSpan="2">
+        <Grid Grid.ColumnSpan="2" >
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <TextBox Width="200" VerticalAlignment="Center"  
-                     Text="{Binding Keyword,UpdateSourceTrigger=PropertyChanged}">
-                    <i:Interaction.Triggers>
-                        <i:EventTrigger EventName="TextChanged">
-                            <i:InvokeCommandAction Command="{Binding QueryELementCommand}"/>
-                        </i:EventTrigger>
-                    </i:Interaction.Triggers>
-                </TextBox>
+                <TextBox Width="230"  Margin="0,5"
+  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <TextBlock Text="{Binding ViewTemplateCount,UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
-                <Button Width="80" Margin="2" Content="删除视图样板" Command="{Binding DeleteELementCommand}"
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <Button Width="80" Margin="2" Content="删除视图样板" Command="{Binding DeleteElementsCommand}"
                     CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>
         </Grid>
@@ -43,8 +41,10 @@
                      AutoGenerateColumns="False" CanUserAddRows="False"
                      SelectionUnit="FullRow" EnableColumnVirtualization="False"
                      GridLinesVisibility="None" Height="335"  Width="auto"
-                     SelectionMode="Extended" ItemsSource="{Binding ViewTemplates}" SelectedItem="{Binding SelectedView}"
-                     vm:ViewTemplateManagerViewModel.AttProp="True">
+                     SelectionMode="Extended" ItemsSource="{Binding Collection}" 
+                     helper:DataGridSelectionHelper.IsEnabled="True"
+                  helper:DataGridSelectionHelper.SelectedItem="{Binding SelectedView, Mode=TwoWay}"
+                  helper:DataGridSelectionHelper.SelectedItemsCount="{Binding RowCount, Mode=TwoWay}">
                 <DataGrid.Resources>
                     <Style TargetType="DataGridCell" x:Key="dataGridCellStyle">
                         <Style.Triggers>
@@ -79,10 +79,10 @@
                     <DataGridTextColumn Header="名称" Width="120" SortMemberPath="ViewName" 
   Binding="{Binding ViewName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="应用" Width="36" SortMemberPath="Num" 
-  Binding="{Binding Num}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="视图类型" Width="60" SortMemberPath="ViewType" 
-  Binding="{Binding ViewType}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="应用" Width="36" SortMemberPath="templateUsageCount" 
+  Binding="{Binding templateUsageCount,Converter={StaticResource IntToStringConverter}}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="视图类型" Width="60" SortMemberPath="ViewTypeName" 
+  Binding="{Binding ViewTypeName}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="规程" Width="35" SortMemberPath="ViewDiscipline" 
   Binding="{Binding ViewDiscipline}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="比例" Width="50" SortMemberPath="Scale" 
@@ -108,7 +108,7 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="设置操作" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="查找视图" Width="auto" Command="{Binding DataContext.FindViewsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" IsEnabled="{Binding hasView}"
+                                <Button Content="查找视图" Width="auto" Command="{Binding DataContext.FindViewsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" IsEnabled="{Binding hasView}" ToolTip="查找哪些视图应用了这个样板"
 CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -122,17 +122,23 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch" Click="b
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
             <!--<ListBox Margin="5" Grid.Row="0"/>-->
-            <StackPanel Grid.Row="0" >
-                <TextBlock Margin="5" Text="{Binding RowCount, StringFormat='Selected Items: {0}'}" />
-                <Form:MultiSelectListBox Margin="5" IsEnabled="{Binding EnableCategoryList}"  Height="300" Width="145"
-                                     ItemsSource="{Binding DataContext.SelectedView.CategoryItems,RelativeSource={RelativeSource AncestorType=Window}}" SelectedItems="{Binding SelectedItems}" />
+            <StackPanel Grid.Row="0">
+                <TextBlock Margin="5" FontWeight="Bold" 
+               Text="{Binding RowCount, StringFormat='已选择样板数量: {0}'}" />
+
+                <!-- 注意：ItemsSource 绑定到 SelectedView 内的字符串列表 -->
+                <uc:MultiSelectListBox Margin="5" 
+                           IsEnabled="{Binding EnableCategoryList}"  
+                           Height="300" Width="145"
+                           ItemsSource="{Binding SelectedView.CategoryItems}" 
+                           SelectedItems="{Binding SelectedListBoxItems}" />
             </StackPanel>
             <Button x:Name="btn_Paste" Content="将样板应用到指定视图" Grid.Row="1"  Margin="5" 
-                                      Command="{Binding ApplyToViewCommand}" CommandParameter="{Binding SelectedItems}"
-                Click="btn_OK_Click"/>
+                                      Command="{Binding ApplyToViewCommand}" CommandParameter="{Binding SelectedListBoxItems}"
+                Click="btn_OK_Click" IsEnabled="{Binding EnableCategoryList}"/>
         </Grid>
         <DockPanel Grid.Row="2" Grid.ColumnSpan="2">
-            <Button  Content="确定并退出" Height="20" x:Name="btn_OK"
+            <Button  Content="确定并退出"  x:Name="btn_OK"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
         </DockPanel>
     </Grid>

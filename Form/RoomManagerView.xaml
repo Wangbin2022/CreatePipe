@@ -85,6 +85,34 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                     <DataGridTextColumn Header="房间类型" Width="88" SortMemberPath="RoomType" 
   Binding="{Binding RoomType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
+                    <DataGridTemplateColumn Header="出错" Width="35"
+                            SortMemberPath="HasWarnings" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <!-- 1. 设置默认值：假设默认是有样板 -->
+                                            <Setter Property="Text" Value="有" />
+                                            <Setter Property="Foreground" Value="Green" />
+                                            <Style.Triggers>
+                                                <!-- 2. 只有当确实为 False 时，才切换到红色和“无” -->
+                                                <DataTrigger Binding="{Binding HasWarnings}" Value="False">
+                                                    <Setter Property="Text" Value="无" />
+                                                    <Setter Property="Foreground" Value="Red" />
+                                                </DataTrigger>
+                                                <!-- 3. 增加一个保险：显式处理 True -->
+                                                <DataTrigger Binding="{Binding HasWarnings}" Value="True">
+                                                    <Setter Property="Text" Value="有" />
+                                                    <Setter Property="Foreground" Value="Green" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTemplateColumn Header="三维文字" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>

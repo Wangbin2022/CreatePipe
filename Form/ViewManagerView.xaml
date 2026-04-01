@@ -25,10 +25,8 @@
   bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <TextBlock Text="{Binding AllViews.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
                 <Button Width="80" Margin="5" Content="新建标高视图" Command="{Binding NewLevelViewCommand}" Click="btn_OK_Click"/>
-                <Button Width="80" Margin="5" Content="删除样板过滤" Command="{Binding RemoveViewTemplateCommand}"
-                        CommandParameter="{Binding SelectedItems, ElementName=dataGrid}" Click="btn_OK_Click"/>
                 <Button Width="80" Margin="5" Content="删除选中视图" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>
@@ -39,7 +37,7 @@
                      AutoGenerateColumns="False" CanUserAddRows="False"
                      SelectionUnit="FullRow" EnableColumnVirtualization="False"
                      GridLinesVisibility="None" Width="auto" Height="325"
-                     SelectionMode="Extended" ItemsSource="{Binding AllViews}">
+                     SelectionMode="Extended" ItemsSource="{Binding Collection}">
                 <DataGrid.Resources>
                     <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -50,24 +48,25 @@
   Binding="{Binding ViewName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="样板" Width="35"
-                                        SortMemberPath="hasTemplate" >
+                                        SortMemberPath="HasTemplate" >
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock VerticalAlignment="Center">
                                     <TextBlock.Style>
-                                        <Style TargetType="TextBlock" >
+                                        <Style TargetType="TextBlock">
+                                            <!-- 1. 设置默认值：假设默认是有样板 -->
+                                            <Setter Property="Text" Value="有" />
+                                            <Setter Property="Foreground" Value="Green" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Path= hasTemplate}" Value="False">
-                                                    <Setter Property="Text"  Value="无">
-                                                    </Setter>
-                                                    <Setter Property="Foreground" Value="Red">
-                                                    </Setter>
+                                                <!-- 2. 只有当确实为 False 时，才切换到红色和“无” -->
+                                                <DataTrigger Binding="{Binding HasTemplate}" Value="False">
+                                                    <Setter Property="Text" Value="无" />
+                                                    <Setter Property="Foreground" Value="Red" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Path= hasTemplate}" Value="True">
-                                                    <Setter Property="Text"  Value="有">
-                                                    </Setter>
-                                                    <Setter Property="Foreground" Value="Green">
-                                                    </Setter>
+                                                <!-- 3. 增加一个保险：显式处理 True -->
+                                                <DataTrigger Binding="{Binding HasTemplate}" Value="True">
+                                                    <Setter Property="Text" Value="有" />
+                                                    <Setter Property="Foreground" Value="Green" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -77,46 +76,56 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="视图类型" Width="60" SortMemberPath="ViewType" 
-Binding="{Binding ViewType}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+Binding="{Binding ViewTypeName}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="标高" Width="35" SortMemberPath="LevelName" 
 Binding="{Binding LevelName}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="规程" Width="35" SortMemberPath="ViewDiscipline" 
 Binding="{Binding ViewDiscipline}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="比例" Width="45" SortMemberPath="Scale" 
 Binding="{Binding Scale}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTemplateColumn Header="显示样式" Width="60" SortMemberPath="ViewDetail" >
+                    <DataGridTemplateColumn Header="显示样式" Width="66" SortMemberPath="ViewDisplayElem">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Grid>
-                                    <ComboBox x:Name="cb_Type"      ItemsSource="{Binding ViewDisplay}"          SelectedItem="{Binding ViewDisplayElem,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"  VerticalContentAlignment="Center" Height="28"/>
+                                    <ComboBox x:Name="cb_Display"      
+                          ItemsSource="{Binding ViewDisplay}"          
+                          SelectedItem="{Binding ViewDisplayElem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"  
+                          IsEnabled="{Binding CanModifyDisplayStyle}"
+                          VerticalContentAlignment="Center" 
+                          Height="28"/>
                                 </Grid>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="显示细节" Width="60" SortMemberPath="ViewDetail" >
+                    <DataGridTemplateColumn Header="显示细节" Width="60" SortMemberPath="ViewDetailElem" >
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Grid>
-                                    <ComboBox x:Name="cb_Type"      ItemsSource="{Binding ViewDetails}"          SelectedItem="{Binding ViewDetailElem,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"  VerticalContentAlignment="Center" Height="28"/>
+                                    <ComboBox x:Name="cb_Type"
+                          ItemsSource="{Binding ViewDetails}"
+                          SelectedItem="{Binding ViewDetailElem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsEnabled="{Binding CanModifyDetailLevel}"
+                          VerticalContentAlignment="Center" 
+                          Height="28"/>
                                 </Grid>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn Header="布图" Width="35"
-                      SortMemberPath="hasSheet" >
+                      SortMemberPath="HasSheet" >
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock" >
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Path= hasSheet}" Value="False">
+                                                <DataTrigger Binding="{Binding Path= HasSheet}" Value="False">
                                                     <Setter Property="Text"  Value="无">
                                                     </Setter>
                                                     <Setter Property="Foreground" Value="Red">
                                                     </Setter>
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Path= hasSheet}" Value="True">
+                                                <DataTrigger Binding="{Binding Path= HasSheet}" Value="True">
                                                     <Setter Property="Text"  Value="有">
                                                     </Setter>
                                                     <Setter Property="Foreground" Value="Green">
@@ -135,15 +144,14 @@ Binding="{Binding viewFilterCount}" IsReadOnly="True" ElementStyle="{StaticResou
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="转向视图" Width="auto" Command="{Binding DataContext.FindViewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch" 
-                                        Click="btn_OK_Click"/>
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn Header="设置操作" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="删除视图" Width="auto" Command="{Binding DataContext.DeleteViewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                <Button Content="删除视图" Width="auto" Command="{Binding DataContext.DeleteElementCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
 CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -152,7 +160,7 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
             </DataGrid>
         </StackPanel>
         <DockPanel Grid.Row="2" >
-            <Button  Content="确定并退出" Margin="5" x:Name="btn_OK"
+            <Button  Content="确定并退出" Margin="5,0" x:Name="btn_OK" 
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
         </DockPanel>
     </Grid>

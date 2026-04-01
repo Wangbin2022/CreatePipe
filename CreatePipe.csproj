@@ -103,9 +103,13 @@
     <Compile Include="Form\ClipboardCatcher.xaml.cs">
       <DependentUpon>ClipboardCatcher.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\ColorPickerDialog.xaml.cs">
+      <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\Converters\AllToHiddenConverter.cs" />
     <Compile Include="Form\Converters\BackgroundToForegroundConverter.cs" />
     <Compile Include="Form\Converters\BoolToVisibilityConverter.cs" />
+    <Compile Include="Form\Converters\ColorConverter.cs" />
     <Compile Include="Form\Converters\ContentTemplateSelector.cs" />
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
@@ -159,6 +163,9 @@
     <Compile Include="Form\UniversialSplitButton.xaml.cs">
       <DependentUpon>UniversialSplitButton.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\ViewFilterManagerView.xaml.cs">
+      <DependentUpon>ViewFilterManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\XrefCADLayerView.xaml.cs">
       <DependentUpon>XrefCADLayerView.xaml</DependentUpon>
     </Compile>
@@ -170,6 +177,8 @@
       <DependentUpon>ManualCropZaxisView.xaml</DependentUpon>
     </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
+    <Compile Include="models\ViewEntity.cs" />
+    <Compile Include="models\ViewFilterEntity.cs" />
     <Compile Include="Obselete\PipeSelectFromSelectionView.xaml.cs">
       <DependentUpon>PipeSelectFromSelectionView.xaml</DependentUpon>
     </Compile>
@@ -456,11 +465,15 @@
     <Compile Include="Utils\CategoryVisibilityService.cs" />
     <Compile Include="Utils\ChineseToSpellService.cs" />
     <Compile Include="Utils\CsvHelper.cs" />
+    <Compile Include="Utils\DataGridSelectionHelper.cs" />
+    <Compile Include="Utils\DuplicateMarkWarningService.cs" />
     <Compile Include="Utils\EncodingHelper.cs" />
     <Compile Include="Utils\FailurePreProcessor.cs" />
+    <Compile Include="Utils\GenericWarningService.cs" />
     <Compile Include="Utils\Interfaces\IProgressBarService.cs" />
     <Compile Include="Utils\Interfaces\IProgressScope.cs" />
     <Compile Include="Utils\Interfaces\IQueryViewModel.cs" />
+    <Compile Include="Utils\Interfaces\IQueryViewModelWithDelete.cs" />
     <Compile Include="Utils\JsonHelper.cs" />
     <Compile Include="Utils\JsonHelperSystem.cs" />
     <Compile Include="Utils\MEPSlopeHelper.cs" />
@@ -470,6 +483,7 @@
     <Compile Include="Utils\RevitProgressBar.cs" />
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
     <Compile Include="Utils\RobustFailureProcessor.cs" />
+    <Compile Include="Utils\RoomWarningService.cs" />
     <Compile Include="Utils\TaskDialogHelper.cs" />
     <Compile Include="Utils\UserControls\ProgressWindow.xaml.cs">
       <DependentUpon>ProgressWindow.xaml</DependentUpon>
@@ -497,6 +511,7 @@
       <DependentUpon>TextInput.xaml</DependentUpon>
     </Compile>
     <Compile Include="Utils\VisibilityControlHelper.cs" />
+    <Compile Include="Utils\WarningManagerService.cs" />
     <Compile Include="Utils\WindowHelper.cs" />
     <Compile Include="Utils\XMLUtil.cs" />
     <Compile Include="Obselete\ViewFilters\Command.cs" />
@@ -557,6 +572,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ClipboardCatcher.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ColorPickerDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -693,6 +712,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\UniversialSplitButton.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ViewFilterManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

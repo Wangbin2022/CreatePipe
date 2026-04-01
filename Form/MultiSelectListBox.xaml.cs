@@ -181,31 +181,4 @@ namespace CreatePipe.Form
             control.SetText();
         }
     }
-    //public class Node : ObserverableObject
-    //{
-    //    private string _title;
-    //    private bool _isSelected;
-    //    public Node(string title)
-    //    {
-    //        Title = title;
-    //    }
-    //    public string Title
-    //    {
-    //        get => _title;
-    //        set
-    //        {
-    //            _title = value;
-    //            OnPropertyChanged();
-    //        }
-    //    }
-    //    public bool IsSelected
-    //    {
-    //        get => _isSelected;
-    //        set
-    //        {
-    //            _isSelected = value;
-    //            OnPropertyChanged();
-    //        }
-    //    }
-    //}
 }

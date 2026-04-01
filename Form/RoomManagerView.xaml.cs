@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace CreatePipe.Form
@@ -35,11 +36,14 @@ namespace CreatePipe.Form
         public UIDocument uIDoc { get; set; }
         public Autodesk.Revit.DB.View ActiveView { get; set; }
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+        private readonly RoomWarningService _roomWarningService; // ViewModel 持有 RoomWarningService 实例
         public RoomManagerViewModel(UIApplication uiApp)
         {
             Document = uiApp.ActiveUIDocument.Document;
             uIDoc = uiApp.ActiveUIDocument;
             ActiveView = Document.ActiveView;
+
+            _roomWarningService = new RoomWarningService(Document); // 在 ViewModel 构造函数中实例化服务
             //rooms = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Rooms).Cast<Room>()
             //    .Where(room => room.Area > 0).ToList();
             //if (rooms.Count() == 0)
@@ -116,6 +120,8 @@ namespace CreatePipe.Form
             (r.Name != null && r.Name.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0) ||
             (r.Number != null && r.Number.Contains(obj))).ToList();
 
+            //// 1. 进行一次全局的警告分析。这是最有效率的方式，避免循环查询Revit的警告列表。
+            RoomWarningAnalysisResult analysisResult = _roomWarningService.AnalyzeRoomWarnings();
             // 只为过滤后的结果创建 RoomSingleEntity 对象
             foreach (var room in filteredRooms)
             {
@@ -123,7 +129,9 @@ namespace CreatePipe.Form
                 List<FamilyInstance> doorsForThisRoom = _doorsByRoomId.ContainsKey(room.Id) ? _doorsByRoomId[room.Id] : new List<FamilyInstance>();
                 List<FamilyInstance> windowsForThisRoom = _windowsByRoomId.ContainsKey(room.Id) ? _windowsByRoomId[room.Id] : new List<FamilyInstance>();
                 // 创建对象时传入缓存数据
-                var entity = new RoomSingleEntity(room, doorsForThisRoom, windowsForThisRoom);
+                bool hasWarnings = _roomWarningService.HasWarningsForRoom(room.Id, analysisResult);
+                //bool hasWarnings = _roomWarningService.HasWarningsForRoom(room.Id);
+                var entity = new RoomSingleEntity(room, doorsForThisRoom, windowsForThisRoom, hasWarnings);
                 AllRooms.Add(entity);
             }
         }

@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
+using CreatePipe.Utils;
 using CreatePipe.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -43,11 +44,12 @@ namespace CreatePipe.Form
         private List<CountableItem> _allSourceItems = new List<CountableItem>();
         // 【核心新增】：缓存类别名称与其对应的所有 ElementId，极大提升动态选择的性能
         private Dictionary<string, List<ElementId>> _categoryElementsCache = new Dictionary<string, List<ElementId>>();
-
+        public View activeView;
         public SelectByWindowViewModel(UIApplication uIApplication)
         {
             _uiDoc = uIApplication.ActiveUIDocument;
             _doc = _uiDoc.Document;
+            activeView = _doc.ActiveView;
             // 初始化数据
             InitLayers();
         }
@@ -93,48 +95,93 @@ namespace CreatePipe.Form
         }
         public void InitLayers()
         {
-            _categoryElementsCache.Clear();
-            _allSourceItems.Clear();
-
-            // 1. 获取当前视图所有可见实例，并排除链接和导入项
-            var collector = new FilteredElementCollector(_doc, _doc.ActiveView.Id)
+            // 1. 收集当前视图中所有的 Revit链接 和 CAD导入实例 的 ID
+            ICollection<ElementId> idsToExclude = new FilteredElementCollector(_doc, activeView.Id)
                 .WhereElementIsNotElementType()
-                // 【新增过滤】：排除 Revit 链接模型
-                .Where(e => !(e is RevitLinkInstance))
-                // 【新增过滤】：排除导入/链接的 CAD (DWG/DXF等)
-                .Where(e => !(e is ImportInstance));
-
-            // 2. 按类别名称分组
-            var groupedElements = collector
-                .Where(e => e.Category != null) // 确保有类别（CAD 导入有时类别为空或为“导入符号”）
-                .GroupBy(e => e.Category.Name)
-                .ToList();
-
-            // 3. 统计数量并建立缓存
-            foreach (var group in groupedElements)
+                .WherePasses(new LogicalOrFilter(
+                    new ElementClassFilter(typeof(RevitLinkInstance)),
+                    new ElementClassFilter(typeof(ImportInstance)))
+                ).ToElementIds();
+            // 2. 声明主收集器
+            FilteredElementCollector collector = new FilteredElementCollector(_doc, activeView.Id)
+                .WhereElementIsNotElementType();
+            // 3. 核心判断：只有当确实存在需要排除的链接图元时，才追加 ExclusionFilter
+            // 这样既避免了 ExclusionFilter 空集合报错，又提高了 Revit 底层过滤的效率
+            if (idsToExclude != null && idsToExclude.Count > 0)
             {
-                string categoryName = group.Key;
-
-                // 进一步过滤：有些插件生成的 CAD 备份可能躲过了上面的判断
-                // 如果类别名称包含 ".dwg" 或 ".rvt"，也可以在此处跳过
-                if (categoryName.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase) ||
-                    categoryName.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                List<ElementId> ids = group.Select(e => e.Id).ToList();
-
-                // 存入字典缓存
-                _categoryElementsCache[categoryName] = ids;
-
-                // 生成 UI 统计项
-                _allSourceItems.Add(new CountableItem(categoryName, ids.Count));
+                ExclusionFilter exclusionFilter = new ExclusionFilter(idsToExclude);
+                collector.WherePasses(exclusionFilter);
             }
-
-            // 4. 排序后更新显示
+            // 4. 遍历收集到的图元，按带有拼音首字母的类别名称进行分组缓存
+            foreach (Element elem in collector)
+            {
+                Category cat = elem.Category;
+                if (cat != null)
+                {
+                    string catName = cat.Name;
+                    if (string.IsNullOrWhiteSpace(catName)) continue;
+                    // 进一步过滤：有些插件生成的 CAD 备份可能躲过了上方的排除
+                    // 跳过名称以 .dwg 或 .rvt 结尾的异常类别
+                    if (catName.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase) ||
+                        catName.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    // 【新增】：提取首字符并转拼音首字母
+                    string firstChar = catName.Substring(0, 1);
+                    string spell = ChineseToSpellService.GetChineseSpell(firstChar);
+                    // 拼装显示名称，如 "Q-墙", "M-门"
+                    string displayName = $"{spell}-{catName}";
+                    // 初始化字典键值对并存入 ID
+                    if (!_categoryElementsCache.ContainsKey(displayName))
+                    {
+                        _categoryElementsCache[displayName] = new List<ElementId>();
+                    }
+                    _categoryElementsCache[displayName].Add(elem.Id);
+                }
+            }
+            // 5. 遍历缓存字典，生成 UI 统计项
+            foreach (var kvp in _categoryElementsCache)
+            {
+                _allSourceItems.Add(new CountableItem(kvp.Key, kvp.Value.Count));
+            }
+            // 6. 排序后更新显示
             _allSourceItems = _allSourceItems.OrderBy(x => x.Name).ToList();
             UpdateDisplayCollection(_allSourceItems);
+            //_categoryElementsCache.Clear();
+            //_allSourceItems.Clear();
+            //// 1. 获取当前视图所有可见实例，并排除链接和导入项
+            //var collector = new FilteredElementCollector(_doc, _doc.ActiveView.Id)
+            //    .WhereElementIsNotElementType()
+            //    // 【新增过滤】：排除 Revit 链接模型
+            //    .Where(e => !(e is RevitLinkInstance))
+            //    // 【新增过滤】：排除导入/链接的 CAD (DWG/DXF等)
+            //    .Where(e => !(e is ImportInstance));
+            //// 2. 按类别名称分组
+            //var groupedElements = collector
+            //    .Where(e => e.Category != null) // 确保有类别（CAD 导入有时类别为空或为“导入符号”）
+            //    .GroupBy(e => e.Category.Name)
+            //    .ToList();
+            //// 3. 统计数量并建立缓存
+            //foreach (var group in groupedElements)
+            //{
+            //    string categoryName = group.Key;
+            //    // 进一步过滤：有些插件生成的 CAD 备份可能躲过了上面的判断
+            //    // 如果类别名称包含 ".dwg" 或 ".rvt"，也可以在此处跳过
+            //    if (categoryName.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase) ||
+            //        categoryName.EndsWith(".rvt", StringComparison.OrdinalIgnoreCase))
+            //    {
+            //        continue;
+            //    }
+            //    List<ElementId> ids = group.Select(e => e.Id).ToList();
+            //    // 存入字典缓存
+            //    _categoryElementsCache[categoryName] = ids;
+            //    // 生成 UI 统计项
+            //    _allSourceItems.Add(new CountableItem(categoryName, ids.Count));
+            //}
+            //// 4. 排序后更新显示
+            //_allSourceItems = _allSourceItems.OrderBy(x => x.Name).ToList();
+            //UpdateDisplayCollection(_allSourceItems);
         }
         private void UpdateDisplayCollection(IEnumerable<CountableItem> items)
         {

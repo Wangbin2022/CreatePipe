@@ -23,7 +23,7 @@ namespace CreatePipe
         public PropertiesForm(UIDocument uiDoc)
         {
             InitializeComponent();
-            this.DataContext = new PropertiesViewModel(uiDoc);
+            //this.DataContext = new PropertiesViewModel(uiDoc);
             //Bitmap bitmap = new Bitmap(); 
         }
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -46,31 +46,31 @@ namespace CreatePipe
             return new ValidationResult(false, $"请输入 {Minimum} 到 {Maximum} 之间的数字");
         }
     }
-    public class PropertiesViewModel : ObserverableObject
-    {
-        Document Document { get; set; }
-        public List<View> views = new List<View>();
-        public PropertiesViewModel(UIDocument uiDoc)
-        {
-            Document = uiDoc.Document;
-            views = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Views).OfClass(typeof(View)).Cast<View>().ToList();
-            ViewCount = views.Count;
-        }
-        public ICommand QueryELementCommand => new BaseBindingCommand(QueryELement);
-        private void QueryELement(object obj)
-        {
-            ViewCount = 0;
-            ObservableCollection<ViewTemplate> vts = new ObservableCollection<ViewTemplate>();
-            List<ViewTemplate> cableSystems = views.Select(v => new ViewTemplate(v)).Where(e => e.isTemplate == true && (string.IsNullOrEmpty(Keyword) || e.ViewName.Contains(Keyword) || e.ViewName.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
-            ViewCount = cableSystems.Count;
-        }
-        private string _keyword;
-        public string Keyword
-        {
-            get { return _keyword; }
-            set { _keyword = value; }
-        }
-        public int ViewCount { get; set; }
-    }
+    //public class PropertiesViewModel : ObserverableObject
+    //{
+    //    Document Document { get; set; }
+    //    public List<View> views = new List<View>();
+    //    public PropertiesViewModel(UIDocument uiDoc)
+    //    {
+    //        Document = uiDoc.Document;
+    //        views = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Views).OfClass(typeof(View)).Cast<View>().ToList();
+    //        ViewCount = views.Count;
+    //    }
+    //    public ICommand QueryELementCommand => new BaseBindingCommand(QueryELement);
+    //    private void QueryELement(object obj)
+    //    {
+    //        ViewCount = 0;
+    //        ObservableCollection<ViewTemplate> vts = new ObservableCollection<ViewTemplate>();
+    //        List<ViewTemplate> cableSystems = views.Select(v => new ViewTemplate(v)).Where(e => e.isTemplate == true && (string.IsNullOrEmpty(Keyword) || e.ViewName.Contains(Keyword) || e.ViewName.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+    //        ViewCount = cableSystems.Count;
+    //    }
+    //    private string _keyword;
+    //    public string Keyword
+    //    {
+    //        get { return _keyword; }
+    //        set { _keyword = value; }
+    //    }
+    //    public int ViewCount { get; set; }
+    //}
 
 }

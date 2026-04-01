@@ -11,7 +11,7 @@ namespace CreatePipe.models
     public class RoomSingleEntity : ObserverableObject
     {
         Document Document { get => Room.Document; }
-        public RoomSingleEntity(Room singleRoom, List<FamilyInstance> roomDoors, List<FamilyInstance> roomWindows)
+        public RoomSingleEntity(Room singleRoom, List<FamilyInstance> roomDoors, List<FamilyInstance> roomWindows, bool hasWarnings)
         {
             Room = singleRoom;
             roomName = singleRoom.get_Parameter(BuiltInParameter.ROOM_NAME).AsString();
@@ -69,6 +69,8 @@ namespace CreatePipe.models
             {
                 RoomType = "密闭空间";
             }
+
+            HasWarnings = hasWarnings;
 
 
             //var bbox = singleRoom.get_BoundingBox(null);
@@ -132,6 +134,10 @@ namespace CreatePipe.models
             //    RoomType = "密闭空间";
             //}
         }
+        /// <summary>
+        /// 指示此房间在模型中是否存在任何关联的Revit警告（如不闭合、区域重叠等）。
+        /// </summary>
+        public bool HasWarnings { get; private set; } = false; // 新增属性
         private double GetMaxLevelHeight()
         {
             var levels = new FilteredElementCollector(Document).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).ToList();
