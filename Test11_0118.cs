@@ -327,7 +327,7 @@ namespace CreatePipe
 
             //0331 过滤器功能升级
             ViewFilterManagerView viewFilterManagerView = new ViewFilterManagerView(uiApp);
-            viewFilterManagerView.ShowDialog();
+            viewFilterManagerView.Show();
 
             ////0331 集成错误处理测试报告.OK
             //try

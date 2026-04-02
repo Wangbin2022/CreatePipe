@@ -6,7 +6,7 @@
         mc:Ignorable="d"
         Title="显隐视图可见类别" Topmost="True"
         Height="420" Width="240" WindowStartupLocation="CenterScreen"
-        xmlns:conv="clr-namespace:CreatePipe.Utils.ValueConverter"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
         xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
         xmlns:local="clr-namespace:CreatePipe.Form"
         >

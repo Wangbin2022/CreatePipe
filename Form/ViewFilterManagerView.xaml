@@ -16,6 +16,7 @@
         <Grid.Resources>
             <conv:ColorConverter x:Key="ColorConverter"/>
             <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+            <conv:IntToBoolConverter x:Key="IntToBoolConverterKey"/>
         </Grid.Resources>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="3.2*"/>
@@ -33,6 +34,8 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                 <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <Button Content="打开管理器" Width="80" Margin="2,4" Click="Button_Click"
+                  HorizontalAlignment="Right"/>
                 <Button Content="删除过滤器" Width="80" Margin="2,4"
                   Command="{Binding DeleteElementsCommand}"
                   CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"
@@ -50,35 +53,13 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                   helper:DataGridSelectionHelper.SelectedItem="{Binding SelectedFilter, Mode=TwoWay}"
                   helper:DataGridSelectionHelper.SelectedItemsCount="{Binding RowCount, Mode=TwoWay}">
                 <DataGrid.Resources>
-                    <Style TargetType="DataGridCell" x:Key="dataGridCellStyle">
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="LightGray"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="Lightblue"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                    <Style TargetType="DataGridCell">
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="DataGridCell">
-                                    <TextBlock TextAlignment="Center" >
-    <ContentPresenter />
-                                    </TextBlock>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                    <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
-                        <Setter Property="VerticalAlignment" Value="Center"/>
-                    </Style>
+                    <ResourceDictionary>
+                        <ResourceDictionary.MergedDictionaries>
+                            <!-- 引用你的 CommonDataGridStyles.xaml -->
+                            <ResourceDictionary Source="/CreatePipe;component/Form/ResourceDictionary/CommonDataGridStyles.xaml"/>
+                        </ResourceDictionary.MergedDictionaries>
+                    </ResourceDictionary>
                 </DataGrid.Resources>
-                <DataGrid.CellStyle>
-                    <StaticResource ResourceKey="dataGridCellStyle"/>
-                </DataGrid.CellStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="过滤器名称" Width="60" SortMemberPath="ViewFilterName" 
                  Binding="{Binding ViewFilterName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
@@ -90,39 +71,15 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTemplateColumn Header="在用" Width="35"
-                                        SortMemberPath="IsInUsing" >
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" >
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Path= IsInUsing}" Value="False">
-                                                    <Setter Property="Text"  Value="否">
-                                                    </Setter>
-                                                    <Setter Property="Foreground" Value="Red">
-                                                    </Setter>
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Path= IsInUsing}" Value="True">
-                                                    <Setter Property="Text"  Value="是">
-                                                    </Setter>
-                                                    <Setter Property="Foreground" Value="Green">
-                                                    </Setter>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="应用" Width="32"  SortMemberPath="filterUsageCount" 
+              Binding="{Binding filterUsageCount}"  ElementStyle="{StaticResource TextVerticalCenter}"
+                 IsReadOnly="True" />                 
                     <DataGridTemplateColumn Header="查找">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="查找" Width="60" ToolTip="查找在哪些视图应用了该过滤器"
-                                        Command="{Binding DataContext.HideInViewCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" 
-                                        CommandParameter="{Binding }" IsEnabled="{Binding IsHideBtn}"/>
+                                        IsEnabled="{Binding filterUsageCount, Converter={StaticResource IntToBoolConverterKey}}" 
+                                        Command="{Binding DataContext.FindInViewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"         CommandParameter="{Binding }" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -162,8 +119,8 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="清除应用" Width="60"  ToolTip="在所有视图删除该过滤器"
-                                        Command="{Binding DataContext.ApplyToViewsCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding }"  
-                                         IsEnabled="{Binding IsHideBtn}"/>
+                                        IsEnabled="{Binding filterUsageCount, Converter={StaticResource IntToBoolConverterKey}}" 
+                                        Command="{Binding DataContext.DeleteElementCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"         CommandParameter="{Binding }"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>  
@@ -177,15 +134,15 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                 <ListBox Height="85" x:Name="lsBox_Categorys" 
                         ItemsSource="{Binding SelectedFilter.CategoryItems}"  
                         IsEnabled="{Binding EnableCategoryList}"/>
-                <TextBlock  Text="将选定过滤器复制到：" Height="25"/>
+                <TextBlock  Text="将选定过滤器应用到：" Height="25"/>
                 <uc:MultiSelectListBox Height="177"
                                        IsEnabled="{Binding EnableCategoryList}"  
-                    ItemsSource="{Binding SelectedFilter.CategoryItems}" 
+                    ItemsSource="{Binding AllViewItems}" 
                                        SelectedItems="{Binding SelectedListBoxItems}"/>
                 <Button x:Name="btn_Paste" Height="25"
-                        Content="复制到所有指定视图" 
+                        Content="应用到所有指定视图" 
                         IsEnabled="{Binding EnableCategoryList}"  
-                        Command="{Binding SelectViewCommand}"
+                        Command="{Binding ApplyToViewCommand}"
                         CommandParameter="{Binding SelectedListBoxItems}"/>
             </StackPanel>
         </Grid>

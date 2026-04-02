@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 
-namespace CreatePipe.Utils.UserControls.LabelTextInput
+namespace CreatePipe.Form.UserControls.LabelTextInput
 {
     /// <summary>
     /// TextInput.xaml 的交互逻辑

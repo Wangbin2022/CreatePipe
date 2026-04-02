@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 
-namespace CreatePipe.Utils.UserControls.LabelComboBox
+namespace CreatePipe.Form.UserControls.LabelComboBox
 {
 
     //    <!--Dictionary for style-->

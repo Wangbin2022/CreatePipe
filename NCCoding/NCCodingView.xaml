@@ -9,7 +9,7 @@
                Topmost="True"
        WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
         xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
-        xmlns:vc="clr-namespace:CreatePipe.Utils.ValueConverter"  >
+        xmlns:vc="clr-namespace:CreatePipe.Form.Converters"  >
     <Grid Margin="5">
         <Grid.Resources>
             <vc:CategoryIdToNameConverter x:Key="CategoryIdToNameConverter"/>

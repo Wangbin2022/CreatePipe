@@ -9,7 +9,7 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         Height="450" Width="720"  Topmost="True"
         WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
-        xmlns:vc="clr-namespace:CreatePipe.Utils.ValueConverter"
+        xmlns:vc="clr-namespace:CreatePipe.Form.Converters"
         xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
     <Grid>
         <Grid.Resources>

@@ -3,7 +3,7 @@ using System;
 using System.Globalization;
 using System.Windows.Data;
 
-namespace CreatePipe.Utils.ValueConverter
+namespace CreatePipe.Form.Converters
 {
     public class CategoryIdToNameConverter : IValueConverter
     {

@@ -9,43 +9,53 @@ using System.Threading.Tasks;
 
 namespace CreatePipe.models
 {
+    //20260401重置后
     public sealed class ViewFilterEntity : ObserverableObject
     {
-        public ParameterFilterElement pFilterElement { get; set; }
+        private readonly BaseExternalHandler _handler;
+        private ParameterFilterElement pFilterElement { get; set; }
+        public ElementId Id { get; }
         public Document Document { get => pFilterElement.Document; }
-        private bool isInUsing = false;
-        public bool IsInUsing
+        public ViewFilterEntity(ParameterFilterElement parameterFilterElement, BaseExternalHandler handler, List<string> categories, string ruleDescription, string ruleLogic, Dictionary<ElementId, string> usageViews)
         {
-            get => isInUsing;
-            set
+            pFilterElement = parameterFilterElement;
+            viewFilterName = parameterFilterElement.Name;
+            Id = parameterFilterElement.Id;
+            if (usageViews.Count != 0)
             {
-                isInUsing = value;
-                OnPropertyChanged(nameof(IsInUsing));
+                filterUsageCount = usageViews.Count;
             }
+            categoryItems = categories;
+            ruleCombineType = ruleLogic;
+            ruleCombine = ruleDescription;
+            filterUsageMap = usageViews;
+            Color = new Color(127, 127, 127);
+            TransparencyNum = 0;
         }
-        //public String filterName { get; private set; }
-        public ElementId Id { get; private set; }
+        public Dictionary<ElementId, string> filterUsageMap;
+        public int filterUsageCount { get; set; } = 0;
         public string ruleCombineType { get; private set; }
         public string ruleCombine { get; private set; }
-        public bool IsSelected { get; set; }
-        public bool isHideBtn = false;
-        public bool IsHideBtn
-        {
-            get => isHideBtn;
-            set
-            {
-                if (isHideBtn != value) // 检查新值是否与旧值不同
-                {
-                    isHideBtn = value;
-                    OnPropertyChanged(nameof(IsHideBtn)); // 通知属性值已更改
-                }
-            }
-        }
+        //public bool IsSelected { get; set; }
+        //public bool isHideBtn = false;
+        //public bool IsHideBtn
+        //{
+        //    get => isHideBtn;
+        //    set
+        //    {
+        //        if (isHideBtn != value) // 检查新值是否与旧值不同
+        //        {
+        //            isHideBtn = value;
+        //            OnPropertyChanged(nameof(IsHideBtn)); // 通知属性值已更改
+        //        }
+        //    }
+        //}
         public List<int> TransparencySamples
         {
             get
             {
                 List<int> ints = new List<int>();
+                ints.Add(0);
                 ints.Add(15);
                 ints.Add(30);
                 ints.Add(50);
@@ -55,16 +65,17 @@ namespace CreatePipe.models
             }
             set { TransparencySamples = value; }
         }
-        private int transparencyNum;
-        public int TransparencyNum
-        {
-            get { return transparencyNum; }
-            set
-            {
-                transparencyNum = value;
-                OnPropertyChanged("LineWeight");
-            }
-        }
+        public int TransparencyNum { get; set; }
+        //private int transparencyNum;
+        //public int TransparencyNum
+        //{
+        //    get { return transparencyNum; }
+        //    set
+        //    {
+        //        transparencyNum = value;
+        //        OnPropertyChanged("LineWeight");
+        //    }
+        //}
         public Autodesk.Revit.DB.Color color;
         public Autodesk.Revit.DB.Color Color
         {
@@ -90,20 +101,6 @@ namespace CreatePipe.models
                     _colorValue = value;
                     OnPropertyChanged(nameof(ColorValue)); // 通知属性值已更改
                 }
-            }
-        }
-        public ViewFilterEntity(ParameterFilterElement parameterFilterElement)
-        {
-            pFilterElement = parameterFilterElement;
-            viewFilterName = parameterFilterElement.Name;
-            Id = parameterFilterElement.Id;
-            isInUsing = FindInUsing();
-            categoryItems = GetCategoryList(parameterFilterElement);
-            ruleCombineType = GetCombineType(parameterFilterElement);
-            ruleCombine = GetCombineRules(parameterFilterElement);
-            if (IsInUsing == true)
-            {
-                IsHideBtn = true;
             }
         }
         public string GetColorValue(Autodesk.Revit.DB.Color color)
@@ -330,68 +327,72 @@ namespace CreatePipe.models
                 OnPropertyChanged();
             }
         }
-        private bool FindInUsing()
-        {
-            FilteredElementCollector collector = new FilteredElementCollector(Document);
-            IList<Element> Views = collector.OfClass(typeof(View)).ToList();
-            List<View> allViews = new List<View>();
-            foreach (var item in Views)
-            {
-                View view = item as View;
-                if (view == null || view.IsTemplate)
-                {
-                    continue;
-                }
-                else
-                {
-                    // 检查视图类型，排除明细表、图纸、图例和面积平面，仅包含平立剖，三维
-                    if (view.ViewType == ViewType.Schedule ||
-                        view.ViewType == ViewType.DrawingSheet ||
-                        view.ViewType == ViewType.Legend ||
-                        view.ViewType == ViewType.AreaPlan)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        ElementType objType = Document.GetElement(view.GetTypeId()) as ElementType;
-                        if (objType == null)
-                        {
-                            continue;
-                        }
-                        allViews.Add(view);
-                    }
-                }
-            }
-            HashSet<ElementId> viewFilters = new HashSet<ElementId>();
-            foreach (View e in allViews)
-            {
-                ICollection<ElementId> ids = e.GetFilters();
-                foreach (var item in ids)
-                {
-                    viewFilters.Add(item);
-                }
-            }
-            //筛选出全部在使用过滤器
-            foreach (ElementId item in viewFilters)
-            {
-                if (item.IntegerValue == Id.IntegerValue)
-                {
-                    return true;
-                }
-                continue;
-            }
-            return false;
-        }
+        //private bool FindInUsing()
+        //{
+        //    FilteredElementCollector collector = new FilteredElementCollector(Document);
+        //    IList<Element> Views = collector.OfClass(typeof(View)).ToList();
+        //    List<View> allViews = new List<View>();
+        //    foreach (var item in Views)
+        //    {
+        //        View view = item as View;
+        //        if (view == null || view.IsTemplate)
+        //        {
+        //            continue;
+        //        }
+        //        else
+        //        {
+        //            // 检查视图类型，排除明细表、图纸、图例和面积平面，仅包含平立剖，三维
+        //            if (view.ViewType == ViewType.Schedule ||
+        //                view.ViewType == ViewType.DrawingSheet ||
+        //                view.ViewType == ViewType.Legend ||
+        //                view.ViewType == ViewType.AreaPlan)
+        //            {
+        //                continue;
+        //            }
+        //            else
+        //            {
+        //                ElementType objType = Document.GetElement(view.GetTypeId()) as ElementType;
+        //                if (objType == null)
+        //                {
+        //                    continue;
+        //                }
+        //                allViews.Add(view);
+        //            }
+        //        }
+        //    }
+        //    HashSet<ElementId> viewFilters = new HashSet<ElementId>();
+        //    foreach (View e in allViews)
+        //    {
+        //        ICollection<ElementId> ids = e.GetFilters();
+        //        foreach (var item in ids)
+        //        {
+        //            viewFilters.Add(item);
+        //        }
+        //    }
+        //    //筛选出全部在使用过滤器
+        //    foreach (ElementId item in viewFilters)
+        //    {
+        //        if (item.IntegerValue == Id.IntegerValue)
+        //        {
+        //            return true;
+        //        }
+        //        continue;
+        //    }
+        //    return false;
+        //}
         private string viewFilterName;
         public string ViewFilterName
         {
             get { return viewFilterName; }
             set
             {
-                Document.NewTransaction(() => pFilterElement.Name = value, "修改名称");
-                viewFilterName = value;
-                OnPropertyChanged(nameof(viewFilterName));
+                if (viewFilterName == value) return;
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改视图名称", () => pFilterElement.Name = value);
+                    viewFilterName = value;
+                    OnPropertyChanged();
+                });
             }
         }
     }

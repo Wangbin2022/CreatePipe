@@ -1,0 +1,55 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 1. DataGridCell 鼠标悬停和选中样式 (带Key) -->
+    <Style TargetType="{x:Type DataGridCell}" x:Key="dataGridHighlightCellStyle">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="LightGray"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="LightBlue"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 2. DataGridCell 模板样式 (隐式样式，即应用于所有 DataGridCell) -->
+    <!-- 注意：这个隐式样式会覆盖第一个样式，因为它是后定义的且没有Key。
+         你需要决定是否真的想要每个 DataGridCell 都有 TextBlock 居中。
+         如果希望既有选中效果又有 TextBlock 居中，则需要合并这两个样式。
+         下面我将展示如何合并。
+    -->
+    <Style TargetType="{x:Type DataGridCell}" x:Key="dataGridCenteredContentCellStyle">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type DataGridCell}">
+                    <Border BorderThickness="{TemplateBinding BorderThickness}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            Background="{TemplateBinding Background}"
+                            SnapsToDevicePixels="True">
+                        <TextBlock TextAlignment="Center" VerticalAlignment="Center">
+                            <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </TextBlock>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <!-- 也要把高亮和选中效果加回来 -->
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="LightGray"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="LightBlue"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 3. TextBlock 垂直居中样式 (带Key) -->
+    <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+</ResourceDictionary>

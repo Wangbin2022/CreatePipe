@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace CreatePipe.Utils.UserControls
+namespace CreatePipe.Form.UserControls
 {
     /// <summary>
     /// ProgressWindow.xaml 的交互逻辑

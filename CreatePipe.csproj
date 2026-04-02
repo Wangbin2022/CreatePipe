@@ -485,11 +485,11 @@
     <Compile Include="Utils\RobustFailureProcessor.cs" />
     <Compile Include="Utils\RoomWarningService.cs" />
     <Compile Include="Utils\TaskDialogHelper.cs" />
-    <Compile Include="Utils\UserControls\ProgressWindow.xaml.cs">
+    <Compile Include="Form\UserControls\ProgressWindow.xaml.cs">
       <DependentUpon>ProgressWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Utils\ValueConverter\CategoryIdToNameConverter.cs" />
-    <Compile Include="Utils\ValueConverter\IntToStringConverter.cs" />
+    <Compile Include="Form\Converters\CategoryIdToNameConverter.cs" />
+    <Compile Include="Form\Converters\IntToBoolConverter.cs" />
     <Compile Include="Obselete\Test08_0520.cs" />
     <Compile Include="Utils\CADCHelper.cs" />
     <Compile Include="Utils\ChineseToSpell.cs" />
@@ -504,10 +504,10 @@
     <Compile Include="Utils\ProgressBarService.cs" />
     <Compile Include="Utils\TreeViewHelper.cs" />
     <Compile Include="Utils\Unitconvert.cs" />
-    <Compile Include="Utils\UserControls\LabelComboBox\UCComboBox.xaml.cs">
+    <Compile Include="Form\UserControls\LabelComboBox\UCComboBox.xaml.cs">
       <DependentUpon>UCComboBox.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Utils\UserControls\LabelTextInput\TextInput.xaml.cs">
+    <Compile Include="Form\UserControls\LabelTextInput\TextInput.xaml.cs">
       <DependentUpon>TextInput.xaml</DependentUpon>
     </Compile>
     <Compile Include="Utils\VisibilityControlHelper.cs" />
@@ -652,6 +652,14 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\RangeComboBox.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ResourceDictionary\CommonDataGridStyles.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ResourceDictionary\CommonStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -899,15 +907,15 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Utils\ResourceDictionaries\DictionaryWindows.xaml">
+    <Page Include="Form\ResourceDictionary\DictionaryWindows.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Utils\UserControls\LabelComboBox\UCComboBox.xaml">
+    <Page Include="Form\UserControls\LabelComboBox\UCComboBox.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Utils\UserControls\LabelTextInput\TextInput.xaml">
+    <Page Include="Form\UserControls\LabelTextInput\TextInput.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -927,7 +935,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Utils\UserControls\ProgressWindow.xaml">
+    <Page Include="Form\UserControls\ProgressWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

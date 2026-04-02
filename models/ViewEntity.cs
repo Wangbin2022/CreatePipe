@@ -18,12 +18,33 @@ namespace CreatePipe.models
         public ElementId Id { get; }
         public Document Document => Viewe.Document;
         public bool HasSheet { get; private set; } // 标识是否在图纸上
+        //为ViewFilterEntity绑定用的属性
+        public string DisplayName { get; set; }
+        public ViewType ViewType { get; set; }  // 视图类型，方便判断
         public ViewEntity(View view, BaseExternalHandler handler, bool onSheet, int usageCount)
         {
             Viewe = view;
             Id = view.Id;
             _handler = handler;
             _viewName = view.Name;
+            ViewType = view.ViewType;
+            switch (view.ViewType)
+            {
+                case ViewType.ThreeD:
+                    DisplayName = "三维：" + view.Name;
+                    break;
+                case ViewType.Section:
+                case ViewType.Elevation:
+                    DisplayName = "立剖面：" + view.Name;
+                    break;
+                case ViewType.FloorPlan:
+                case ViewType.EngineeringPlan:
+                    DisplayName = "平面：" + view.Name;
+                    break;
+                default:
+                    DisplayName = view.Name;
+                    break;
+            }
             HasSheet = onSheet; // 由 ViewModel 预处理后传入
             if (view.GenLevel != null)
             {
