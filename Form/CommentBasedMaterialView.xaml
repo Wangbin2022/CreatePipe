@@ -1,0 +1,135 @@
+﻿<Window x:Class="CreatePipe.Form.CommentBasedMaterialView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="按属性赋材质" Height="450" Width="720"  Topmost="True"
+        WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
+    <Grid Margin="10">
+        <Grid.Resources>
+            <conv:ColorConverter x:Key="colorConverter"/>
+            <conv:ColorToNameConverter x:Key="ColorNameConverter"/>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+            <conv:TextColorConverter x:Key="TextColorConverter"/>
+            <conv:RevitColorToBrushConverter x:Key="RevitColorToBrushConverter"/>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+            <TextBox Width="230"  Margin="5"
+     bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}"/>
+        </StackPanel>
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+            <TextBlock 
+                Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+            <Button Width="80" Margin="5" Content="材质管理器"  Click="Button_Click_1"/>
+            <Button Width="80" Margin="0,5,5,5" Content="删除注释"
+                    Command="{Binding DeleteElementsCommand}"
+                    CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
+        </StackPanel>
+        <StackPanel   Grid.Row="1">
+            <DataGrid x:Name="dataGrid"  RowHeight="28"
+                     HorizontalAlignment="Stretch" Margin="5"
+                     AutoGenerateColumns="False" CanUserAddRows="False"
+                     SelectionUnit="FullRow" EnableColumnVirtualization="False"
+                     GridLinesVisibility="None" Height="350"  Width="auto"
+                     SelectionMode="Extended" ItemsSource="{Binding Collection}">
+                <DataGrid.Resources>
+                    <ResourceDictionary>
+                        <ResourceDictionary.MergedDictionaries>
+                            <!-- 引用你的 CommonDataGridStyles.xaml -->
+                            <ResourceDictionary Source="/CreatePipe;component/Form/ResourceDictionary/CommonDataGridStyles.xaml"/>
+                        </ResourceDictionary.MergedDictionaries>
+                    </ResourceDictionary>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="注释字符" Width="80" 
+                                        SortMemberPath="ComentStr"
+                      IsReadOnly="False" Binding="{Binding ComentStr}"
+                      ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="构件数" Width="45" 
+                                        SortMemberPath="InstanceCount"
+                      IsReadOnly="False" Binding="{Binding InstanceCount}"
+                      ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="选择构件" Width="auto" >
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button HorizontalAlignment="Stretch" Content="PickALL" 
+                     Command="{Binding DataContext.SelectElementsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                     CommandParameter="{Binding ComentStr}"
+                     BorderBrush="Transparent"  Background="Transparent"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="材质属性" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox 
+                                VerticalAlignment="Center" Height="28"
+ ItemsSource="{Binding DataContext.MaterialAttrnames, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+                                          SelectedItem="{Binding SelectedMaterial, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                </ComboBox>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="材质样本" Width="255">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox VerticalAlignment="Center" Height="28"            
+                                    ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=DataContext.AvailableMaterials}"
+                                    DisplayMemberPath="Name"
+                                    SelectedValue="{Binding SelectedMaterialId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    SelectedValuePath="Id"   >
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <!-- 颜色示意方块 -->
+                                                <Rectangle Width="16" Height="16" Margin="0,0,5,0" 
+                                       Stroke="Gray" StrokeThickness="1"
+                                       Fill="{Binding Color, Converter={StaticResource RevitColorToBrushConverter}}" />
+                                                <!-- 直接绑定到 MaterialEntity 的 Color 属性 -->
+                                                <!-- 材质名称 -->
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="" Width="78">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button HorizontalAlignment="Left" Content="向属性赋材质" Width="75"
+                                        Command="{Binding RelativeSource={RelativeSource 
+                                    AncestorType=Window,Mode=FindAncestor},Path= DataContext.ModifyMaterialCommand}" 
+                                        CommandParameter="{Binding }"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="" Width="78">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button HorizontalAlignment="Left" Content="清除材质" Width="75"
+                                           Command="{Binding RelativeSource={RelativeSource 
+                                    AncestorType=Window,Mode=FindAncestor},Path= DataContext.DeleteElementCommand}" 
+                                        CommandParameter="{Binding }" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+        <DockPanel Grid.Row="2">
+            <Button  Content="确定并退出" HorizontalAlignment="Stretch" FontSize="16"
+                     Click="Button_Click" Margin="5"/>
+        </DockPanel>
+    </Grid>
+</Window>

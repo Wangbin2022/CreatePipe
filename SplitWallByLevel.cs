@@ -1,14 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
-using CreatePipe.Form;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace CreatePipe
+﻿namespace CreatePipe
 {
     //[Transaction(TransactionMode.Manual)]
     //public class SplitWallByLevel : IExternalCommand

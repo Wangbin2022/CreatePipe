@@ -140,7 +140,7 @@ namespace CreatePipe.Form
         //修改材质直接开系统的吧，怎么接收修改？
         public void Window(object para)
         {
-            MainWindow materialManager = new MainWindow(Doc);
+            MateriaManageForm materialManager = new MateriaManageForm(Doc);
             //MaterialManagerView materialManager = new MaterialManagerView(Doc);
             bool? result = materialManager.ShowDialog();
             if (result == true) { QueryELements(null); }

@@ -1,11 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.cmd;
-using CreatePipe.Utils;
-using System;
-
-namespace CreatePipe.RoomAttr
+﻿namespace CreatePipe.RoomAttr
 {
     //[Transaction(TransactionMode.Manual)]
     //public class RoomAttrCmd : IExternalCommand

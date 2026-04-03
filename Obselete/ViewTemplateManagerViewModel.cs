@@ -1,17 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.cmd;
-using CreatePipe.Utils;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-
-namespace CreatePipe
+﻿namespace CreatePipe
 {
     //public class ViewTemplateManagerViewModel : ObserverableObject
     //{

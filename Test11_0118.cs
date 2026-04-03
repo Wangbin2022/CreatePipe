@@ -1,28 +1,16 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.Form.RevitStylePopup;
+using CreatePipe.models;
 using CreatePipe.Utils;
-using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Management.Instrumentation;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Windows.Annotations;
-using System.Windows.Forms;
 
 namespace CreatePipe
 {
@@ -318,6 +306,22 @@ namespace CreatePipe
 
             TaskDialog.Show("批量修改完成", resultMessage);
         }
+        public HashSet<ParameterEntity> paramSet = new HashSet<ParameterEntity>();
+        private void ScanParameters(Document Doc, Element elem, HashSet<ParameterEntity> set)
+        {
+            foreach (Parameter p in elem.Parameters)
+            {
+                if (p.StorageType == StorageType.ElementId)
+                {
+                    // 检查当前值是否是材质，或者是空的材质槽(-1)
+                    ElementId valId = p.AsElementId();
+                    if (valId == ElementId.InvalidElementId || Doc.GetElement(valId) is Material)
+                    {
+                        set.Add(new ParameterEntity(p));
+                    }
+                }
+            }
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -325,9 +329,40 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0331 过滤器功能升级
-            ViewFilterManagerView viewFilterManagerView = new ViewFilterManagerView(uiApp);
-            viewFilterManagerView.Show();
+            //0402 材质属性测试
+            //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "11");
+            //var instance = doc.GetElement(reference) as FamilyInstance;
+            //ScanParameters(doc, instance, paramSet);
+            //// 扫描类型参数
+            //if (instance.Symbol != null) ScanParameters(doc, instance.Symbol, paramSet);
+            ////排除列表图像1152385，拆除的阶段1012101，设计选项1013201，主体ID 1002108,
+            ////类别图像1152384，结构顶面1013438,Level 1002062,System Type 1140333
+            //HashSet<ElementId> excludeIds = new HashSet<ElementId>
+            //{
+            //    new ElementId(-1152385),new ElementId(-1012101),new ElementId(-1013201),new ElementId(-1002108),
+            //    new ElementId(-1152384),new ElementId(-1013438),new ElementId(-1002062),new ElementId(-1140333)
+            //};
+            //paramSet.RemoveWhere(item => excludeIds.Contains(item.DefinitionId));
+            //StringBuilder stringBuilder = new StringBuilder();
+            //foreach (var item in paramSet)
+            //{
+            //    stringBuilder.AppendLine(item.Name + item.DefinitionId.IntegerValue);
+            //    //stringBuilder.AppendLine(item.Name);
+            //}
+            //TaskDialog.Show("tt", stringBuilder.ToString());
+
+            //TaskDialog.Show("tt", instance.Symbol.Parameters.Size.ToString());
+
+            ////////0402 属性材质修改升级
+            CommentBasedMaterialView materialManagerView = new CommentBasedMaterialView(uiApp);
+            materialManagerView.Show();
+            //MateriaManageForm materiaManageForm = new MateriaManageForm(doc);
+            //materiaManageForm.ShowDialog();
+
+
+            ////0331 过滤器功能升级
+            //ViewFilterManagerView viewFilterManagerView = new ViewFilterManagerView(uiApp);
+            //viewFilterManagerView.Show();
 
             ////0331 集成错误处理测试报告.OK
             //try

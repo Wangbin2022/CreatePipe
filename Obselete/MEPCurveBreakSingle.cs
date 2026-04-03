@@ -1,16 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.filter;
-using CreatePipe.Form.RevitStylePopup;
-using CreatePipe.Utils;
-using System;
-using System.CodeDom.Compiler;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-
-namespace CreatePipe
+﻿namespace CreatePipe
 {
     //////0323 待测试的单点连续打断方法 
     ///原则上成功，但切换文档会强制退出选取模式是否还要深化？？

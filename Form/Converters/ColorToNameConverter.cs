@@ -1,20 +1,18 @@
-﻿using Autodesk.Revit.DB;
-using System;
+﻿using System;
 using System.Globalization;
 using System.Windows.Data;
 
 namespace CreatePipe.Form.Converters
 {
-    public class AllToHiddenConverter : IValueConverter
+    public class ColorToNameConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // 如果绑定的标题是 "All"，则隐藏颜色块
-            if (value != null && value.ToString().Equals("All", StringComparison.OrdinalIgnoreCase))
+            if (value is Autodesk.Revit.DB.Color color)
             {
-                return Visibility.Invisible;
+                return color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
             }
-            return Visibility.Visible;
+            return "未指定";
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

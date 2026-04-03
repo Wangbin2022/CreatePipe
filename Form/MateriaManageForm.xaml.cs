@@ -16,24 +16,23 @@ namespace CreatePipe.Form
     /// <summary>
     /// UserControl1.xaml 的交互逻辑
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MateriaManageForm : Window
     {
-        public MainWindow(Document document)
+        public MateriaManageForm(Document document)
         {
             InitializeComponent();
-            this.DataContext = new MainViewModel(document);
+            //this.DataContext = new MateriaManagerViewModel(document);
         }
-
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
     }
 
-    public class MainViewModel : INotifyPropertyChanged
+    public class MateriaManagerViewModel : INotifyPropertyChanged
     {
-        private ObservableCollection<MaterialEntityModel> _materialEntityModels;
-        public ObservableCollection<MaterialEntityModel> MaterialEntityModels
+        private ObservableCollection<MaterialEntity> _materialEntityModels;
+        public ObservableCollection<MaterialEntity> MaterialEntityModels
         {
             get { return _materialEntityModels; }
             set
@@ -51,7 +50,6 @@ namespace CreatePipe.Form
             get { return _keyword; }
             set { _keyword = value; }
         }
-
         public string MaterialCount => MaterialEntityModels.Count.ToString();
         private Document _document;
         public Document Document
@@ -67,28 +65,28 @@ namespace CreatePipe.Form
 
         public ICommand DeleteELementCommand { get; private set; }
         public ICommand DeleteELementCommand2 { get; private set; }
-        public MainViewModel(Document document)
+        public MateriaManagerViewModel(Document document)
         {
             _document = document;
-            MaterialEntityModels = new ObservableCollection<MaterialEntityModel>(
+            MaterialEntityModels = new ObservableCollection<MaterialEntity>(
                       new FilteredElementCollector(document).OfClass(typeof(Material))
-                      .Cast<Material>().Select(material => new MaterialEntityModel(material)));
+                      .Cast<Material>().Select(material => new MaterialEntity((material), null)));
             QueryELementCommand = new RelayCommand<Document>(QueryElement);
             DeleteELementCommand = new RelayCommand<IEnumerable<object>>(DeleteElements);
-            DeleteELementCommand2 = new RelayCommand<MaterialEntityModel>(DeleteElement);
+            DeleteELementCommand2 = new RelayCommand<MaterialEntity>(DeleteElement);
         }
 
         //多选删除方法
         public void DeleteElements(IEnumerable<object> selectedElements)
         {
             Document document = _document;
-            List<MaterialEntityModel> selectedItems = selectedElements.Cast<MaterialEntityModel>().ToList();
+            List<MaterialEntity> selectedItems = selectedElements.Cast<MaterialEntity>().ToList();
             if (selectedElements == null) return;
             document.NewTransaction(() =>
             {
                 for (int i = selectedItems.Count - 1; i >= 0; i--)
                 {
-                    MaterialEntityModel material = selectedItems[i] as MaterialEntityModel;
+                    MaterialEntity material = selectedItems[i] as MaterialEntity;
                     document.Delete(material.Material.Id);
                     MaterialEntityModels.Remove(material);
                 }
@@ -96,7 +94,7 @@ namespace CreatePipe.Form
             OnPropertyChanged(nameof(MaterialCount));
         }
         //单选删除方法
-        public void DeleteElement(MaterialEntityModel material)
+        public void DeleteElement(MaterialEntity material)
         {
             Document document = _document;
             document.NewTransaction(() =>
@@ -112,7 +110,7 @@ namespace CreatePipe.Form
             MaterialEntityModels.Clear();
             FilteredElementCollector elements = new FilteredElementCollector(doc).OfClass(typeof(Material));
             var materials = elements.ToList()
-                .ConvertAll(x => new MaterialEntityModel(x as Material))
+                .ConvertAll(x => new MaterialEntity((x as Material), null))
                 .Where(e => string.IsNullOrEmpty(Keyword) || e.Name.Contains(Keyword));
             foreach (var item in materials)
             {

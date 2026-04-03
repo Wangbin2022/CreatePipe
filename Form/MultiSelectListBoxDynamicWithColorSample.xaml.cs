@@ -1,46 +1,16 @@
-﻿using CreatePipe.cmd;
-using CreatePipe.Obselete;
-using System;
+﻿using CreatePipe.models;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace CreatePipe.Form
 {
     public partial class MultiSelectListBoxDynamicWithColorSample : UserControl
     {
-        // 内部使用的包装类，确保继承正确的通知基类
-        public class Node :ObserverableObject
-        {
-            public string Title { get; set; }
-            private bool _isSelected;
-            public bool IsSelected
-            {
-                get => _isSelected;
-                set => SetProperty(ref _isSelected, value);
-            }
-            public Autodesk.Revit.DB.Color LayerColor { get; set; }
-
-            public Node(string title, Autodesk.Revit.DB.Color color = null)
-            {
-                Title = title;
-                LayerColor = color;
-            }
-        }
-
-        private ObservableCollection<Node> _nodeList = new ObservableCollection<Node>();
+        private ObservableCollection<NodeWithColor> _nodeList = new ObservableCollection<NodeWithColor>();
 
         public MultiSelectListBoxDynamicWithColorSample()
         {
@@ -111,14 +81,14 @@ namespace CreatePipe.Form
             _nodeList.Clear();
             if (this.ItemsSource == null) return;
 
-            _nodeList.Add(new Node("All"));
+            _nodeList.Add(new NodeWithColor("All"));
 
             foreach (var item in this.ItemsSource)
             {
                 // 修复点：确保属性名与你的 CadLayerItem 一致 (LayerName)
                 if (item is CadLayerItem cadItem)
                 {
-                    _nodeList.Add(new Node(cadItem.Title, cadItem.LayerColor)
+                    _nodeList.Add(new NodeWithColor(cadItem.Title, cadItem.LayerColor)
                     {
                         IsSelected = cadItem.IsSelected
                     });
@@ -135,7 +105,7 @@ namespace CreatePipe.Form
             if (content == "All")
             {
                 bool isChecked = clickedBox.IsChecked ?? false;
-                foreach (Node node in _nodeList)
+                foreach (NodeWithColor node in _nodeList)
                 {
                     node.IsSelected = isChecked;
                 }
@@ -158,7 +128,7 @@ namespace CreatePipe.Form
         private void SetSelectedItems()
         {
             var newList = new List<string>();
-            foreach (Node node in _nodeList)
+            foreach (NodeWithColor node in _nodeList)
             {
                 if (node.IsSelected && node.Title != "All")
                 {

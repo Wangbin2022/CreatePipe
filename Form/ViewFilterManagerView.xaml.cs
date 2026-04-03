@@ -1,25 +1,15 @@
 ﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.models;
 using CreatePipe.Utils;
 using CreatePipe.Utils.Interfaces;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe.Form
 {
@@ -96,8 +86,8 @@ namespace CreatePipe.Form
                 if (objType != null)
                 {
                     var displayItem = new ViewEntity(view, null, true, 0);
-                    _internalViewDisplayItems.Add(displayItem);      
-                    AllViewItems.Add(displayItem.DisplayName);     
+                    _internalViewDisplayItems.Add(displayItem);
+                    AllViewItems.Add(displayItem.DisplayName);
                 }
             }
         }
@@ -234,7 +224,7 @@ namespace CreatePipe.Form
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         TaskDialog.Show("操作成功", $"成功将过滤器应用到 {viewsToApply.Count} 个视图。");
-                    });              
+                    });
                 });
             });
         }

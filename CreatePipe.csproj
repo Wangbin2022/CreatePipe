@@ -106,14 +106,20 @@
     <Compile Include="Form\ColorPickerDialog.xaml.cs">
       <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\CommentBasedMaterialView.xaml.cs">
+      <DependentUpon>CommentBasedMaterialView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\Converters\AllToHiddenConverter.cs" />
     <Compile Include="Form\Converters\BackgroundToForegroundConverter.cs" />
     <Compile Include="Form\Converters\BoolToVisibilityConverter.cs" />
     <Compile Include="Form\Converters\ColorConverter.cs" />
+    <Compile Include="Form\Converters\ColorToNameConverter.cs" />
     <Compile Include="Form\Converters\ContentTemplateSelector.cs" />
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
     <Compile Include="Form\Converters\RevitColorConverter.cs" />
+    <Compile Include="Form\Converters\RevitColorToBrushConverter.cs" />
+    <Compile Include="Form\Converters\TextColorConverter.cs" />
     <Compile Include="Form\Converters\TextTruncateConverter.cs" />
     <Compile Include="Form\DuctSystemManagerView.xaml.cs">
       <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
@@ -177,6 +183,9 @@
       <DependentUpon>ManualCropZaxisView.xaml</DependentUpon>
     </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
+    <Compile Include="models\NodeWithColor.cs" />
+    <Compile Include="models\ParameterEntity.cs" />
+    <Compile Include="models\SingleMarkModel.cs" />
     <Compile Include="models\ViewEntity.cs" />
     <Compile Include="models\ViewFilterEntity.cs" />
     <Compile Include="Obselete\PipeSelectFromSelectionView.xaml.cs">
@@ -410,7 +419,7 @@
     <Compile Include="models\CableTrayEntity.cs" />
     <Compile Include="models\CableTraySystemViewModel.cs" />
     <Compile Include="models\IProgressBarService.cs" />
-    <Compile Include="models\MaterialEntityModel.cs" />
+    <Compile Include="models\MaterialEntity.cs" />
     <Compile Include="models\PipeSystemEntity.cs" />
     <Compile Include="models\PipeSystemViewModel.cs" />
     <Compile Include="models\ProgressBarViewModel.cs" />
@@ -576,6 +585,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ColorPickerDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\CommentBasedMaterialView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

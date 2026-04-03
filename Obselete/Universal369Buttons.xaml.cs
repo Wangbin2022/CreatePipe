@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CreatePipe.cmd;
+using System;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,7 +28,7 @@ namespace CreatePipe.Obselete
             this.Close();
         }
     }
-    public class ClipboardItem : ObservableObject
+    public class ClipboardItem : ObserverableObject
     {
         private string _text;
         private DateTime _timestamp;
@@ -59,16 +60,7 @@ namespace CreatePipe.Obselete
 
         public bool HasContent => !string.IsNullOrEmpty(_text);
     }
-
-    public class ObservableObject : System.ComponentModel.INotifyPropertyChanged
-    {
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string name = null)
-        {
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
-        }
-    }
-    public class MainViewModel : ObservableObject
+    public class MainViewModel : ObserverableObject
     {
         private ObservableCollection<ClipboardItem> _clipboardItems;
         private int _visibleButtonCount = 3;

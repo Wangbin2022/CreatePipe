@@ -1,16 +1,7 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using CreatePipe.cmd;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using Autodesk.Revit.UI;
 using System.Globalization;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using Document = Autodesk.Revit.DB.Document;
-using View = Autodesk.Revit.DB.View;
 
 namespace CreatePipe
 {
