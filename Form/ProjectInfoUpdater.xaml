@@ -1,0 +1,69 @@
+﻿<Window x:Class="CreatePipe.Form.ProjectInfoUpdater"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="项目信息更新" Height="400" Width="240" >
+    <Window.Resources>
+        <ResourceDictionary>
+            <Style x:Key="tbox" TargetType="{x:Type TextBox}">
+                <Setter Property="Height" Value="Auto"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Background" Value="LightGray"/>
+                <Setter Property="IsReadOnly" Value="True"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="95"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Margin="5" 
+               BorderThickness="0,0,0,1" BorderBrush="Gray">
+            <TextBox x:Name="inputInfo" Height="75" 
+                    Style="{StaticResource tbox}"
+                    Text="{Binding InputRawData}"                     
+                    TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+        </Border>
+        <Grid Grid.Row="1">
+            <StackPanel Margin="5">
+                <TextBlock FontWeight="Black" Text="建设方名称"/>
+                <TextBox Margin="0,5" Text="{Binding ProjectClt,UpdateSourceTrigger=PropertyChanged}"
+                    Style="{StaticResource tbox}"/>
+                <TextBlock FontWeight="Black" Text="项目名称"/>
+                <TextBox Margin="0,5" Text="{Binding ProjectName,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource tbox}"/>
+                <TextBlock FontWeight="Black" Text="工程名称"/>
+                <TextBox Margin="0,5" Text="{Binding BuildingName}"
+                    Style="{StaticResource tbox}"/>
+                <StackPanel Orientation="Horizontal" >
+                    <TextBlock FontWeight="Black" Text="项目编号" VerticalAlignment="Center" Width="80"/>
+                    <TextBox Margin="0,5" Text="{Binding ProjectNumber}" Style="{StaticResource tbox}"                   
+                     VerticalAlignment="Center" Width="125"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontWeight="Black" Text="出版日期" VerticalAlignment="Center" Width="80"/>
+                    <TextBox Margin="0,5" Text="{Binding IssueDate}" Style="{StaticResource tbox}"
+                     VerticalAlignment="Center" Width="125"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontWeight="Black" Text="项目状态" VerticalAlignment="Center" Width="80"/>
+                    <TextBox Margin="0,5" Text="{Binding ProjectStatus}" Style="{StaticResource tbox}"
+           VerticalAlignment="Center" Width="125"/>
+                </StackPanel>
+            </StackPanel>
+
+        </Grid>
+        <Border Grid.Row="2" Grid.ColumnSpan="2"
+                Margin="5" Padding="0,2,0,0"
+               BorderThickness="0,1,0,0" BorderBrush="Gray">
+            <Button Command="{Binding SaveToRevitCommand}" 
+                   Content="更新项目属性"
+                   Click="Button_Click"/>
+        </Border>
+    </Grid>
+</Window>

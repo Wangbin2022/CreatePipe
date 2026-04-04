@@ -35,10 +35,12 @@ namespace CreatePipe.Form
     }
     public class GuidanceSignPlaceViewModel : ObserverableObject
     {
-        public static Document Document;
+        public Document Document;
         public View ActiveView;
         public UIDocument uiDoc;
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+        // 修复1：直接存储标记类型的 ElementId
+        private ElementId _annoSymbolId = ElementId.InvalidElementId;
         public GuidanceSignPlaceViewModel(UIApplication uiApp)
         {
             Document = uiApp.ActiveUIDocument.Document;
@@ -53,34 +55,45 @@ namespace CreatePipe.Form
             uiDoc = uiApp.ActiveUIDocument;
             LocCode = GetlocCode();
             var families = new FilteredElementCollector(Document).OfClass(typeof(Family)).Cast<Family>().Where(s => s.Name.Contains("标志标识")).ToList();
-            if (families != null)
+            foreach (var item in families)
             {
-                foreach (var item in families)
-                {
-                    switch (item.Name)
-                    {
-                        case "标志标识 - 吊挂式":
-                            HangSignFamily = item;
-                            break;
-                        case "标志标识 - 立柱式":
-                            PillarSignFamily = item;
-                            break;
-                        case "标志标识 - 附着式":
-                            AttachSignFamily = item;
-                            break;
-                        default:
-                            TaskDialog.Show("tt", "No PASS");
-                            break;
-                    }
-                }
+                if (item.Name == "标志标识 - 吊挂式") HangSignFamily = item;
+                else if (item.Name == "标志标识 - 立柱式") PillarSignFamily = item;
+                else if (item.Name == "标志标识 - 附着式") AttachSignFamily = item;
             }
-            var annoFamilies = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(s => s.Name.StartsWith("标记_标识")).ToList();
-            annoSignFamily = annoFamilies.FirstOrDefault();
+            // 修复1：收集 FamilySymbol（族类型）而不是 IndependentTag（族实例）
+            var annoSymbol = new FilteredElementCollector(Document).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+                .FirstOrDefault(s => s.FamilyName.StartsWith("标记_标识") || s.Name.StartsWith("标记_标识"));
+            if (annoSymbol != null) _annoSymbolId = annoSymbol.Id;
+
+            //if (families != null)
+            //{
+            //    foreach (var item in families)
+            //    {
+            //        switch (item.Name)
+            //        {
+            //            case "标志标识 - 吊挂式":
+            //                HangSignFamily = item;
+            //                break;
+            //            case "标志标识 - 立柱式":
+            //                PillarSignFamily = item;
+            //                break;
+            //            case "标志标识 - 附着式":
+            //                AttachSignFamily = item;
+            //                break;
+            //            default:
+            //                TaskDialog.Show("tt", "No PASS");
+            //                break;
+            //        }
+            //    }
+            //}
+            //var annoFamilies = new FilteredElementCollector(Document).OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(s => s.Name.StartsWith("标记_标识")).ToList();
+            //annoSignFamily = annoFamilies.FirstOrDefault();
         }
         public Family HangSignFamily { get; set; }
         public Family AttachSignFamily { get; set; }
         public Family PillarSignFamily { get; set; }
-        public IndependentTag annoSignFamily { get; set; }
+        //public IndependentTag annoSignFamily { get; set; }
         public ICommand execPlacementCommand => new RelayCommand<object>(execPlacement);
         private void execPlacement(object parameter)
         {
@@ -113,7 +126,7 @@ namespace CreatePipe.Form
             {
                 return;
             }
-            if (baseFamily == null || annoSignFamily == null)
+            if (baseFamily == null || _annoSymbolId == null)
             {
                 TaskDialog.Show("tt", "未找到指定的标识族");
                 return;
@@ -140,7 +153,7 @@ namespace CreatePipe.Form
                 TaskDialog.Show("tt", "请调整到平面视图再操作本命令");
                 return;
             }
-            if (AttachSignFamily == null || annoSignFamily == null)
+            if (AttachSignFamily == null || _annoSymbolId == null)
             {
                 TaskDialog.Show("tt", "未找到指定的标识族");
                 return;
@@ -159,15 +172,15 @@ namespace CreatePipe.Form
         public FamilySymbol selectNonFlowSymbol = null;
         private void LoadSymbols(Family family)
         {
-            selectFlowSymbol = null;
-            selectCustomSymbol = null;
-            selectNonFlowSymbol = null;
+            selectFlowSymbol = selectCustomSymbol = selectNonFlowSymbol = null;
             foreach (var id in family.GetFamilySymbolIds())
             {
-                var symbol = Document.GetElement(id) as FamilySymbol;
-                if (symbol.Name.Contains("非流程")) selectNonFlowSymbol = symbol;
-                else if (symbol.Name.Contains("海关")) selectCustomSymbol = symbol;
-                else selectFlowSymbol = symbol;
+                if (Document.GetElement(id) is FamilySymbol symbol)
+                {
+                    if (symbol.Name.Contains("非流程")) selectNonFlowSymbol = symbol;
+                    else if (symbol.Name.Contains("海关")) selectCustomSymbol = symbol;
+                    else selectFlowSymbol = symbol;
+                }
             }
         }
         private FamilySymbol GetSymbolByFlowCode()
@@ -185,7 +198,11 @@ namespace CreatePipe.Form
         private void PlaceSignCommon(FamilySymbol symbol, bool isDouble, bool isHang)
         {
             if (!symbol.IsActive) symbol.Activate();
-
+            if (LocCode == "未找到标识标记")
+            {
+                TaskDialog.Show("tt", "清载入标识标记族并正确设置位置编码。");
+                return;
+            }
             XYZ pt;
             try { pt = uiDoc.Selection.PickPoint("请点选放置位置"); }
             catch (OperationCanceledException) { return; }
@@ -193,20 +210,19 @@ namespace CreatePipe.Form
             var level = Document.GetElement(ActiveView.GenLevel.Id) as Level;
             _externalHandler.Run(app =>
             {
-                using (Transaction tx = new Transaction(Document, "放置标识实例"))
+                NewTransaction.Execute(Document, "放置标识实例", () =>
                 {
-                    tx.Start();
                     var instance = Document.Create.NewFamilyInstance(pt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-                    var tag = IndependentTag.Create(Document, annoSignFamily.GetTypeId(), ActiveView.Id, new Reference(instance), false, TagOrientation.Horizontal, pt);
+                    var tag = IndependentTag.Create(Document, _annoSymbolId, ActiveView.Id, new Reference(instance), false, TagOrientation.Horizontal, pt);
                     SetSignParameters(instance, isDouble, isHang);
+                    // 旋转
                     // 旋转
                     if (SignAngle != 0)
                     {
                         var axis = Line.CreateBound(pt, pt + XYZ.BasisZ);
                         instance.Location.Rotate(axis, SignAngle * Math.PI / 180.0);
+                        if (SignAngle == 90 || SignAngle == 270) tag.TagOrientation = TagOrientation.Vertical;
                     }
-                    if (SignAngle == 90 || SignAngle == 270)
-                        tag.TagOrientation = TagOrientation.Vertical;
                     instance.Symbol.LookupParameter("位置编码").Set(LocCode);
                     instance.LookupParameter("层高编码").Set(LevelCode);
                     instance.Symbol.LookupParameter("性质编码").Set(FlowCode);
@@ -214,70 +230,121 @@ namespace CreatePipe.Form
 
                     if (int.TryParse(SignNum, out int parsed))
                         SignNum = (parsed + 1).ToString("D3");
-                    tx.Commit();
-                }
+                });
             });
         }
         private void SetSignParameters(FamilyInstance instance, bool isDouble, bool isHang)
         {
-            // 设置牌面数量和文字
-            if (SignRows > 3) return;
-            switch (SignRows)
+            // 1. 定义参数名称和对应的数据源
+            var qtyNames = new[] { "推荐数量 1块", "推荐数量 2块", "推荐数量 3块" };
+            var frontNames = new[] { "文字转换", "文字转换 第二行", "文字转换 第三行" };
+            var backNames = new[] { "文字转换 背面", "文字转换 第二行背面", "文字转换 第三行背面" };
+
+            var frontValues = new[] { FrontSignFirst, FrontSignSecond, FrontSignThird };
+            var backValues = new[] { BackSignFirst, BackSignSecond, BackSignThird };
+
+            // 2. 遍历 3 行，显式设置每一行的状态
+            for (int i = 0; i < 3; i++)
             {
-                case 1:
-                    instance.LookupParameter("推荐数量 1块").Set(1);
-                    instance.LookupParameter("推荐数量 2块").Set(0);
-                    instance.LookupParameter("推荐数量 3块").Set(0);
-                    instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                    if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                    break;
-                case 2:
-                    instance.LookupParameter("推荐数量 1块").Set(1);
-                    instance.LookupParameter("推荐数量 2块").Set(1);
-                    instance.LookupParameter("推荐数量 3块").Set(0);
-                    instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                    if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                    instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
-                    if (isDouble) instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
-                    break;
-                default:
-                    instance.LookupParameter("推荐数量 1块").Set(1);
-                    instance.LookupParameter("推荐数量 2块").Set(1);
-                    instance.LookupParameter("推荐数量 3块").Set(1);
-                    instance.LookupParameter("文字转换").Set(FrontSignFirst);
-                    if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
-                    instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
-                    if (isDouble) instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
-                    instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
-                    if (isDouble) instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
-                    break;
+                // 索引 i 从 0 到 2
+                // 如果当前索引小于 SignRows，则激活（设为1和对应文字），否则关闭（设为0和"-"）
+                bool isRowActive = i < SignRows;
+
+                // 设置数量开关 (1 或 0)
+                SetParameterSafe(instance, qtyNames[i], isRowActive ? 1 : 0);
+
+                // 设置正面文字 (内容 或 "-")
+                SetParameterSafe(instance, frontNames[i], isRowActive ? frontValues[i] : "-");
+
+                // 设置背面文字 (如果是双面且行活跃则设内容，否则设 "-")
+                if (isDouble && isRowActive)
+                    SetParameterSafe(instance, backNames[i], backValues[i]);
+                else
+                    SetParameterSafe(instance, backNames[i], "-");
             }
-            // 设置几何
-            instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
-            instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
+
+            // 3. 设置几何参数
+            SetParameterSafe(instance, "推荐长度", SignLength / 304.8);
+            SetParameterSafe(instance, "推荐宽度", SignWidth / 304.8);
+
             if (isHang)
-                instance.Symbol.LookupParameter("标识高度").Set(HangSignHeight / 304.8);
-            else if (instance.Symbol.Family.Name == "标志标识 - 附着式")
             {
-                instance.LookupParameter("悬挂标高").Set(AttachSignHeight / 304.8);
+                SetParameterSafe(instance.Symbol, "标识高度", HangSignHeight / 304.8);
             }
-            //暂时没有考虑立柱式的高度设置，高度设置无效
+            else if (instance.Symbol?.Family?.Name == "标志标识 - 附着式")
+            {
+                SetParameterSafe(instance, "悬挂标高", AttachSignHeight / 304.8);
+            }
         }
+        // --- 安全参数赋值辅助方法 ---
+        private void SetParameterSafe(Element elem, string paramName, object value)
+        {
+            var p = elem?.LookupParameter(paramName);
+            if (p == null || p.IsReadOnly) return;
+
+            if (value is int i) p.Set(i);
+            else if (value is double d) p.Set(d);
+            else if (value is string s) p.Set(s ?? string.Empty);
+        }
+        //private void SetSignParameters(FamilyInstance instance, bool isDouble, bool isHang)
+        //{
+        //    // 设置牌面数量和文字
+        //    if (SignRows > 3) return;
+
+        //    switch (SignRows)
+        //    {
+        //        case 1:
+        //            instance.LookupParameter("推荐数量 1块").Set(1);
+        //            instance.LookupParameter("推荐数量 2块").Set(0);
+        //            instance.LookupParameter("推荐数量 3块").Set(0);
+        //            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+        //            if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+        //            break;
+        //        case 2:
+        //            instance.LookupParameter("推荐数量 1块").Set(1);
+        //            instance.LookupParameter("推荐数量 2块").Set(1);
+        //            instance.LookupParameter("推荐数量 3块").Set(0);
+        //            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+        //            if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+        //            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+        //            if (isDouble) instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+        //            break;
+        //        default:
+        //            instance.LookupParameter("推荐数量 1块").Set(1);
+        //            instance.LookupParameter("推荐数量 2块").Set(1);
+        //            instance.LookupParameter("推荐数量 3块").Set(1);
+        //            instance.LookupParameter("文字转换").Set(FrontSignFirst);
+        //            if (isDouble) instance.LookupParameter("文字转换 背面").Set(BackSignFirst);
+        //            instance.LookupParameter("文字转换 第二行").Set(FrontSignSecond);
+        //            if (isDouble) instance.LookupParameter("文字转换 第二行背面").Set(BackSignSecond);
+        //            instance.LookupParameter("文字转换 第三行").Set(FrontSignThird);
+        //            if (isDouble) instance.LookupParameter("文字转换 第三行背面").Set(BackSignThird);
+        //            break;
+        //    }
+        //    // 设置几何
+        //    instance.LookupParameter("推荐长度").Set(SignLength / 304.8);
+        //    instance.LookupParameter("推荐宽度").Set(SignWidth / 304.8);
+        //    if (isHang)
+        //        instance.Symbol.LookupParameter("标识高度").Set(HangSignHeight / 304.8);
+        //    else if (instance.Symbol.Family.Name == "标志标识 - 附着式")
+        //    {
+        //        instance.LookupParameter("悬挂标高").Set(AttachSignHeight / 304.8);
+        //    }
+        //    //暂时没有考虑立柱式的高度设置，高度设置无效
+        //}
         public ICommand ChangeViewScaleCommand => new RelayCommand<string>(ChangeViewScale);
         private void ChangeViewScale(string obj)
         {
             int.TryParse(obj, out int parsed);
             _externalHandler.Run(app =>
             {
-                using (Transaction tx = new Transaction(Document, "改视图比例"))
+                NewTransaction.Execute(Document, "改视图比例", () =>
                 {
-                    tx.Start();
                     if (ActiveView.Scale != parsed)
                     {
                         ActiveView.Scale = parsed;
                     }
-                    tx.Commit();
-                }
+                });
             });
         }
         public bool canPlaceSign { get; set; } = true;
@@ -360,7 +427,7 @@ namespace CreatePipe.Form
         public string SignNum
         {
             get => _signNum;
-            private set
+            set
             {
                 if (_signNum == value) return;
                 _signNum = value;
@@ -395,8 +462,12 @@ namespace CreatePipe.Form
         public ICommand SplitContentCommand => new RelayCommand<string>(SplitContent);
         private void SplitContent(string obj)
         {
-            string frontContent = null;
-            string backContent = null;
+            if (string.IsNullOrEmpty(obj)) return;
+            FrontSignFirst = FrontSignSecond = FrontSignThird = "-";
+            BackSignFirst = BackSignSecond = BackSignThird = "-";
+            SignRows = 1;
+
+            string frontContent, backContent = null;
             if (obj.Contains("|"))
             {
                 // 分割字符串，最多分成2部分
@@ -405,47 +476,42 @@ namespace CreatePipe.Form
                 backContent = parts.Length > 1 ? parts[1].Trim() : string.Empty;
             }
             else frontContent = obj;
-            //TaskDialog.Show("tt", frontContent);
-            //TaskDialog.Show("tt", backContent);
+
             // 分割正面内容
-            string[] frontParts = frontContent.Split(new[] { ';', '；' }, StringSplitOptions.RemoveEmptyEntries);
-            int frontCount = Math.Min(frontParts.Length, 3); // 最多取3个
-            if (frontCount > 0) FrontSignFirst = RemovePrefix(frontParts[0].Trim());
-            if (frontCount > 1) FrontSignSecond = frontParts[1].Trim();
-            if (frontCount > 2) FrontSignThird = frontParts[2].Trim();
+            var frontParts = frontContent.Split(new[] { ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim()).Take(3).ToArray();
+
+            if (frontParts.Length > 0) FrontSignFirst = RemovePrefix(frontParts[0]);
+            if (frontParts.Length > 1) FrontSignSecond = frontParts[1];
+            if (frontParts.Length > 2) FrontSignThird = frontParts[2];
             // 分割背面内容（如果有）
             int backCount = 0;
             if (!string.IsNullOrEmpty(backContent))
             {
-                string[] backParts = backContent.Split(new[] { ';', '；' }, StringSplitOptions.RemoveEmptyEntries);
-                backCount = Math.Min(backParts.Length, 3); // 最多取3个
-                if (backCount > 0) BackSignFirst = RemovePrefix(backParts[0].Trim());
-                if (backCount > 1) BackSignSecond = backParts[1].Trim();
-                if (backCount > 2) BackSignThird = backParts[2].Trim();
-            }
-            else
-            {
-                BackSignFirst = "-";
-                BackSignSecond = "-";
-                BackSignThird = "-";
+                var backParts = backContent.Split(new[] { ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim()).Take(3).ToArray();
+                backCount = backParts.Length;
+                if (backParts.Length > 0) BackSignFirst = RemovePrefix(backParts[0]);
+                if (backParts.Length > 1) BackSignSecond = backParts[1];
+                if (backParts.Length > 2) BackSignThird = backParts[2];
             }
             // 确定行数（取正反面中较大的数量）
-            SignRows = Math.Max(frontCount, backCount);
+            SignRows = Math.Max(frontParts.Length, backCount);
             //TaskDialog.Show("tt", SignRows.ToString());
         }
         private string RemovePrefix(string input)
         {
-            if (input.StartsWith("正面：") || input.StartsWith("正面:") || input.StartsWith("背面：") || input.StartsWith("背面:"))
-                return input.Substring(3);
-            else return input;
+            if (string.IsNullOrEmpty(input)) return input;
+            foreach (var prefix in new[] { "正面：", "正面:", "背面：", "背面:" })
+            {
+                if (input.StartsWith(prefix)) return input.Substring(prefix.Length);
+            }
+            return input;
         }
         public int SignRows { get; set; } = 1;
-        private string frontSignFirst = "-";
-        private string frontSignSecond = "-";
-        private string frontSignThird = "-";
-        private string backSignFirst = "-";
-        private string backSignSecond = "-";
-        private string backSignThird = "-";
+        //private string frontSignFirst, frontSignSecond, frontSignThird, backSignFirst, backSignSecond, backSignThird = "-";
+        private string frontSignFirst = "-", frontSignSecond = "-", frontSignThird = "-";
+        private string backSignFirst = "-", backSignSecond = "-", backSignThird = "-";
         public string FrontSignFirst { get => frontSignFirst; set => SetProperty(ref frontSignFirst, value); }
         public string FrontSignSecond { get => frontSignSecond; set => SetProperty(ref frontSignSecond, value); }
         public string FrontSignThird { get => frontSignThird; set => SetProperty(ref frontSignThird, value); }
@@ -455,15 +521,15 @@ namespace CreatePipe.Form
         public ICommand InputRuleCommand => new BaseBindingCommand(InputRule);
         private void InputRule(object obj)
         {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("输入内容规则说明：");
-            stringBuilder.AppendLine("1.正反牌面内容以竖线 | 分割，输入|不超过1个");
-            stringBuilder.AppendLine("2.正反牌面内容分别以“正面：”“背面：”开头");
-            stringBuilder.AppendLine("3.多行牌面内容以分号区分，每段最多2个 ;");
-            stringBuilder.AppendLine("4.输入字符串中不得包含半角逗号 ,");
-            TaskDialog.Show("tt", stringBuilder.ToString());
+            TaskDialog.Show("输入规则", string.Join(Environment.NewLine, new[]
+              {
+            "输入内容规则说明：",
+            "1. 正反牌面内容以竖线| 分割，最多1个",
+            "2. 正反牌面内容分别以“正面：”或“背面：”开头（可省略）",
+            "3. 多行牌面内容以分号 ; 区分，每面最多3行",
+            "4. 输入字符串中不得包含半角逗号 ,"
+        }));
         }
-
         private bool _hasError = true;   // 初始置 true，空内容即报错
         public bool HasError
         {
@@ -478,11 +544,7 @@ namespace CreatePipe.Form
         public int SignLength { get; set; } = 3000;
         public int SignWidth { get; set; } = 350;
         public int SignAngle { get; set; } = 0;
-        public string ContentText
-        {
-            get => contentText;
-            set => SetProperty(ref contentText, value);
-        }
+        public string ContentText { get => contentText; set => SetProperty(ref contentText, value); }
         private string contentText;
     }
     public static class ValidationBehaviors

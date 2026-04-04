@@ -4,12 +4,17 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.models;
 using CreatePipe.Utils;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace CreatePipe
@@ -188,47 +193,6 @@ namespace CreatePipe
             // 执行到这里时，墙已经恢复到了原来的位置，但你拿到了干涉结果 isColliding
             TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
         }
-        /// <summary>
-        /// 兼容性获取构件的偏移参数
-        /// </summary>
-        //private double GetElementOffset(Element el)
-        //{
-        //    // 尝试获取常见的偏移参数 ID// 大多数基于标高的族（插座、家具、机械设备等）
-        //    BuiltInParameter[] offsetParams = new[]
-        //    {
-        //        BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM,
-        //        BuiltInParameter.WALL_BASE_OFFSET,
-        //        BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM
-        //    };
-        //    foreach (var bip in offsetParams)
-        //    {
-        //        Parameter p = el.get_Parameter(bip);
-        //        if (p != null && p.HasValue)
-        //        {
-        //            return p.AsDouble();
-        //        }
-        //    }
-        //    return 0;
-        //}
-        /// <summary>
-        /// 兼容性获取构件的标高ID
-        /// </summary>
-        private ElementId GetElementLevelId(Element el)
-        {
-            // 方式1：标准属性
-            if (el.LevelId != ElementId.InvalidElementId) return el.LevelId;
-            // 方式2：常用内置参数 (针对族实例、管道、风管等)
-            Parameter p = el.get_Parameter(BuiltInParameter.FAMILY_LEVEL_PARAM);
-            if (p != null && p.HasValue) return p.AsElementId();
-            // 方式3：针对房间/空间
-            p = el.get_Parameter(BuiltInParameter.ROOM_LEVEL_ID);
-            if (p != null && p.HasValue) return p.AsElementId();
-            // 方式4：针对 MEP 管线特定偏移参数
-            p = el.get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM);
-            if (p != null && p.HasValue) return p.AsElementId();
-            return ElementId.InvalidElementId;
-        }
-
         private Category GetElectricalEquipmentCategory(Document doc)
         {
             return Category.GetCategory(doc, BuiltInCategory.OST_ElectricalFixtures);
@@ -306,21 +270,97 @@ namespace CreatePipe
 
             TaskDialog.Show("批量修改完成", resultMessage);
         }
-        public HashSet<ParameterEntity> paramSet = new HashSet<ParameterEntity>();
-        private void ScanParameters(Document Doc, Element elem, HashSet<ParameterEntity> set)
+        private string frontSignFirst, frontSignSecond, frontSignThird = "-";
+        //用OpenFileDialog 模拟文件夹选择，选择文件返回文件夹路径确实别扭
+        public string SelectFolderWithWin32()
         {
-            foreach (Parameter p in elem.Parameters)
+            OpenFileDialog dialog = new OpenFileDialog
             {
-                if (p.StorageType == StorageType.ElementId)
+                ValidateNames = false,
+                CheckFileExists = false,
+                CheckPathExists = false,
+                FileName = "文件夹选择"
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                return System.IO.Path.GetDirectoryName(dialog.FileName);
+            }
+            return null;
+        }
+        /// <summary>
+        /// 格式化输出最终清单对话框
+        /// </summary>
+        private void ShowResultDialog(int totalCount, List<string> successList, List<string> failList)
+        {
+            string resultMessage = $"共选中 {totalCount} 个文件。\n\n";
+
+            // 成功清单展示
+            resultMessage += $"✅ 成功导出 ({successList.Count} 个)：\n";
+            if (successList.Count > 0)
+            {
+                // 为防止选了几百个文件导致对话框文字超限，这里限制最多显示前20个
+                var displaySuccess = successList.Take(20).ToList();
+                resultMessage += string.Join("\n", displaySuccess);
+                if (successList.Count > 20) resultMessage += "\n... (省略显示更多)";
+            }
+            else
+            {
+                resultMessage += "无\n";
+            }
+
+            resultMessage += "\n\n";
+
+            // 失败/跳过清单展示
+            resultMessage += $"❌ 失败或跳过 ({failList.Count} 个)：\n";
+            if (failList.Count > 0)
+            {
+                var displayFail = failList.Take(20).ToList();
+                resultMessage += string.Join("\n", displayFail);
+                if (failList.Count > 20) resultMessage += "\n... (省略显示更多)";
+            }
+            else
+            {
+                resultMessage += "无";
+            }
+
+            // 调用 Revit 原生 TaskDialog 显示
+            TaskDialog resultDialog = new TaskDialog("批量转换 FBX 报告")
+            {
+                MainInstruction = "批量处理任务已结束",
+                MainContent = resultMessage
+            };
+            resultDialog.Show();
+        }
+        /// <summary>
+        /// 递归遍历几何元素，提取带有倾斜角度的平面（PlanarFace）
+        /// </summary>
+        private List<PlanarFace> GetInclinedPlanarFaces(GeometryElement geomElem)
+        {
+            List<PlanarFace> faces = new List<PlanarFace>();
+            foreach (GeometryObject geomObj in geomElem)
+            {
+                if (geomObj is Solid solid && solid.Faces.Size > 0)
                 {
-                    // 检查当前值是否是材质，或者是空的材质槽(-1)
-                    ElementId valId = p.AsElementId();
-                    if (valId == ElementId.InvalidElementId || Doc.GetElement(valId) is Material)
+                    foreach (Face face in solid.Faces)
                     {
-                        set.Add(new ParameterEntity(p));
+                        if (face is PlanarFace planarFace)
+                        {
+                            XYZ normal = planarFace.FaceNormal;
+                            // 排除完全水平的面 (Z=1 或 Z=-1) 和 完全垂直的面 (Z=0)
+                            if (Math.Abs(normal.Z) < 0.9999 && Math.Abs(normal.Z) > 0.0001)
+                            {
+                                faces.Add(planarFace);
+                            }
+                        }
                     }
                 }
+                else if (geomObj is GeometryInstance geomInst)
+                {
+                    // 若有嵌套的实例（如内建模型生成的屋顶），递归解包
+                    faces.AddRange(GetInclinedPlanarFaces(geomInst.GetInstanceGeometry()));
+                }
             }
+            return faces;
         }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -329,41 +369,330 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0402 材质属性测试
-            //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "11");
-            //var instance = doc.GetElement(reference) as FamilyInstance;
-            //ScanParameters(doc, instance, paramSet);
-            //// 扫描类型参数
-            //if (instance.Symbol != null) ScanParameters(doc, instance.Symbol, paramSet);
-            ////排除列表图像1152385，拆除的阶段1012101，设计选项1013201，主体ID 1002108,
-            ////类别图像1152384，结构顶面1013438,Level 1002062,System Type 1140333
-            //HashSet<ElementId> excludeIds = new HashSet<ElementId>
+
+            //0404 屋顶计算处理，变化较大.OK
+            try
+            {
+                // 1. 拾取特定的面 (使用自定义过滤器确保只能选平面)
+                Reference faceRef = uiDoc.Selection.PickObject(ObjectType.Face,
+                    new PlanarFaceFilter(doc), "请选择一个平面以计算坡度 (支持屋顶、楼板、常规模型等)");
+                // 2. 获取图元及被选中的面
+                Element elem = doc.GetElement(faceRef);
+                GeometryObject geoObj = elem.GetGeometryObjectFromReference(faceRef);
+                PlanarFace face = geoObj as PlanarFace;
+                if (face == null) return Result.Cancelled;
+                // 3. 获取平面的法线向量 (FaceNormal)
+                // 无论法线朝上还是朝下，取 Z 轴的绝对值即可计算它与水平面的夹角
+                double zVal = Math.Abs(face.FaceNormal.Z);
+                // 4. 边界条件判断
+                double tolerance = 1e-6; // 浮点数容差
+                if (Math.Abs(zVal - 1.0) < tolerance)
+                {
+                    TaskDialog.Show("计算结果", $"图元名称：{elem.Name}\n\n所选面为完全水平面，坡度为 0");
+                    return Result.Succeeded;
+                }
+                if (zVal < tolerance)
+                {
+                    TaskDialog.Show("计算结果", $"图元名称：{elem.Name}\n\n所选面为完全垂直面，坡度为无穷大 (90°)");
+                    return Result.Succeeded;
+                }
+                // 5. 核心数学计算
+                // 法线Z分量的反余弦值 = 该面与水平面的夹角(弧度)
+                double rad = Math.Acos(zVal);
+                double angle = rad * 180.0 / Math.PI; // 弧度转角度
+                double tan = Math.Tan(rad);           // 坡度正切值 (高度/长度)
+                double percentage = tan * 100.0;      // 坡度百分比
+                double ratio = 1.0 / tan;             // 坡比 1:X
+                // 6. 格式化输出
+                string msg = $"所属图元：{elem.Name} (ID: {elem.Id})\n" +
+                             $"----------------------------------\n" +
+                             $"坡度百分比：{Math.Round(percentage, 2)} %\n" +
+                             $"坡度角度：{Math.Round(angle, 2)}°\n" +
+                             $"坡度弧度：{Math.Round(rad, 4)} rad\n" +
+                             $"坡比 (1:X)：1 : {Math.Round(ratio, 2)}";
+                TaskDialog.Show("平面坡度计算", msg);
+                return Result.Succeeded;
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                // 用户按了 ESC 键取消操作
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("错误", ex.Message);
+                return Result.Failed;
+            }
+            //初步方法忽略了基线屋面多重性
+            //try
             //{
-            //    new ElementId(-1152385),new ElementId(-1012101),new ElementId(-1013201),new ElementId(-1002108),
-            //    new ElementId(-1152384),new ElementId(-1013438),new ElementId(-1002062),new ElementId(-1140333)
-            //};
-            //paramSet.RemoveWhere(item => excludeIds.Contains(item.DefinitionId));
-            //StringBuilder stringBuilder = new StringBuilder();
-            //foreach (var item in paramSet)
-            //{
-            //    stringBuilder.AppendLine(item.Name + item.DefinitionId.IntegerValue);
-            //    //stringBuilder.AppendLine(item.Name);
+            //    // 1. 拾取屋顶（使用自定义的 RoofFilter 过滤器，允许所有类型的屋顶）
+            //    Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new RoofFilter(), "请选择迹线屋面或拉伸屋面");
+            //    RoofBase roof = doc.GetElement(reference) as RoofBase;
+
+            //    if (roof == null) return Result.Cancelled;
+
+            //    // 2. 提取屋顶实体的顶面几何信息
+            //    Options opt = new Options();
+            //    GeometryElement geomElem = roof.get_Geometry(opt);
+
+            //    List<PlanarFace> inclinedFaces = GetInclinedPlanarFaces(geomElem);
+
+            //    if (inclinedFaces.Count == 0)
+            //    {
+            //        TaskDialog.Show("结果", "所选屋顶为完全平屋顶或无法找到平面，无坡度！");
+            //        return Result.Succeeded;
+            //    }
+
+            //    // 3. 取第一个倾斜的面计算坡度
+            //    PlanarFace face = inclinedFaces.First();
+            //    XYZ normal = face.FaceNormal;
+
+            //    // 4. 数学计算坡度
+            //    // 面的法线Z轴分量的反余弦值即为平面与水平面的夹角弧度
+            //    double rad = Math.Acos(Math.Abs(normal.Z));
+            //    double angle = rad * 180 / Math.PI;             // 转换为角度
+            //    double slopeRatio = Math.Tan(rad);              // 计算正切值(即 高度/长度)
+            //    double percentage = slopeRatio * 100;           // 百分比
+
+            //    // 5. 格式化输出
+            //    string msg = $"屋顶ID：{roof.Id}\n" +
+            //                 $"屋顶类型：{roof.GetType().Name}\n" +
+            //                 $"--------------------------\n" +
+            //                 $"坡度百分比：{Math.Round(percentage, 2)} %\n" +
+            //                 $"坡度角度：{Math.Round(angle, 2)}°\n" +
+            //                 $"坡度弧度：{Math.Round(rad, 4)} rad\n" +
+            //                 $"坡比 (1:X)：1 : {Math.Round(1 / slopeRatio, 2)}";
+
+            //    TaskDialog.Show("屋面坡度计算", msg);
+
+            //    return Result.Succeeded;
             //}
-            //TaskDialog.Show("tt", stringBuilder.ToString());
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("错误", ex.Message);
+            //    return Result.Failed;
+            //}
+            //0404当前楼层切分立管功能略
+            //0404revit导出明细表功能    
+            //0404 BatchConvert2FBX.OK
+            //// 1. 使用 Win32.OpenFileDialog 选择多个文件
+            //OpenFileDialog openFileDialog = new OpenFileDialog
+            //{
+            //    Title = "请选择需要转换的 Revit 模型（按住 Ctrl/Shift 可多选）",
+            //    Filter = "Revit 文件 (*.rvt)|*.rvt",
+            //    Multiselect = true, // 关键：允许选中多个文件
+            //    InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            //};
+            //// 如果用户关闭对话框或取消选择，直接结束命令
+            //if (openFileDialog.ShowDialog() != true)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //string[] selectedFiles = openFileDialog.FileNames;
+            //if (selectedFiles.Length == 0) return Result.Cancelled;
+            //// 用于记录处理结果的清单
+            //List<string> successList = new List<string>();
+            //List<string> failList = new List<string>();
+            //// 2. 使用封装的无事务进度条执行核心逻辑
+            //Result processResult = NoTransactionWithProgressBarHelper.Execute(
+            //    selectedFiles.Length,
+            //    "准备批量转换 FBX...",
+            //    (progress) =>
+            //    {
+            //        for (int i = 0; i < selectedFiles.Length; i++)
+            //        {
+            //            string filePath = selectedFiles[i];
+            //            string fileName = Path.GetFileName(filePath);
+            //            string fileDir = Path.GetDirectoryName(filePath);
+            //            string nameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+            //            try
+            //            {
+            //                // 在主窗口激活并打开文档
+            //                UIDocument newUiDoc = uiApp.OpenAndActivateDocument(filePath);
+            //                Document currentDoc = newUiDoc.Document;
+            //                // 【注意】这里假设你的进度条有 Update 方法。
+            //                // 如果你的方法叫 SetProgress / StepIt 等，请修改此处
+            //                progress.Update(i + 1, fileName);
+            //                // 查找有效的三维视图 (排除视图模板)
+            //                View3D exportView = new FilteredElementCollector(currentDoc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+            //                if (exportView != null)
+            //                {
+            //                    ViewSet viewSet = new ViewSet();
+            //                    viewSet.Insert(exportView);
+            //                    FBXExportOptions options = new FBXExportOptions();
+            //                    // 导出文件
+            //                    currentDoc.Export(fileDir, nameWithoutExt, viewSet, options);
+            //                    successList.Add(fileName);
+            //                }
+            //                else
+            //                {
+            //                    failList.Add($"{fileName} [跳过: 未找到三维视图]");
+            //                }
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                failList.Add($"{fileName} [失败: {ex.Message}]");
+            //            }
+            //        }
+            //    });
+            //if (processResult == Result.Succeeded)
+            //{
+            //    ShowResultDialog(selectedFiles.Length, successList, failList);
+            //}
 
-            //TaskDialog.Show("tt", instance.Symbol.Parameters.Size.ToString());
+            //改后台调用WIn32.OpenFolderDialog
+            // 1. 选择文件夹
+            //var folderDialog = new Microsoft.Win32.OpenFolderDialog
+            //{
+            //    Title = "请选择包含 .rvt 文件的文件夹",
+            //    InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            //};
+            //if (folderDialog.ShowDialog() != true) return Result.Cancelled;
+            //string selectedPath = folderDialog.FolderName;
 
-            ////////0402 属性材质修改升级
-            CommentBasedMaterialView materialManagerView = new CommentBasedMaterialView(uiApp);
-            materialManagerView.Show();
-            //MateriaManageForm materiaManageForm = new MateriaManageForm(doc);
-            //materiaManageForm.ShowDialog();
+            //string selectedPath = SelectFolderWithWin32();
+            //TaskDialog.Show("tt", selectedPath);
 
+            //string[] rvtFiles = Directory.GetFiles(selectedPath, "*.rvt");
+            //if (rvtFiles.Length == 0)
+            //{
+            //    TaskDialog.Show("提示", "所选文件夹内没有 .rvt 文件。");
+            //    return Result.Failed;
+            //}
+            //int successCount = 0;
+            //int failCount = 0;
+            //// 2. 遍历处理文件
+            //foreach (string filePath in rvtFiles)
+            //{
+            //    Document openedDoc = null;
+            //    try
+            //    {
+            //        // 优化点：使用后台静默打开，不激活 UI 界面
+            //        UIDocument newUIDoc = uiApp.OpenAndActivateDocument(filePath);
+            //        openedDoc = newUIDoc.Document;
+            //        // 3. 高效查找适合导出的三维视图 (排除视图模板)
+            //        View3D exportView = new FilteredElementCollector(openedDoc).OfClass(typeof(View3D))
+            //            .Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+            //        if (exportView == null)
+            //        {
+            //            failCount++;
+            //            openedDoc.Close(false);
+            //            continue;
+            //        }
+            //        // 4. 配置导出选项
+            //        var viewSet = new ViewSet();
+            //        viewSet.Insert(exportView);
+            //        FBXExportOptions options = new FBXExportOptions
+            //        {
+            //            StopOnError = true // 遇到严重错误停止
+            //        };
+            //        string fileName = Path.GetFileNameWithoutExtension(filePath);
+            //        // 5. 执行导出
+            //        // 注意：selectedPath 是文件夹路径，fileName 是文件名
+            //        openedDoc.Export(selectedPath, fileName, viewSet, options);
+            //        successCount++;
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        failCount++;
+            //        // 可以在控制台或日志记录错误，避免弹出成百上千个对话框
+            //        Console.WriteLine($"文件 {Path.GetFileName(filePath)} 转换失败: {ex.Message}");
+            //    }
+            //    finally
+            //    {
+            //        // ⚠️ 极其重要：确保即使出错也要关闭文档，释放内存
+            //        if (openedDoc != null)
+            //        {
+            //            openedDoc.Close(false);
+            //        }
+            //    }
+            //}
+            //TaskDialog.Show("转换完成", $"处理总数：{rvtFiles.Length}\n成功：{successCount}\n失败：{failCount}\n\nFBX 文件已保存在原文件夹。");
 
-            ////0331 过滤器功能升级
-            //ViewFilterManagerView viewFilterManagerView = new ViewFilterManagerView(uiApp);
-            //viewFilterManagerView.Show();
+            //原代码使用Winform窗体
+            //using (var folderDialog = new Forms.FolderBrowserDialog())
+            //{
+            //    folderDialog.Description = "请选择一个文件夹";
+            //    folderDialog.ShowNewFolderButton = false; // 是否显示“新建文件夹”按钮
+            //    if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            //    {
+            //        string selectedPath = folderDialog.SelectedPath;
+            //        DirectoryInfo dir = new DirectoryInfo(selectedPath);
+            //        // 获取指定文件夹中所有扩展名为 ".rfa" 的文件. 忽略大小写
+            //        //FileInfo[] dirFiles = dir.GetFiles("*.rvt");
+            //        FileInfo[] dirFiles = dir.GetFiles("*.*", SearchOption.TopDirectoryOnly)
+            //             .Where(f => f.Extension.Equals(".rvt", StringComparison.OrdinalIgnoreCase))
+            //             .ToArray();
+            //        // 如果需要将这些文件信息存储到一个列表中
+            //        List<FileInfo> fileList = dirFiles.ToList();
+            //        foreach (FileInfo file in fileList)
+            //        {
+            //            try
+            //            {
+            //                UIDocument newUIDoc = uiApp.OpenAndActivateDocument(file.FullName);
+            //                Document newDoc = newUIDoc.Document;
+            //                if (doc != null)
+            //                    doc.Close(false);
+            //                doc = newDoc;
+            //                //找第一个三维视图
+            //                FilteredElementCollector collector = new FilteredElementCollector(doc);
+            //                IList<Element> Views = collector.OfClass(typeof(View)).ToList();
+            //                List<View> all3DViews = new List<View>();
+            //                foreach (var item in Views)
+            //                {
+            //                    View view = item as View;
+            //                    if (view == null || view.IsTemplate)
+            //                    {
+            //                        continue;
+            //                    }
+            //                    else
+            //                    {
+            //                        // 检查视图类型，排除明细表、图纸、图例和面积平面，仅包含平立剖，三维
+            //                        if (view.ViewType != ViewType.ThreeD)
+            //                        {
+            //                            continue;
+            //                        }
+            //                        else
+            //                        {
+            //                            ElementType objType = doc.GetElement(view.GetTypeId()) as ElementType;
+            //                            if (objType == null)
+            //                            {
+            //                                continue;
+            //                            }
+            //                            all3DViews.Add(view);
+            //                        }
+            //                    }
+            //                }
+            //                View3D exportView = all3DViews.FirstOrDefault() as View3D;
+            //                ViewSet views = new ViewSet();
+            //                views.Insert(exportView);
+            //                FBXExportOptions options = new FBXExportOptions();
+            //                string filename = Path.GetFileNameWithoutExtension(file.FullName);
+            //                doc.Export(selectedPath, filename, views, options);
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                TaskDialog.Show("tt", "错误信息info" + ex.Message);
+            //            }
+            //        }
+            //        TaskDialog.Show("tt", $"{fileList.Count}个模型转换FBX已完成！");
+            //    }
+            //}
 
+            ////0403 标识放置升级
+            //// 标识1;zhiin;后计取|安检；安全出口
+            //GuidanceSignPlaceView guidanceSignPlaceView = new GuidanceSignPlaceView(uiApp);
+            //guidanceSignPlaceView.Show();
+            ////TaskDialog.Show("tt", frontSignFirst);
+
+            //0403 测试功能
+            //ProjectInfoUpdater projectInfoUpdater = new ProjectInfoUpdater(uiApp);
+            //projectInfoUpdater.ShowDialog();
             ////0331 集成错误处理测试报告.OK
             //try
             //{
@@ -640,117 +969,6 @@ namespace CreatePipe
             //RoomManagerView roomManagerView = new RoomManagerView(uiApp);
             //roomManagerView.ShowDialog();
 
-            ////////0330 视图样板模块测试
-            //ViewTemplateManagerView viewTemplateManagerView = new ViewTemplateManagerView(uiApp);
-            //viewTemplateManagerView.Show();
-            ////0330 视图模块测试
-            //ViewManagerView viewManagerView = new ViewManagerView(uiApp);
-            //viewManagerView.Show();
-            //////var views = new FilteredElementCollector(doc).OfClass(typeof(View)).Cast<View>().Where(v => !v.IsTemplate);
-            //var views = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Views).OfClass(typeof(View)).Cast<View>().Where(v => !v.IsTemplate).ToList();
-            //List<ElementId> ids = new List<ElementId>();
-            //foreach (var view in views)
-            //{
-            //    if (!(view.ViewTemplateId.IntegerValue == -1))
-            //    {
-            //        ids.Add(view.Id);
-            //    }
-            //}
-            //TaskDialog.Show("tt", ids.Count().ToString());
-
-            ////////0329 选择当前视图 中对象
-            //SelectByWindowView selectByWindowView = new SelectByWindowView(uiApp);
-            //selectByWindowView.Show();
-
-            ////0329 选择同层构件，基于通用多选窗口UniversalComboBoxMultiSelection
-            //// 1. 初始选择检查
-            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-            //if (selectedIds.Count == 0)
-            //{
-            //    TaskDialog.Show("提示", "请先选择一批构件。");
-            //    return Result.Cancelled;
-            //}
-            //// 2. 标高预处理：按高度分组并处理重叠逻辑
-            //// Key: UI显示的名称, Value: 该高度对应的所有标高ID
-            //Dictionary<string, List<ElementId>> levelMapping = new Dictionary<string, List<ElementId>>();
-            //var levelGroups = new FilteredElementCollector(doc).OfClass(typeof(Level))
-            //    .Cast<Level>().GroupBy(l => Math.Round(l.Elevation, 6)); // 精度处理，防止微小浮点误差
-            //foreach (var group in levelGroups.OrderBy(g => g.Key))
-            //{
-            //    List<Level> levelsAtThisHeight = group.ToList();
-            //    Level primary = levelsAtThisHeight.First();
-            //    string displayName = primary.Name;
-            //    // 如果存在重叠标高
-            //    if (levelsAtThisHeight.Count > 1)
-            //    {
-            //        var others = levelsAtThisHeight.Skip(1).Select(l => l.Name);
-            //        displayName += $" (重叠: {string.Join(", ", others)})";
-            //    }
-            //    // 存储映射关系
-            //    levelMapping.Add(displayName, levelsAtThisHeight.Select(l => l.Id).ToList());
-            //}
-            //// 3. 弹出通用多选窗体
-            //var dialog = new UniversalComboBoxMultiSelection(levelMapping.Keys.ToList(), "请选择目标楼层（同高已合并）：");
-            //if (dialog.ShowDialog() != true) return Result.Cancelled;
-            //// 4. 获取所有被选中的物理标高 ID (Flatten 所有的 List)
-            //HashSet<ElementId> targetLevelIds = new HashSet<ElementId>();
-            //foreach (string uiName in dialog.SelectedResult)
-            //{
-            //    if (levelMapping.ContainsKey(uiName))
-            //    {
-            //        foreach (var id in levelMapping[uiName]) targetLevelIds.Add(id);
-            //    }
-            //}
-            //if (targetLevelIds.Count == 0) return Result.Cancelled;
-            //// 5. 构件过滤逻辑
-            //List<ElementId> finalIds = new List<ElementId>();
-            //int noLevelCount = 0;
-            //foreach (ElementId id in selectedIds)
-            //{
-            //    Element el = doc.GetElement(id);
-            //    ElementId elLevelId = GetElementLevelId(el);
-            //    if (elLevelId == ElementId.InvalidElementId)
-            //    {
-            //        noLevelCount++;
-            //        continue;
-            //    }
-            //    // 核心判定：构件的标高ID是否在用户选择的“高度组”ID池中
-            //    if (targetLevelIds.Contains(elLevelId))
-            //    {
-            //        finalIds.Add(id);
-            //    }
-            //}
-            //// 6. 结果反馈
-            //if (finalIds.Count > 0)
-            //{
-            //    uiDoc.Selection.SetElementIds(finalIds);
-            //    string info = $"过滤完成！\n原始选中：{selectedIds.Count} 个\n属于目标楼层：{finalIds.Count} 个";
-            //    if (noLevelCount > 0) info += $"\n排除无标高属性构件：{noLevelCount} 个";
-            //    TaskDialog.Show("成功", info);
-            //}
-            //else
-            //{
-            //    TaskDialog.Show("结果", "所选构件均不属于指定的楼层。");
-            //}
-
-            ////// 1. 准备测试数据
-            ////List<string> testData = new List<string> { "选项 A", "选项 B", "选项 C", "选项 D" };
-            ////string prompt = "请选择需要处理的构件类型：";
-            ////// 2. 实例化并显示窗体
-            ////var dialog = new UniversalComboBoxMultiSelection(testData, prompt);
-            ////// 3. 逻辑判断
-            ////if (dialog.ShowDialog() == true)
-            ////{
-            ////    // 获取结果
-            ////    var result = dialog.SelectedResult;
-            ////    string msg = string.Join(", ", result);
-            ////    TaskDialog.Show("测试成功", $"你选择了: {msg}");
-            ////}
-            ////else
-            ////{
-            ////    TaskDialog.Show("测试取消", "用户关闭了窗口或取消了操作。");
-            ////}
-
             //////0329 关闭水暖系统的后台计算。OK
             //using (Transaction t = new Transaction(doc, "关闭机电系统计算"))
             //{
@@ -833,83 +1051,6 @@ namespace CreatePipe
             //    TaskDialog.Show("检测结果", "未发现明显的标高偏移异常构件。");
             //}
 
-            ////0329 视图上下无限设置
-            ////一行验证
-            //if (!CategoryVisibilityService.CanModifyViewVisibility(activeView)) return Result.Cancelled;
-            //var options = new List<string> { "向上无限 (Top Unlimited)", "向下无限 (Bottom Unlimited)", "上下无限 (Both Unlimited)", "恢复标准设置 (Reset)" };
-            //int choice = TaskDialogHelper.ShowCommandLinks("平面视图范围快速切换", 2, "请选择视图可见性预设", "该操作将调整当前平面视图的 View Range 参数。", options);
-            //// 如果用户点击右上角X或按ESC
-            //if (choice == -1) return Result.Cancelled;
-            //ViewPlan viewPlan = uiDoc.ActiveView as ViewPlan;
-            //Level currentLevel = viewPlan.GenLevel;
-            //using (Transaction tx = new Transaction(doc, "快速设置视图范围"))
-            //{
-            //    tx.Start();
-            //    // 获取视图范围对象
-            //    PlanViewRange viewRange = viewPlan.GetViewRange();
-            //    if (choice == 0)
-            //    {
-            //        // 顶部和顶部偏移设为无限
-            //        viewRange.SetLevelId(PlanViewPlane.TopClipPlane, PlanViewRange.Unlimited);
-            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, viewRange.GetLevelId(PlanViewPlane.BottomClipPlane)); // 深度保持与底一致
-            //    }
-            //    if (choice == 1)
-            //    {
-            //        // 底部和视图深度设为无限
-            //        viewRange.SetLevelId(PlanViewPlane.BottomClipPlane, PlanViewRange.Unlimited);
-            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, PlanViewRange.Unlimited);
-            //    }
-            //    if (choice == 2)
-            //    {
-            //        viewRange.SetLevelId(PlanViewPlane.TopClipPlane, PlanViewRange.Unlimited);
-            //        viewRange.SetLevelId(PlanViewPlane.BottomClipPlane, PlanViewRange.Unlimited);
-            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, PlanViewRange.Unlimited);
-            //    }
-            //    if (choice == 3)
-            //    {
-            //        // 1. 查找上一层标高
-            //        Level nextLevel = new FilteredElementCollector(doc)
-            //            .OfClass(typeof(Level))
-            //            .Cast<Level>()
-            //            .Where(l => l.Elevation > currentLevel.Elevation)
-            //            .OrderBy(l => l.Elevation)
-            //            .FirstOrDefault();
-            //        double topOffset = 0;
-            //        double cutPlaneOffset = 1200 / 304.8; // 默认 1200mm
-            //        if (nextLevel != null)
-            //        {
-            //            double heightDiff = (nextLevel.Elevation - currentLevel.Elevation); // 内部单位 feet
-            //            topOffset = heightDiff; // 顶部设在上一层标高位置（偏移0）
-            //            // 逻辑：如果层高小于 1200mm (约3.93英尺)，剖切面设在中间
-            //            if (heightDiff < cutPlaneOffset)
-            //            {
-            //                cutPlaneOffset = heightDiff / 2.0;
-            //            }
-            //        }
-            //        else
-            //        {
-            //            // 如果没有上一层，顶部默认 2300mm
-            //            topOffset = 2300 / 304.8;
-            //        }
-            //        // 设置恢复参数
-            //        viewRange.SetLevelId(PlanViewPlane.TopClipPlane, currentLevel.Id);
-            //        viewRange.SetOffset(PlanViewPlane.TopClipPlane, topOffset);
-            //        viewRange.SetLevelId(PlanViewPlane.CutPlane, currentLevel.Id);
-            //        viewRange.SetOffset(PlanViewPlane.CutPlane, cutPlaneOffset);
-            //        viewRange.SetLevelId(PlanViewPlane.BottomClipPlane, currentLevel.Id);
-            //        viewRange.SetOffset(PlanViewPlane.BottomClipPlane, 0.0);
-            //        viewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, currentLevel.Id);
-            //        viewRange.SetOffset(PlanViewPlane.ViewDepthPlane, 0.0);
-            //    }
-            //    viewPlan.SetViewRange(viewRange);
-            //    tx.Commit();
-            //}
-
-            //ManualCropZaxisView manualCropZaxisView = new ManualCropZaxisView(uiApp);
-            //manualCropZaxisView.Show();
-
-            ////0328 选择同位置构件,也是仅支持单个，需要验证名称，XY坐标与当前元素相同，仅Z值不同对象并选中，含原构件
-
             //////0315 窗口及控件测试模板
             //TestWindow testWindow = new TestWindow(uiApp);
             //testWindow.ShowDialog();
@@ -929,36 +1070,6 @@ namespace CreatePipe
 
 
             //0323 进度条调用模板，无需单独声明ProgressBar
-            //            public void DeleteElements(IEnumerable<object> selectedItems)
-            //{
-            //    if (selectedItems == null) return;
-            //    var toDeleteList = selectedItems.Cast<ViewEntity>().Where(e => e.Id != ActiveView.Id).ToList();
-            //    if (toDeleteList.Count == 0) return;
-            //    // 【关键】事务前缓存所有 ID
-            //    var idsToDelete = toDeleteList.Select(e => e.Id).ToList();
-            //    //需要加入批量处理进度条逻辑
-            //    ExternalHandler.Run(app =>
-            //    {
-            //        TransactionWithProgressBarHelper.Execute(app.ActiveUIDocument.Document, "批量删除视图", (service) =>
-            //        {
-            //            service.UpdateMax(idsToDelete.Count());
-            //            int index = 0;
-            //            foreach (var id in idsToDelete)
-            //            {
-            //                service.Update(++index, app.ActiveUIDocument.Document.GetElement(id).Name);
-            //                Document.Delete(id);
-            //            }
-            //        });
-            //        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            //        {
-            //            foreach (var item in toDeleteList)
-            //            {
-            //                Collection.Remove(item);
-            //            }
-            //        });
-            //    });
-            // }
-
             //    TransactionWithProgressBarHelper.Execute(doc, "提取构件信息", (service) =>
             //    {
             //        service.UpdateMax(sortedIds.Count());

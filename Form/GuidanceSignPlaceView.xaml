@@ -53,6 +53,27 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- 定义 StackPanel 共有样式 -->
+        <Style x:Key="RowPanel" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="5,0"/>
+        </Style>
+
+        <!-- 定义 TextBlock 共有样式 -->
+        <Style TargetType="TextBlock" x:Key="LabelStyle">
+            <Setter Property="Width" Value="88"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 定义 TextBox 共有样式 -->
+        <Style TargetType="TextBox" x:Key="ValueStyle">
+            <Setter Property="Width" Value="115"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="Background" Value="LightGray"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+        </Style>
         <!-- 按钮样式 -->
         <Style x:Key="TransparentHoverButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -76,13 +97,13 @@
         <Style x:Key="ScaleToggleButtonStyle"
       TargetType="ToggleButton"
       BasedOn="{StaticResource {x:Type ToggleButton}}">
-            <!-- 默认外观 -->
+             <!--默认外观--> 
             <Setter Property="Background" Value="White"/>
             <Setter Property="Foreground" Value="Gray"/>
             <Setter Property="BorderBrush" Value="#FFCCCCCC"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="4"/>
-            <!-- 选中外观 -->
+             <!--选中外观--> 
             <Style.Triggers>
                 <Trigger Property="IsChecked" Value="True">
                     <Setter Property="Foreground" Value="Black"/>
@@ -129,46 +150,40 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="2*"/>
                     </Grid.RowDefinitions>
-                    <Button Content="input要求" Margin="5,0,0,0"
+                    <Button Content="输入规则" Margin="5,0,0,0"
                             Style="{StaticResource TransparentHoverButtonStyle}"
                             Command="{Binding InputRuleCommand}"/>
                     <Button Grid.Row="1" Margin="5,0,0,0"
-                            Content="牌面分划" 
+                            Content="牌面识别" 
                             Command="{Binding SplitContentCommand}"
                             CommandParameter="{Binding ContentText}"
                             IsEnabled="{Binding isContentValidate}"/>
                 </Grid>
                 <!--<Button Width="60" Content="内容检测" Margin="5,0"/>-->
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="首行标识内容"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding FrontSignFirst}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="首行标识内容" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding FrontSignFirst}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="第二行标识内容"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding FrontSignSecond}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="第二行标识内容" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding FrontSignSecond}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="第三行标识内容"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding FrontSignThird}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="第三行标识内容" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding FrontSignThird}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="首行背面内容"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding BackSignFirst}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="首行背面内容" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding BackSignFirst}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="第二行背面内容"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding BackSignSecond}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="第二行背面内容" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding BackSignSecond}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="第三行背面内容"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding BackSignThird}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="第三行背面内容" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding BackSignThird}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
                 <TextBlock Width="88" Text="牌面长度"  VerticalAlignment="Center"/>
@@ -190,15 +205,13 @@
             </StackPanel>
             <TextBlock Text="{Binding previewCode}"
                        HorizontalAlignment="Center" Margin="5"/>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="位置编码"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding LocCode}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="位置编码" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding LocCode}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
-                <TextBlock Width="88" Text="层高编码"  VerticalAlignment="Center"/>
-                <TextBox Width="115" Text="{Binding LevelCode}" HorizontalAlignment="Right" VerticalAlignment="Center" 
-                         IsReadOnly="True" Background="LightGray"/>
+            <StackPanel Style="{StaticResource RowPanel}">
+                <TextBlock Text="层高编码" Style="{StaticResource LabelStyle}"/>
+                <TextBox Text="{Binding LevelCode}" Style="{StaticResource ValueStyle}"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
                 <TextBlock Width="88" Text="性质编码"  VerticalAlignment="Center"/>
@@ -267,35 +280,23 @@
                     </StackPanel>
                 </TabItem>
             </TabControl>
-            <GroupBox  Header="视图比例"  Margin="4" >
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <RadioButton Content="200"
-                      Style="{StaticResource ScaleToggleButtonStyle}"
-                      GroupName="ScaleGroup"
-                      Command="{Binding ChangeViewScaleCommand}"
-                      CommandParameter="200"/>
-                    <RadioButton Grid.Column="1" Content="300"
-                      Style="{StaticResource ScaleToggleButtonStyle}"
-                      GroupName="ScaleGroup"
-                      Command="{Binding ChangeViewScaleCommand}"
-                      CommandParameter="300"/>
-                    <RadioButton Grid.Column="2" Content="400"
-                      Style="{StaticResource ScaleToggleButtonStyle}"
-                      GroupName="ScaleGroup"
-                      Command="{Binding ChangeViewScaleCommand}"
-                      CommandParameter="400"/>
-                    <RadioButton Grid.Column="3" Content="500"
-                      Style="{StaticResource ScaleToggleButtonStyle}"
-                      GroupName="ScaleGroup"
-                      Command="{Binding ChangeViewScaleCommand}"
-                      CommandParameter="500"/>
-                </Grid>
+            <GroupBox Header="视图比例" Margin="4">
+                <GroupBox.Resources>
+                    <!-- 定义该 GroupBox 内所有 RadioButton 的通用样式 -->
+                    <Style TargetType="RadioButton" BasedOn="{StaticResource ScaleToggleButtonStyle}">
+                        <Setter Property="GroupName" Value="ScaleGroup"/>
+                        <Setter Property="Command" Value="{Binding ChangeViewScaleCommand}"/>
+                        <!-- 将参数直接绑定到内容本身(如"200")，避免重复写两遍 -->
+                        <Setter Property="CommandParameter" Value="{Binding Content, RelativeSource={RelativeSource Self}}"/>
+                    </Style>
+                </GroupBox.Resources>
+                <UniformGrid Rows="1">
+                    <RadioButton Content="100"/>
+                    <RadioButton Content="200"/>
+                    <RadioButton Content="300"/>
+                    <RadioButton Content="400"/>
+                    <RadioButton Content="500"/>
+                </UniformGrid>
             </GroupBox>
         </StackPanel>
     </Grid>

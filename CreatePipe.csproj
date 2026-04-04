@@ -93,6 +93,7 @@
     <Compile Include="filter\LinkedPipeAndDuctSelectionFilter.cs" />
     <Compile Include="filter\LinkedPipeDuctSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
+    <Compile Include="filter\RoofFilter.cs" />
     <Compile Include="filter\XReferenceSelectionFilter.cs" />
     <Compile Include="Form\CategoryVisibilityView.xaml.cs">
       <DependentUpon>CategoryVisibilityView.xaml</DependentUpon>
@@ -153,6 +154,9 @@
     </Compile>
     <Compile Include="Form\PipeSystemManagerView.xaml.cs">
       <DependentUpon>PipeSystemManagerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\ProjectInfoUpdater.xaml.cs">
+      <DependentUpon>ProjectInfoUpdater.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\SelectByWindowView.xaml.cs">
       <DependentUpon>SelectByWindowView.xaml</DependentUpon>
@@ -661,6 +665,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\PipeSystemManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ProjectInfoUpdater.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

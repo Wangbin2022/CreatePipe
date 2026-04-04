@@ -97,6 +97,34 @@ namespace CreatePipe.Utils
             }
         }
     }
+    public static class NoTransactionWithProgressBarHelper
+    {
+        /// </summary>
+        /// <param name="totalCount">进度条总数</param>
+        /// <param name="initialTitle">进度条初始标题</param>
+        /// <param name="action">业务逻辑，参数为已启动的 ProgressBarService 实例</param>
+        public static Result Execute(int totalCount, string initialTitle, Action<ProgressBarService> action)
+        {
+            ProgressBarService progressService = new ProgressBarService();
+            progressService.Start(totalCount, initialTitle);
+
+            try
+            {
+                // 直接执行业务逻辑，无需启动 Transaction
+                action(progressService);
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("执行中断", "发生错误: " + ex.Message);
+                return Result.Failed;
+            }
+            finally
+            {
+                progressService.Stop();
+            }
+        }
+    }
     public static class TransactionHelper
     {
         public static void NewTransaction(this Document doc, Action action, string name = "Default Name", bool rollback = false)

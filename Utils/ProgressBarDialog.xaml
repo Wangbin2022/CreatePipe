@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:CreatePipe.Utils"
         mc:Ignorable="d" Left="70" Top="70"
         Title="ProgressBarDialog" Height="100" Width="500" 
-        WindowStartupLocation="Manual" 
+        WindowStartupLocation="Manual"  Topmost="True"
         Background="Transparent" WindowStyle="None" AllowsTransparency="True">
     <Border Background="#CC222222" CornerRadius="10" Padding="20">
         <StackPanel VerticalAlignment="Center">
