@@ -24,8 +24,7 @@
         <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5">选项列表：</TextBlock>
         <ComboBox Grid.Column="1" Margin="5" VerticalAlignment="Center" 
               ItemsSource="{Binding datasource}"
-                  SelectedItem="{Binding SelectName,Mode=TwoWay}"
-  SelectedIndex="0"/>
+                  SelectedItem="{Binding SelectName,Mode=TwoWay}"/>
         <TextBlock Grid.Row="1" Text="{Binding DisplayText}"
            HorizontalAlignment="Center"
            VerticalAlignment="Center"

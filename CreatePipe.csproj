@@ -170,6 +170,9 @@
     <Compile Include="Form\ToggleVisibilityView.xaml.cs">
       <DependentUpon>ToggleVisibilityView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\TwinReferencePlaneView.xaml.cs">
+      <DependentUpon>TwinReferencePlaneView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\UniversialSplitButton.xaml.cs">
       <DependentUpon>UniversialSplitButton.xaml</DependentUpon>
     </Compile>
@@ -187,6 +190,7 @@
       <DependentUpon>ManualCropZaxisView.xaml</DependentUpon>
     </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
+    <Compile Include="models\FamilyEntity.cs" />
     <Compile Include="models\NodeWithColor.cs" />
     <Compile Include="models\ParameterEntity.cs" />
     <Compile Include="models\SingleMarkModel.cs" />
@@ -477,6 +481,7 @@
     <Compile Include="Utils\BaseExternalHandler.cs" />
     <Compile Include="Utils\CategoryVisibilityService.cs" />
     <Compile Include="Utils\ChineseToSpellService.cs" />
+    <Compile Include="Utils\ClashDetectionService.cs" />
     <Compile Include="Utils\CsvHelper.cs" />
     <Compile Include="Utils\DataGridSelectionHelper.cs" />
     <Compile Include="Utils\DuplicateMarkWarningService.cs" />
@@ -497,6 +502,7 @@
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
     <Compile Include="Utils\RobustFailureProcessor.cs" />
     <Compile Include="Utils\RoomWarningService.cs" />
+    <Compile Include="Utils\SelectionHelper.cs" />
     <Compile Include="Utils\TaskDialogHelper.cs" />
     <Compile Include="Form\UserControls\ProgressWindow.xaml.cs">
       <DependentUpon>ProgressWindow.xaml</DependentUpon>
@@ -721,6 +727,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ToggleVisibilityView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\TwinReferencePlaneView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

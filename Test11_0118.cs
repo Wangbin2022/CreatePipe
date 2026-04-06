@@ -16,6 +16,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace CreatePipe
 {
@@ -270,23 +271,55 @@ namespace CreatePipe
 
             TaskDialog.Show("批量修改完成", resultMessage);
         }
-        private string frontSignFirst, frontSignSecond, frontSignThird = "-";
-        //用OpenFileDialog 模拟文件夹选择，选择文件返回文件夹路径确实别扭
-        public string SelectFolderWithWin32()
+        /// <summary>
+        /// 提取面外轮廓线以及所有的洞口对角点 (从原 ViewModel 移植到这里)
+        /// </summary>
+        private Tuple<List<Curve>, List<XYZ[]>> ExtractFaceOutline(PlanarFace face, double width)
         {
-            OpenFileDialog dialog = new OpenFileDialog
+            var profile = new List<Curve>();
+            var openingPoints = new List<XYZ[]>();
+            var curveLoops = face.GetEdgesAsCurveLoops().OrderByDescending(x => x.GetExactLength()).ToList();
+            Transform translation = Transform.CreateTranslation(face.FaceNormal * (width / 2));
+            for (int i = 0; i < curveLoops.Count; i++)
             {
-                ValidateNames = false,
-                CheckFileExists = false,
-                CheckPathExists = false,
-                FileName = "文件夹选择"
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                return System.IO.Path.GetDirectoryName(dialog.FileName);
+                var loop = curveLoops[i];
+                loop.Transform(translation);
+
+                if (i == 0)
+                {
+                    profile.AddRange(loop.Cast<Curve>());
+                }
+                else
+                {
+                    var pts = loop.Cast<Curve>().SelectMany(c => new[] { c.GetEndPoint(0), c.GetEndPoint(1) }).ToList();
+                    XYZ p1 = new XYZ(pts.Min(p => p.X), pts.Min(p => p.Y), pts.Min(p => p.Z));
+                    XYZ p2 = new XYZ(pts.Max(p => p.X), pts.Max(p => p.Y), pts.Max(p => p.Z));
+                    openingPoints.Add(new[] { p1, p2 });
+                }
             }
-            return null;
+            return new Tuple<List<Curve>, List<XYZ[]>>(profile, openingPoints);
         }
+        ///// <summary>
+        ///// 智能获取目标元素：优先使用已选中的单个元素，否则提示用户拾取 抽成公共方法
+        ///// </summary>
+        //private ElementId GetTargetElementId(UIDocument uiDoc)
+        //{
+        //    var selectedIds = uiDoc.Selection.GetElementIds().ToList();
+        //    // 情况1：没有选中任何元素，提示拾取
+        //    if (selectedIds.Count == 0)
+        //    {
+        //        var reference = uiDoc.Selection.PickObject(ObjectType.Element, "请选择一个构件");
+        //        return uiDoc.Document.GetElement(reference)?.Id;
+        //    }
+        //    // 情况2：选中了多个元素，不支持
+        //    if (selectedIds.Count > 1)
+        //    {
+        //        TaskDialog.Show("提示", $"请只选择一个构件。\n当前已选中{selectedIds.Count}个构件，请重新选择。");
+        //        return null;
+        //    }
+        //    // 情况3：恰好选中一个，直接使用
+        //    return selectedIds[0];
+        //}
         /// <summary>
         /// 格式化输出最终清单对话框
         /// </summary>
@@ -295,72 +328,38 @@ namespace CreatePipe
             string resultMessage = $"共选中 {totalCount} 个文件。\n\n";
 
             // 成功清单展示
-            resultMessage += $"✅ 成功导出 ({successList.Count} 个)：\n";
+            resultMessage += $"处理成功 ({successList.Count} 个)：\n";
             if (successList.Count > 0)
             {
-                // 为防止选了几百个文件导致对话框文字超限，这里限制最多显示前20个
-                var displaySuccess = successList.Take(20).ToList();
+                var displaySuccess = successList.Take(15).ToList();
                 resultMessage += string.Join("\n", displaySuccess);
-                if (successList.Count > 20) resultMessage += "\n... (省略显示更多)";
+                if (successList.Count > 15) resultMessage += "\n... (省略显示更多)";
             }
             else
             {
                 resultMessage += "无\n";
             }
-
             resultMessage += "\n\n";
 
             // 失败/跳过清单展示
-            resultMessage += $"❌ 失败或跳过 ({failList.Count} 个)：\n";
+            resultMessage += $"失败或跳过 ({failList.Count} 个)：\n";
             if (failList.Count > 0)
             {
-                var displayFail = failList.Take(20).ToList();
+                var displayFail = failList.Take(15).ToList();
                 resultMessage += string.Join("\n", displayFail);
-                if (failList.Count > 20) resultMessage += "\n... (省略显示更多)";
+                if (failList.Count > 15) resultMessage += "\n... (省略显示更多)";
             }
             else
             {
                 resultMessage += "无";
             }
 
-            // 调用 Revit 原生 TaskDialog 显示
-            TaskDialog resultDialog = new TaskDialog("批量转换 FBX 报告")
+            TaskDialog resultDialog = new TaskDialog("批量处理报告")
             {
-                MainInstruction = "批量处理任务已结束",
+                MainInstruction = "批量删除族文字属性已完成！",
                 MainContent = resultMessage
             };
             resultDialog.Show();
-        }
-        /// <summary>
-        /// 递归遍历几何元素，提取带有倾斜角度的平面（PlanarFace）
-        /// </summary>
-        private List<PlanarFace> GetInclinedPlanarFaces(GeometryElement geomElem)
-        {
-            List<PlanarFace> faces = new List<PlanarFace>();
-            foreach (GeometryObject geomObj in geomElem)
-            {
-                if (geomObj is Solid solid && solid.Faces.Size > 0)
-                {
-                    foreach (Face face in solid.Faces)
-                    {
-                        if (face is PlanarFace planarFace)
-                        {
-                            XYZ normal = planarFace.FaceNormal;
-                            // 排除完全水平的面 (Z=1 或 Z=-1) 和 完全垂直的面 (Z=0)
-                            if (Math.Abs(normal.Z) < 0.9999 && Math.Abs(normal.Z) > 0.0001)
-                            {
-                                faces.Add(planarFace);
-                            }
-                        }
-                    }
-                }
-                else if (geomObj is GeometryInstance geomInst)
-                {
-                    // 若有嵌套的实例（如内建模型生成的屋顶），递归解包
-                    faces.AddRange(GetInclinedPlanarFaces(geomInst.GetInstanceGeometry()));
-                }
-            }
-            return faces;
         }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -369,103 +368,256 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-
-            //0404 屋顶计算处理，变化较大.OK
-            try
+            //0405批量删除族文字属性，改后。OK
+            Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
+            // 获取当前 Revit 的版本号 (如 "2024")
+            int currentRevitVersion = int.Parse(app.VersionNumber);
+            List<string> selectedFiles = new List<string>();
+            // 1. 使用 Win32 OpenFileDialog 实现多选文件
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Title = "请选择要处理的族文件（可按住 Ctrl/Shift 多选）";
+            openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
+            openFileDialog.Multiselect = true;
+            if (openFileDialog.ShowDialog() != true)
             {
-                // 1. 拾取特定的面 (使用自定义过滤器确保只能选平面)
-                Reference faceRef = uiDoc.Selection.PickObject(ObjectType.Face,
-                    new PlanarFaceFilter(doc), "请选择一个平面以计算坡度 (支持屋顶、楼板、常规模型等)");
-                // 2. 获取图元及被选中的面
-                Element elem = doc.GetElement(faceRef);
-                GeometryObject geoObj = elem.GetGeometryObjectFromReference(faceRef);
-                PlanarFace face = geoObj as PlanarFace;
-                if (face == null) return Result.Cancelled;
-                // 3. 获取平面的法线向量 (FaceNormal)
-                // 无论法线朝上还是朝下，取 Z 轴的绝对值即可计算它与水平面的夹角
-                double zVal = Math.Abs(face.FaceNormal.Z);
-                // 4. 边界条件判断
-                double tolerance = 1e-6; // 浮点数容差
-                if (Math.Abs(zVal - 1.0) < tolerance)
-                {
-                    TaskDialog.Show("计算结果", $"图元名称：{elem.Name}\n\n所选面为完全水平面，坡度为 0");
-                    return Result.Succeeded;
-                }
-                if (zVal < tolerance)
-                {
-                    TaskDialog.Show("计算结果", $"图元名称：{elem.Name}\n\n所选面为完全垂直面，坡度为无穷大 (90°)");
-                    return Result.Succeeded;
-                }
-                // 5. 核心数学计算
-                // 法线Z分量的反余弦值 = 该面与水平面的夹角(弧度)
-                double rad = Math.Acos(zVal);
-                double angle = rad * 180.0 / Math.PI; // 弧度转角度
-                double tan = Math.Tan(rad);           // 坡度正切值 (高度/长度)
-                double percentage = tan * 100.0;      // 坡度百分比
-                double ratio = 1.0 / tan;             // 坡比 1:X
-                // 6. 格式化输出
-                string msg = $"所属图元：{elem.Name} (ID: {elem.Id})\n" +
-                             $"----------------------------------\n" +
-                             $"坡度百分比：{Math.Round(percentage, 2)} %\n" +
-                             $"坡度角度：{Math.Round(angle, 2)}°\n" +
-                             $"坡度弧度：{Math.Round(rad, 4)} rad\n" +
-                             $"坡比 (1:X)：1 : {Math.Round(ratio, 2)}";
-                TaskDialog.Show("平面坡度计算", msg);
-                return Result.Succeeded;
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                // 用户按了 ESC 键取消操作
                 return Result.Cancelled;
             }
-            catch (Exception ex)
+            selectedFiles = openFileDialog.FileNames.ToList();
+            if (selectedFiles.Count == 0) return Result.Cancelled;
+            List<string> successList = new List<string>();
+            List<string> failList = new List<string>(); // 包含了失败和跳过的记录
+                                                        // 2. 遍历处理文件（后台静默处理）
+
+            NoTransactionWithProgressBarHelper.Execute(selectedFiles.Count, "批量删除文字属性", (service) =>
             {
-                TaskDialog.Show("错误", ex.Message);
-                return Result.Failed;
-            }
-            //初步方法忽略了基线屋面多重性
+                service.UpdateMax(selectedFiles.Count());
+                int index = 0;
+                foreach (string filePath in selectedFiles)
+                {
+                    string fileName = Path.GetFileName(filePath);
+                    service.Update(++index, filePath);
+                    try
+                    {
+                        // 3. 版本检查防崩溃
+                        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
+                        if (int.TryParse(fileInfo.Format, out int fileVersion))
+                        {
+                            if (fileVersion > currentRevitVersion)
+                            {
+                                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前 Revit 版本)");
+                                continue;
+                            }
+                        }
+                        // 4. 后台静默打开文档
+                        Document familyDoc = app.OpenDocumentFile(filePath);
+                        if (!familyDoc.IsFamilyDocument)
+                        {
+                            familyDoc.Close(false);
+                            failList.Add($"{fileName} (跳过：不是族文件)");
+                            continue;
+                        }
+                        FamilyManager familyManager = familyDoc.FamilyManager;
+                        List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+                        // 专门用于存放需要删除的参数的列表
+                        List<FamilyParameter> paramsToDelete = new List<FamilyParameter>();
+                        // 5. 遍历并收集符合条件的参数
+                        foreach (FamilyParameter param in parameters)
+                        {
+                            Definition definition = param.Definition;
+                            if (definition is InternalDefinition internalDef &&
+                                internalDef.BuiltInParameter == BuiltInParameter.INVALID)
+                            {
+                                // 【兼容多版本】判断是否为文字类型
+                                bool isTextParam = false;
+
+                                if (currentRevitVersion >= 2022)
+                                {
+                                    //// Revit 2022 及以上版本的新 API 判定方式
+                                    //ForgeTypeId dataType = definition.GetDataType();
+                                    //if (dataType == SpecTypeId.String.Text)
+                                    //{
+                                    //    isTextParam = true;
+                                    //}
+                                }
+                                else
+                                {
+                                    // Revit 2021 及以下版本的老 API 判定方式 (使用反射或ToString规避编译报错)
+#pragma warning disable CS0618
+                                    if (definition.ParameterType.ToString() == "Text")
+                                    {
+                                        isTextParam = true;
+                                    }
+#pragma warning restore CS0618
+                                }
+                                if (isTextParam)
+                                {
+                                    paramsToDelete.Add(param);
+                                }
+                            }
+                        }
+                        // 6. 核心逻辑调整：判断是否包含文字属性
+                        if (paramsToDelete.Count == 0)
+                        {
+                            // 没有找到任何需要删除的文字属性，直接不保存关闭！
+                            familyDoc.Close(false);
+                            failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
+                            continue; // 进入下一个文件
+                        }
+                        // 7. 找到了文字属性，开启事务进行删除
+                        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
+                        {
+                            trans.Start();
+                            foreach (FamilyParameter paramToDelete in paramsToDelete)
+                            {
+                                familyManager.RemoveParameter(paramToDelete);
+                            }
+                            trans.Commit();
+                        }
+
+                        //TransactionWithProgressBarHelper.Execute(familyDoc, "批量删除文字属性",(service)=>
+                        //{
+                        //    //        service.UpdateMax(sortedIds.Count());
+                        //    //        int index = 0;
+                        //    //        foreach (var id in sortedIds)
+                        //    //        {
+                        //    //            service.Update(++index, id.Value.ToString());
+                        //    //        }
+                        //    service.UpdateMax(paramsToDelete.Count);
+                        //    int index = 0;
+                        //    foreach (FamilyParameter paramToDelete in paramsToDelete)
+                        //    {
+                        //        familyManager.RemoveParameter(paramToDelete);
+                        //        service.Update(++index, paramsToDelete.ToString());
+                        //    }
+                        //});
+                        // 8. 保存并关闭后台文档
+                        familyDoc.Close(true);
+                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个文字属性)");
+                    }
+                    catch (Exception ex)
+                    {
+                        failList.Add($"{fileName} (报错：{ex.Message})");
+                    }
+
+                }
+            });
+            // 9. 调用统计弹窗
+            ShowResultDialog(selectedFiles.Count, successList, failList);
+
+            ////OpenFileDialog openFileDialog = new OpenFileDialog();
+            ////openFileDialog.ShowDialog();
+            ////var filePath = openFileDialog.FileName;
+            ////Document familyDoc = uiApp.OpenAndActivateDocument(filePath).Document;
+            //////// 获取当前 Revit 的版本号 (如 "2024")
+            //Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
+            //int currentRevitVersion = int.Parse(app.VersionNumber);
+            //List<string> selectedFiles = new List<string>();
+            //// 1. 使用 Win32 OpenFileDialog 实现多选文件
+            //Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog();
+            //openFileDialog.Title = "请选择要处理的族文件（可多选）";
+            //openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
+            //openFileDialog.Multiselect = true; // 开启多选
+            //if (openFileDialog.ShowDialog() != true)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //selectedFiles = openFileDialog.FileNames.ToList();
+            //if (selectedFiles.Count == 0) return Result.Cancelled;
+            //List<string> successList = new List<string>();
+            //List<string> failList = new List<string>();
+            //// 2. 遍历处理文件（使用后台静默处理，不闪屏）
+            //foreach (string filePath in selectedFiles)
+            //{
+            //    string fileName = Path.GetFileName(filePath);
+            //    try
+            //    {
+            //        // 3. 核心机制：提取文件信息，判断版本号，防止高版本导致崩溃
+            //        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
+            //        if (int.TryParse(fileInfo.Format, out int fileVersion))
+            //        {
+            //            if (fileVersion > currentRevitVersion)
+            //            {
+            //                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前版本)");
+            //                continue;
+            //            }
+            //        }
+            //        // 4. 后台静默打开文档（极大地提升速度，不干扰当前UI）
+            //        Document familyDoc = app.OpenDocumentFile(filePath);
+            //        if (!familyDoc.IsFamilyDocument)
+            //        {
+            //            familyDoc.Close(false);
+            //            failList.Add($"{fileName} (跳过：不是族文件)");
+            //            continue;
+            //        }
+            //        int deletedCount = 0;
+            //        // 5. 使用标准事务处理参数删除
+            //        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
+            //        {
+            //            trans.Start();
+            //            FamilyManager familyManager = familyDoc.FamilyManager;
+            //            // 获取所有参数
+            //            List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //            foreach (FamilyParameter param in parameters)
+            //            {
+            //                Definition definition = param.Definition;
+            //                // 检查是否为自定义参数且为文字类型
+            //                if (definition is InternalDefinition internalDef &&
+            //                    internalDef.BuiltInParameter == BuiltInParameter.INVALID)
+            //                {
+            //                    // 兼容多版本的文字类型判断
+            //                    // 旧版本用 ParameterType.Text，新版本用 DataType == SpecTypeId.String.Text
+            //                    // 这里保留你的字符串判断方式以最大化兼容跨版本编译
+            //                    if (definition.ParameterType.ToString() == "Text")
+            //                    {
+            //                        familyManager.RemoveParameter(param);
+            //                        deletedCount++;
+            //                    }
+            //                }
+            //            }
+            //            trans.Commit();
+            //        }
+            //        // 6. 保存并关闭后台文档 (true 表示保存更改)
+            //        familyDoc.Close(true);
+            //        successList.Add($"{fileName} (成功删除了 {deletedCount} 个属性)");
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        failList.Add($"{fileName} (报错：{ex.Message})");
+            //    }
+            //}
+            //// 7. 调用统计弹窗
+            //ShowResultDialog(selectedFiles.Count, successList, failList);
+
+
+            ////0405 单撞检测SingleIntersectDetect 增加碰撞service和选择helper
             //try
             //{
-            //    // 1. 拾取屋顶（使用自定义的 RoofFilter 过滤器，允许所有类型的屋顶）
-            //    Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new RoofFilter(), "请选择迹线屋面或拉伸屋面");
-            //    RoofBase roof = doc.GetElement(reference) as RoofBase;
-
-            //    if (roof == null) return Result.Cancelled;
-
-            //    // 2. 提取屋顶实体的顶面几何信息
-            //    Options opt = new Options();
-            //    GeometryElement geomElem = roof.get_Geometry(opt);
-
-            //    List<PlanarFace> inclinedFaces = GetInclinedPlanarFaces(geomElem);
-
-            //    if (inclinedFaces.Count == 0)
+            //    // 1. 获取目标元素（已选或手动拾取）
+            //    ElementId targetId = SelectionHelper.GetSingleElementId(uiDoc,"请选择一个待碰撞检查构件");
+            //    if (targetId == null) return Result.Cancelled;
+            //    Element targetElement = doc.GetElement(targetId);
+            //    // 2. 合法性验证
+            //    var validation = ClashDetectionService.ValidateElement(targetElement);
+            //    if (!validation.IsValid)
             //    {
-            //        TaskDialog.Show("结果", "所选屋顶为完全平屋顶或无法找到平面，无坡度！");
-            //        return Result.Succeeded;
+            //        TaskDialog.Show("不支持的构件类型", validation.Message);
+            //        return Result.Failed;
             //    }
-
-            //    // 3. 取第一个倾斜的面计算坡度
-            //    PlanarFace face = inclinedFaces.First();
-            //    XYZ normal = face.FaceNormal;
-
-            //    // 4. 数学计算坡度
-            //    // 面的法线Z轴分量的反余弦值即为平面与水平面的夹角弧度
-            //    double rad = Math.Acos(Math.Abs(normal.Z));
-            //    double angle = rad * 180 / Math.PI;             // 转换为角度
-            //    double slopeRatio = Math.Tan(rad);              // 计算正切值(即 高度/长度)
-            //    double percentage = slopeRatio * 100;           // 百分比
-
-            //    // 5. 格式化输出
-            //    string msg = $"屋顶ID：{roof.Id}\n" +
-            //                 $"屋顶类型：{roof.GetType().Name}\n" +
-            //                 $"--------------------------\n" +
-            //                 $"坡度百分比：{Math.Round(percentage, 2)} %\n" +
-            //                 $"坡度角度：{Math.Round(angle, 2)}°\n" +
-            //                 $"坡度弧度：{Math.Round(rad, 4)} rad\n" +
-            //                 $"坡比 (1:X)：1 : {Math.Round(1 / slopeRatio, 2)}";
-
-            //    TaskDialog.Show("屋面坡度计算", msg);
-
+            //    // 3. 执行碰撞检测（Service 封装，一句话搞定）
+            //    var service = new ClashDetectionService(doc);
+            //    var result = service.DetectClash(targetElement);
+            //    if (!result.IsExecuted)
+            //    {
+            //        TaskDialog.Show("检测失败", result.ErrorMessage);
+            //        return Result.Failed;
+            //    }
+            //    // 4. 高亮显示碰撞元素
+            //    if (result.HasClash)
+            //    {
+            //        uiDoc.Selection.SetElementIds(result.ClashElementIds);
+            //    }
+            //    // 5. 显示结果
+            //    TaskDialog.Show("碰撞检测结果", result.GetSummary());
             //    return Result.Succeeded;
             //}
             //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
@@ -474,221 +626,145 @@ namespace CreatePipe
             //}
             //catch (Exception ex)
             //{
-            //    TaskDialog.Show("错误", ex.Message);
+            //    TaskDialog.Show("未知错误", ex.Message);
             //    return Result.Failed;
             //}
-            //0404当前楼层切分立管功能略
-            //0404revit导出明细表功能    
-            //0404 BatchConvert2FBX.OK
-            //// 1. 使用 Win32.OpenFileDialog 选择多个文件
-            //OpenFileDialog openFileDialog = new OpenFileDialog
+            ////0405 新贴墙面.OK
+            //// 1.提前声明 window 变量，以便在回调中可以使用它来恢复按钮状态
+            //UniversalComboBoxSelection window = null;
+            //var wallTypes = new FilteredElementCollector(doc).OfClass(typeof(WallType)).Cast<WallType>().ToList();
+            //if (wallTypes.Count == 0)
             //{
-            //    Title = "请选择需要转换的 Revit 模型（按住 Ctrl/Shift 可多选）",
-            //    Filter = "Revit 文件 (*.rvt)|*.rvt",
-            //    Multiselect = true, // 关键：允许选中多个文件
-            //    InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            //};
-            //// 如果用户关闭对话框或取消选择，直接结束命令
-            //if (openFileDialog.ShowDialog() != true)
-            //{
+            //    TaskDialog.Show("提示", "当前项目中没有墙类型。");
             //    return Result.Cancelled;
             //}
-            //string[] selectedFiles = openFileDialog.FileNames;
-            //if (selectedFiles.Length == 0) return Result.Cancelled;
-            //// 用于记录处理结果的清单
-            //List<string> successList = new List<string>();
-            //List<string> failList = new List<string>();
-            //// 2. 使用封装的无事务进度条执行核心逻辑
-            //Result processResult = NoTransactionWithProgressBarHelper.Execute(
-            //    selectedFiles.Length,
-            //    "准备批量转换 FBX...",
-            //    (progress) =>
+            //List<string> wallTypeNames = wallTypes.Select(w => w.Name).ToList();
+            //Action<string> onConfirmed = (selectedName) =>
+            //{
+            //    WallType selectedWallType = wallTypes.FirstOrDefault(w => w.Name == selectedName);
+            //    if (selectedWallType == null)
             //    {
-            //        for (int i = 0; i < selectedFiles.Length; i++)
+            //        window?.ViewModel.SetCommandCompleted(); // 解锁按钮
+            //        return;
+            //    }
+            //    // 将任务放入外部事件中
+            //    _externalHandler.Run(app =>
+            //    {
+            //        try
             //        {
-            //            string filePath = selectedFiles[i];
-            //            string fileName = Path.GetFileName(filePath);
-            //            string fileDir = Path.GetDirectoryName(filePath);
-            //            string nameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-            //            try
+            //            // 2. 核心逻辑：开启无限循环，实现连续拾取
+            //            while (true)
             //            {
-            //                // 在主窗口激活并打开文档
-            //                UIDocument newUiDoc = uiApp.OpenAndActivateDocument(filePath);
-            //                Document currentDoc = newUiDoc.Document;
-            //                // 【注意】这里假设你的进度条有 Update 方法。
-            //                // 如果你的方法叫 SetProgress / StepIt 等，请修改此处
-            //                progress.Update(i + 1, fileName);
-            //                // 查找有效的三维视图 (排除视图模板)
-            //                View3D exportView = new FilteredElementCollector(currentDoc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-            //                if (exportView != null)
+            //                // 提示语中告诉用户按 ESC 可以退出
+            //                var faceReference = uiDoc.Selection.PickObject(ObjectType.Face, new filterWallClass(), "拾取要复制的墙面(按ESC退出当前拾取)");
+            //                var wallOfFace = doc.GetElement(faceReference) as Wall;
+            //                var face = wallOfFace.GetGeometryObjectFromReference(faceReference) as PlanarFace;
+            //                if (face == null)
             //                {
-            //                    ViewSet viewSet = new ViewSet();
-            //                    viewSet.Insert(exportView);
-            //                    FBXExportOptions options = new FBXExportOptions();
-            //                    // 导出文件
-            //                    currentDoc.Export(fileDir, nameWithoutExt, viewSet, options);
-            //                    successList.Add(fileName);
+            //                    // 在连续循环中，建议不用 TaskDialog 弹窗报错，否则非常打断工作流。直接 continue 重新拾取即可。
+            //                    continue;
             //                }
-            //                else
+            //                NewTransaction.Execute(doc, "创建面生面", () =>
             //                {
-            //                    failList.Add($"{fileName} [跳过: 未找到三维视图]");
-            //                }
-            //            }
-            //            catch (Exception ex)
+            //                    var outlineData = ExtractFaceOutline(face, selectedWallType.Width);
+            //                    List<Curve> profile = outlineData.Item1;
+            //                    List<XYZ[]> openingPoints = outlineData.Item2;
+            //                    var wall = Wall.Create(doc, profile, selectedWallType.Id, wallOfFace.LevelId, false); 
+            //                    double offset = wallOfFace.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).AsDouble();
+            //                    wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).Set(offset);//设置底部偏移
+            //                    foreach (var pts in openingPoints)
+            //                    {
+            //                        doc.Create.NewOpening(wall, pts[0], pts[1]);
+            //                    }
+            //                });
+            //            } 
+            //        }
+            //        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //        {
+            //            // 3. 核心机制：当用户按下 ESC 键时，PickObject 会抛出此异常
+            //            // 这里我们什么都不做，仅仅是为了跳出上面的 while(true) 循环
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            TaskDialog.Show("错误", "发生异常：" + ex.Message);
+            //        }
+            //        finally
+            //        {
+            //            // 4. 极其关键：ESC 退出循环后，通过 WPF 的 Dispatcher 将按钮状态恢复为可用
+            //            // 这样用户就可以在通用窗口里重新选择一个墙类型，再次点击“确认”进行下一波操作！
+            //            window?.Dispatcher.Invoke(() =>
             //            {
-            //                failList.Add($"{fileName} [失败: {ex.Message}]");
-            //            }
+            //                window?.ViewModel.SetCommandCompleted();
+            //            });
             //        }
             //    });
-            //if (processResult == Result.Succeeded)
-            //{
-            //    ShowResultDialog(selectedFiles.Length, successList, failList);
-            //}
-
-            //改后台调用WIn32.OpenFolderDialog
-            // 1. 选择文件夹
-            //var folderDialog = new Microsoft.Win32.OpenFolderDialog
-            //{
-            //    Title = "请选择包含 .rvt 文件的文件夹",
-            //    InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
             //};
-            //if (folderDialog.ShowDialog() != true) return Result.Cancelled;
-            //string selectedPath = folderDialog.FolderName;
+            //window = new UniversalComboBoxSelection(wallTypeNames, "提示：将依据所选墙类型生成面层", onConfirmed);
+            //// 5. 必须设置为 false，彻底避免 DialogResult = true 导致的崩溃！
+            //window.IsModal = false;
+            //window.Show();
 
-            //string selectedPath = SelectFolderWithWin32();
-            //TaskDialog.Show("tt", selectedPath);
-
-            //string[] rvtFiles = Directory.GetFiles(selectedPath, "*.rvt");
-            //if (rvtFiles.Length == 0)
-            //{
-            //    TaskDialog.Show("提示", "所选文件夹内没有 .rvt 文件。");
-            //    return Result.Failed;
-            //}
-            //int successCount = 0;
-            //int failCount = 0;
-            //// 2. 遍历处理文件
-            //foreach (string filePath in rvtFiles)
-            //{
-            //    Document openedDoc = null;
-            //    try
-            //    {
-            //        // 优化点：使用后台静默打开，不激活 UI 界面
-            //        UIDocument newUIDoc = uiApp.OpenAndActivateDocument(filePath);
-            //        openedDoc = newUIDoc.Document;
-            //        // 3. 高效查找适合导出的三维视图 (排除视图模板)
-            //        View3D exportView = new FilteredElementCollector(openedDoc).OfClass(typeof(View3D))
-            //            .Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-            //        if (exportView == null)
-            //        {
-            //            failCount++;
-            //            openedDoc.Close(false);
-            //            continue;
-            //        }
-            //        // 4. 配置导出选项
-            //        var viewSet = new ViewSet();
-            //        viewSet.Insert(exportView);
-            //        FBXExportOptions options = new FBXExportOptions
-            //        {
-            //            StopOnError = true // 遇到严重错误停止
-            //        };
-            //        string fileName = Path.GetFileNameWithoutExtension(filePath);
-            //        // 5. 执行导出
-            //        // 注意：selectedPath 是文件夹路径，fileName 是文件名
-            //        openedDoc.Export(selectedPath, fileName, viewSet, options);
-            //        successCount++;
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        failCount++;
-            //        // 可以在控制台或日志记录错误，避免弹出成百上千个对话框
-            //        Console.WriteLine($"文件 {Path.GetFileName(filePath)} 转换失败: {ex.Message}");
-            //    }
-            //    finally
-            //    {
-            //        // ⚠️ 极其重要：确保即使出错也要关闭文档，释放内存
-            //        if (openedDoc != null)
-            //        {
-            //            openedDoc.Close(false);
-            //        }
-            //    }
-            //}
-            //TaskDialog.Show("转换完成", $"处理总数：{rvtFiles.Length}\n成功：{successCount}\n失败：{failCount}\n\nFBX 文件已保存在原文件夹。");
-
-            //原代码使用Winform窗体
-            //using (var folderDialog = new Forms.FolderBrowserDialog())
-            //{
-            //    folderDialog.Description = "请选择一个文件夹";
-            //    folderDialog.ShowNewFolderButton = false; // 是否显示“新建文件夹”按钮
-            //    if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            //    {
-            //        string selectedPath = folderDialog.SelectedPath;
-            //        DirectoryInfo dir = new DirectoryInfo(selectedPath);
-            //        // 获取指定文件夹中所有扩展名为 ".rfa" 的文件. 忽略大小写
-            //        //FileInfo[] dirFiles = dir.GetFiles("*.rvt");
-            //        FileInfo[] dirFiles = dir.GetFiles("*.*", SearchOption.TopDirectoryOnly)
-            //             .Where(f => f.Extension.Equals(".rvt", StringComparison.OrdinalIgnoreCase))
-            //             .ToArray();
-            //        // 如果需要将这些文件信息存储到一个列表中
-            //        List<FileInfo> fileList = dirFiles.ToList();
-            //        foreach (FileInfo file in fileList)
-            //        {
-            //            try
-            //            {
-            //                UIDocument newUIDoc = uiApp.OpenAndActivateDocument(file.FullName);
-            //                Document newDoc = newUIDoc.Document;
-            //                if (doc != null)
-            //                    doc.Close(false);
-            //                doc = newDoc;
-            //                //找第一个三维视图
-            //                FilteredElementCollector collector = new FilteredElementCollector(doc);
-            //                IList<Element> Views = collector.OfClass(typeof(View)).ToList();
-            //                List<View> all3DViews = new List<View>();
-            //                foreach (var item in Views)
-            //                {
-            //                    View view = item as View;
-            //                    if (view == null || view.IsTemplate)
-            //                    {
-            //                        continue;
-            //                    }
-            //                    else
-            //                    {
-            //                        // 检查视图类型，排除明细表、图纸、图例和面积平面，仅包含平立剖，三维
-            //                        if (view.ViewType != ViewType.ThreeD)
-            //                        {
-            //                            continue;
-            //                        }
-            //                        else
-            //                        {
-            //                            ElementType objType = doc.GetElement(view.GetTypeId()) as ElementType;
-            //                            if (objType == null)
-            //                            {
-            //                                continue;
-            //                            }
-            //                            all3DViews.Add(view);
-            //                        }
-            //                    }
-            //                }
-            //                View3D exportView = all3DViews.FirstOrDefault() as View3D;
-            //                ViewSet views = new ViewSet();
-            //                views.Insert(exportView);
-            //                FBXExportOptions options = new FBXExportOptions();
-            //                string filename = Path.GetFileNameWithoutExtension(file.FullName);
-            //                doc.Export(selectedPath, filename, views, options);
-            //            }
-            //            catch (Exception ex)
-            //            {
-            //                TaskDialog.Show("tt", "错误信息info" + ex.Message);
-            //            }
-            //        }
-            //        TaskDialog.Show("tt", $"{fileList.Count}个模型转换FBX已完成！");
-            //    }
-            //}
-
-            ////0403 标识放置升级
-            //// 标识1;zhiin;后计取|安检；安全出口
-            //GuidanceSignPlaceView guidanceSignPlaceView = new GuidanceSignPlaceView(uiApp);
-            //guidanceSignPlaceView.Show();
-            ////TaskDialog.Show("tt", frontSignFirst);
+            ////模态，只能执行一次
+            ////// 1. 获取所有墙类型集合
+            ////var wallTypes = new FilteredElementCollector(doc).OfClass(typeof(WallType)).Cast<WallType>().ToList();
+            ////if (wallTypes.Count == 0)
+            ////{
+            ////    TaskDialog.Show("提示", "当前项目中没有墙类型。");
+            ////    return Result.Cancelled;
+            ////}
+            ////// 2. 将墙类型名称提取为 List<string> 供通用窗口使用
+            ////List<string> wallTypeNames = wallTypes.Select(w => w.Name).ToList();
+            ////// 3. 定义回调 Action，当用户在通用窗口点击“确认”后执行
+            ////Action<string> onConfirmed = (selectedName) =>
+            ////{
+            ////    // 通过名字找回对应的墙类型实例
+            ////    WallType selectedWallType = wallTypes.FirstOrDefault(w => w.Name == selectedName);
+            ////    if (selectedWallType == null) return;
+            ////    // 异步执行 Revit 拾取和创建操作
+            ////    _externalHandler.Run(app =>
+            ////    {
+            ////        try
+            ////        {
+            ////            var faceReference = uiDoc.Selection.PickObject(ObjectType.Face, new filterWallClass(), "拾取要复制的墙面");
+            ////            var wallOfFace = doc.GetElement(faceReference) as Wall;
+            ////            var face = wallOfFace.GetGeometryObjectFromReference(faceReference) as PlanarFace;
+            ////            if (face == null)
+            ////            {
+            ////                TaskDialog.Show("提示", "只能拾取平整的墙面！");
+            ////                return;
+            ////            }
+            ////            NewTransaction.Execute(doc, "创建面生面", () =>
+            ////            {
+            ////                var outlineData = ExtractFaceOutline(face, selectedWallType.Width);
+            ////                List<Curve> profile = outlineData.Item1;
+            ////                List<XYZ[]> openingPoints = outlineData.Item2;
+            ////                var wall = Wall.Create(doc, profile, selectedWallType.Id, wallOfFace.LevelId, false);
+            ////                wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).Set(0);
+            ////                foreach (var pts in openingPoints)
+            ////                {
+            ////                    doc.Create.NewOpening(wall, pts[0], pts[1]);
+            ////                }
+            ////            });
+            ////        }
+            ////        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            ////        {
+            ////            // 忽略用户按 ESC 取消拾取的异常
+            ////        }
+            ////        catch (Exception ex)
+            ////        {
+            ////            TaskDialog.Show("错误", "发生异常：" + ex.Message);
+            ////        }
+            ////    });
+            ////};
+            ////// 4. 实例化通用选择窗口，传入数据、提示语和回调函数
+            ////var window = new UniversalComboBoxSelection(wallTypeNames, "提示：将依据所选墙类型生成面层", onConfirmed);
+            ////window.ShowDialog();
+            ////0405 平行参照平面修改
+            //TwinReferencePlaneView twinReferencePlaneView = new TwinReferencePlaneView(uiApp);
+            //twinReferencePlaneView.Show();
+            ////0405 拷族类别功能
+            //CopyFamilySymbolsView copyFamilySymbolsView = new CopyFamilySymbolsView(uiApp);
+            //copyFamilySymbolsView.ShowDialog();
 
             //0403 测试功能
             //ProjectInfoUpdater projectInfoUpdater = new ProjectInfoUpdater(uiApp);

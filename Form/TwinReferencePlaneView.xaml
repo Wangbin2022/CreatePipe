@@ -1,0 +1,48 @@
+﻿<Window x:Class="CreatePipe.Form.TwinReferencePlaneView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="平行参照平面绘制及管理" Height="360" Width="240" 
+        ResizeMode="NoResize" Topmost="True"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="请输入间距 D" Margin="5" VerticalAlignment="Center"/>
+            <TextBox Margin="5" Width="130" HorizontalAlignment="Right" Text="{Binding D,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
+        </StackPanel>
+        <TabControl Grid.Row="1" Margin="5">
+            <TabItem Header="沿指定路径">
+                <StackPanel >
+                    <Image  Source="pack://application:,,,/CreatePipe;component/Resources/平行参照平面1.png"/>
+                    <Button Content="沿指定路径平行绘制" Click="Button_Click" Command="{Binding CreateRPCommand}" CommandParameter="A"  VerticalAlignment="Bottom" Margin="5"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="在路径两侧">
+                <StackPanel >
+                    <Image  Source="pack://application:,,,/CreatePipe;component/Resources/平行参照平面2.png"/>
+                    <Button Content="沿指定路径两侧绘制" Click="Button_Click" Command="{Binding CreateRPCommand}" CommandParameter="B"  VerticalAlignment="Bottom" Margin="5"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="管理参照平面">
+                <StackPanel >
+                    <Button Content="显隐当前视图参照平面" Margin="0,0,0,6" Click="Button_Click" Command="{Binding CurrentViewRPHideCommand}"/>
+                    <Button Content="显隐所有视图参照平面" Margin="0,0,0,6" Click="Button_Click" Command="{Binding AllViewRPHideCommand}"/>
+                    <Button Content="选择当前视图参照平面" Margin="0,0,0,6" Click="Button_Click" Command="{Binding CurrentViewRPGetCommand}"/>
+                    <Button Content="导出当前视图参照平面" Margin="0,0,0,6" Click="Button_Click" Command="{Binding CurrentViewRPExportCommand}"/>
+                    <Button Content="向当前视图导入参照平面" Margin="0,0,0,6" Click="Button_Click" Command="{Binding CurrentViewRPImportCommand}"/>
+                    <Button Content="删除当前视图参照平面" Margin="0,0,0,6" Foreground="DarkRed"
+                            Click="Button_Click" Command="{Binding CurrentViewRPRemoveCommand}"/>
+                    <Button Content="删除所有参照平面" Margin="0,0,0,6" Foreground="DarkRed"
+                            Click="Button_Click" Command="{Binding AllViewRPRemoveCommand}"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
