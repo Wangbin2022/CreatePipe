@@ -11,7 +11,7 @@ namespace CreatePipe.Form
         public TableTemplateView(UIApplication application)
         {
             InitializeComponent();
-            this.DataContext = new TableTemplateViewModel(application);
+            //this.DataContext = new TableTemplateViewModel(application);
         }
         private void Button_Click(object sender, RoutedEventArgs e)
         {

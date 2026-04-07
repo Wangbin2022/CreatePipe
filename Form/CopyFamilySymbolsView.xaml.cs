@@ -80,7 +80,7 @@ namespace CreatePipe.Form
             ElementId baseSymbolId = targetFamily.GetFamilySymbolIds().FirstOrDefault();
             if (baseSymbolId == ElementId.InvalidElementId) return;
             FamilySymbol baseTargetSymbol = doc.GetElement(baseSymbolId) as FamilySymbol;
-            NewTransaction.Execute(doc, "复制族类型及同步参数",()=>
+            NewTransaction.Execute(doc, "复制族类型及同步参数", () =>
             {
                 try
                 {
@@ -103,7 +103,7 @@ namespace CreatePipe.Form
                 {
                     TaskDialog.Show("错误", $"复制失败: {ex.Message}");
                 }
-            });         
+            });
         }
         /// <summary>
         /// 同步两个族类型之间的参数值

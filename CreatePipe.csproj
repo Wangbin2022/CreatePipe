@@ -149,6 +149,9 @@
     <Compile Include="Form\OverView2.xaml.cs">
       <DependentUpon>OverView2.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\ParkingLotView.xaml.cs">
+      <DependentUpon>ParkingLotView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\PipeDiameterSelectView.xaml.cs">
       <DependentUpon>PipeDiameterSelectView.xaml</DependentUpon>
     </Compile>
@@ -663,6 +666,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\OverView2.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\ParkingLotView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

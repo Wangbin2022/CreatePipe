@@ -4,19 +4,13 @@ using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.models;
 using CreatePipe.Utils;
-using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace CreatePipe
 {
@@ -361,6 +355,57 @@ namespace CreatePipe
             };
             resultDialog.Show();
         }
+        ////0406 csv转明细表升级相关方法
+        //public class ColumnProperties
+        //{
+        //    public string Title { get; set; }
+        //    public double Width { get; set; } = 1.0; // 默认值为 1
+        //    public string Alignment { get; set; } = "居中";
+        //    //public int RowCount { get; set; } = 1; // 默认值为 1
+        //}
+        //private ObservableCollection<ColumnProperties> columnPropertiesList = new ObservableCollection<ColumnProperties>();
+        //public ObservableCollection<ColumnProperties> ColumnPropertiesList
+        //{
+        //    get => columnPropertiesList;
+        //    set => SetProperty(ref columnPropertiesList, value);
+        //}
+        //private string[] lines { get; set; }
+        //public string[] csvContents { get; set; }
+        //public string filePath = @"D:\CACCWPF\test.xml";
+        //private ObservableCollection<TableSingle> tableSingles = new ObservableCollection<TableSingle>();
+        //public ObservableCollection<TableSingle> TableSingles { get => tableSingles; set => SetProperty(ref tableSingles, value); }
+        //private TableSingle selectedTableSingle;
+        //public TableSingle SelectedTableSingle
+        //{
+        //    get => selectedTableSingle;
+        //    set
+        //    {
+        //        selectedTableSingle = value;
+        //        OnPropertyChanged(nameof(SelectedTableSingle));
+        //        UpdateDataGridFromSelectedTable();
+        //    }
+        //}
+        //public List<string> tableTitles = new List<string>();
+        //public int fieldCount = 0;
+        //private void UpdateDataGridFromSelectedTable()
+        //{
+        //    if (SelectedTableSingle == null || SelectedTableSingle.tableEntities == null)
+        //    {
+        //        ColumnPropertiesList.Clear();
+        //        return;
+        //    }
+        //    ColumnPropertiesList.Clear();
+        //    // 将选中的 TableSingle 的 tableEntities 映射到 ColumnPropertiesList
+        //    foreach (TableEntity item in SelectedTableSingle.tableEntities)
+        //    {
+        //        ColumnPropertiesList.Add(new ColumnProperties
+        //        {
+        //            Title = item.entityName,
+        //            Width = item.entityWidth,
+        //            Alignment = item.entityAligh,
+        //        });
+        //    }
+        //}
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -368,141 +413,225 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0405批量删除族文字属性，改后。OK
-            Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
-            // 获取当前 Revit 的版本号 (如 "2024")
-            int currentRevitVersion = int.Parse(app.VersionNumber);
-            List<string> selectedFiles = new List<string>();
-            // 1. 使用 Win32 OpenFileDialog 实现多选文件
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Title = "请选择要处理的族文件（可按住 Ctrl/Shift 多选）";
-            openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
-            openFileDialog.Multiselect = true;
-            if (openFileDialog.ShowDialog() != true)
-            {
-                return Result.Cancelled;
-            }
-            selectedFiles = openFileDialog.FileNames.ToList();
-            if (selectedFiles.Count == 0) return Result.Cancelled;
-            List<string> successList = new List<string>();
-            List<string> failList = new List<string>(); // 包含了失败和跳过的记录
-                                                        // 2. 遍历处理文件（后台静默处理）
+            //0406 停车位修改
+            ParkingLotView parkingLotView = new ParkingLotView(uiApp);
+            parkingLotView.Show();
 
-            NoTransactionWithProgressBarHelper.Execute(selectedFiles.Count, "批量删除文字属性", (service) =>
-            {
-                service.UpdateMax(selectedFiles.Count());
-                int index = 0;
-                foreach (string filePath in selectedFiles)
-                {
-                    string fileName = Path.GetFileName(filePath);
-                    service.Update(++index, filePath);
-                    try
-                    {
-                        // 3. 版本检查防崩溃
-                        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
-                        if (int.TryParse(fileInfo.Format, out int fileVersion))
-                        {
-                            if (fileVersion > currentRevitVersion)
-                            {
-                                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前 Revit 版本)");
-                                continue;
-                            }
-                        }
-                        // 4. 后台静默打开文档
-                        Document familyDoc = app.OpenDocumentFile(filePath);
-                        if (!familyDoc.IsFamilyDocument)
-                        {
-                            familyDoc.Close(false);
-                            failList.Add($"{fileName} (跳过：不是族文件)");
-                            continue;
-                        }
-                        FamilyManager familyManager = familyDoc.FamilyManager;
-                        List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-                        // 专门用于存放需要删除的参数的列表
-                        List<FamilyParameter> paramsToDelete = new List<FamilyParameter>();
-                        // 5. 遍历并收集符合条件的参数
-                        foreach (FamilyParameter param in parameters)
-                        {
-                            Definition definition = param.Definition;
-                            if (definition is InternalDefinition internalDef &&
-                                internalDef.BuiltInParameter == BuiltInParameter.INVALID)
-                            {
-                                // 【兼容多版本】判断是否为文字类型
-                                bool isTextParam = false;
+            //if(activeView.ViewType != ViewType.DraftingView)
+            //    TaskDialog.Show("tt", "NNPASS");
+            //0406 csv转明细表升级，读csv和整理对比
+            //ColumnPropertiesList.Clear();
+            //OpenFileDialog fDialog = new OpenFileDialog();
+            //fDialog.Filter = "csv 文件 (*.csv)|*.csv";
+            //// 提前返回，减少嵌套深度
+            //if (fDialog.ShowDialog() != true) return Result.Cancelled;
+            //string targetFilePath = fDialog.FileName;
+            //// 1. 使用自定义 CsvHelper 解析数据源（完美规避逗号拆分Bug）
+            //List<string[]> parsedCsvData = CsvHelper.ParseCsv(targetFilePath, Encoding.Default);
+            //if (parsedCsvData == null || parsedCsvData.Count == 0)
+            //{
+            //    TaskDialog.Show("错误", "读取到的CSV文件为空，或格式无法识别。");
+            //    return Result.Cancelled;
+            //}
+            //// 2. 提取表头并验证列数
+            //string[] tableTitles = parsedCsvData[0];
+            //int totalColumns = tableTitles.Length;
+            //if (totalColumns > 12)
+            //{
+            //    TaskDialog.Show("提示", $"当前表格包含 {totalColumns} 列，本工具暂不支持超过 12 列表格绘制！");
+            //    return Result.Cancelled;
+            //}
+            //// 3. 校验每一行的列数是否统一
+            //List<int> errorRows = new List<int>();
+            //for (int i = 0; i < parsedCsvData.Count; i++)
+            //{
+            //    if (parsedCsvData[i].Length != totalColumns)
+            //    {
+            //        errorRows.Add(i + 1); // 记录异常行号（从1开始）
+            //    }
+            //}
+            //TaskDialog.Show("解析结果", $"待生成表格总行数: {parsedCsvData.Count}\n总列数: {totalColumns}");
+            //if (errorRows.Count > 0)
+            //{
+            //    TaskDialog.Show("数据异常", $"以下行数的列数与表头不一致，请检查源文件！\n异常行号: {string.Join(", ", errorRows)}");
+            //    return Result.Cancelled;
+            //}
+            //// 4. 更新全局变量兼容其他逻辑
+            //// 提示：如果你有条件，建议把后期的 lines 从 string[] 改成 List<string[]> 结构化数据，这样后续画表填字更稳定。
+            //lines = File.ReadAllLines(targetFilePath, Encoding.Default);
+            //csvContents = lines;
+            //// 拼装首行用于匹配 XML
+            //string firstLineStr = string.Join(",", tableTitles);
+            //////当对比xml内容有相同组合时，列出标题到combobox，内容到datagrid并绑定。更新ColumnPropertiesList
+            //try
+            //{
+            //    TableCollection test = XMLUtil.DeserializeFromXml<TableCollection>(filePath);
+            //    TableSingles = new ObservableCollection<TableSingle>();
+            //    foreach (TableSingle ts in test.tableSingles)
+            //    {
+            //        StringBuilder sb = new StringBuilder();
+            //        foreach (TableEntity item in ts.tableEntities)
+            //        {
+            //            sb.Append(item.entityName + ",");
+            //        }
+            //        sb.Remove(sb.Length - 1, 1);
+            //        if (sb.ToString() == firstLineStr)
+            //        {
+            //            TableSingles.Add(ts);
+            //        }
+            //    }
+            //    //// 在初始化时设置默认选中项
+            //    if (TableSingles.Count > 0)
+            //    {
+            //        SelectedTableSingle = TableSingles[0]; // 默认选中第一个 
+            //    }
+            //    //当对比xml内容无相同组合时
+            //    else
+            //    {
+            //        fieldCount = totalColumns;
+            //        foreach (var title in tableTitles)
+            //        {
+            //            ColumnPropertiesList.Add(new ColumnProperties { Title = title });
+            //        }
+            //    }
+            //    //CanExportXML = true;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("tt", ex.Message.ToString());
+            //}
 
-                                if (currentRevitVersion >= 2022)
-                                {
-                                    //// Revit 2022 及以上版本的新 API 判定方式
-                                    //ForgeTypeId dataType = definition.GetDataType();
-                                    //if (dataType == SpecTypeId.String.Text)
-                                    //{
-                                    //    isTextParam = true;
-                                    //}
-                                }
-                                else
-                                {
-                                    // Revit 2021 及以下版本的老 API 判定方式 (使用反射或ToString规避编译报错)
-#pragma warning disable CS0618
-                                    if (definition.ParameterType.ToString() == "Text")
-                                    {
-                                        isTextParam = true;
-                                    }
-#pragma warning restore CS0618
-                                }
-                                if (isTextParam)
-                                {
-                                    paramsToDelete.Add(param);
-                                }
-                            }
-                        }
-                        // 6. 核心逻辑调整：判断是否包含文字属性
-                        if (paramsToDelete.Count == 0)
-                        {
-                            // 没有找到任何需要删除的文字属性，直接不保存关闭！
-                            familyDoc.Close(false);
-                            failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
-                            continue; // 进入下一个文件
-                        }
-                        // 7. 找到了文字属性，开启事务进行删除
-                        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
-                        {
-                            trans.Start();
-                            foreach (FamilyParameter paramToDelete in paramsToDelete)
-                            {
-                                familyManager.RemoveParameter(paramToDelete);
-                            }
-                            trans.Commit();
-                        }
-
-                        //TransactionWithProgressBarHelper.Execute(familyDoc, "批量删除文字属性",(service)=>
-                        //{
-                        //    //        service.UpdateMax(sortedIds.Count());
-                        //    //        int index = 0;
-                        //    //        foreach (var id in sortedIds)
-                        //    //        {
-                        //    //            service.Update(++index, id.Value.ToString());
-                        //    //        }
-                        //    service.UpdateMax(paramsToDelete.Count);
-                        //    int index = 0;
-                        //    foreach (FamilyParameter paramToDelete in paramsToDelete)
-                        //    {
-                        //        familyManager.RemoveParameter(paramToDelete);
-                        //        service.Update(++index, paramsToDelete.ToString());
-                        //    }
-                        //});
-                        // 8. 保存并关闭后台文档
-                        familyDoc.Close(true);
-                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个文字属性)");
-                    }
-                    catch (Exception ex)
-                    {
-                        failList.Add($"{fileName} (报错：{ex.Message})");
-                    }
-
-                }
-            });
-            // 9. 调用统计弹窗
-            ShowResultDialog(selectedFiles.Count, successList, failList);
+            //            //0405批量删除族文字属性，改后。OK
+            //            Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
+            //            // 获取当前 Revit 的版本号 (如 "2024")
+            //            int currentRevitVersion = int.Parse(app.VersionNumber);
+            //            List<string> selectedFiles = new List<string>();
+            //            // 1. 使用 Win32 OpenFileDialog 实现多选文件
+            //            OpenFileDialog openFileDialog = new OpenFileDialog();
+            //            openFileDialog.Title = "请选择要处理的族文件（可按住 Ctrl/Shift 多选）";
+            //            openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
+            //            openFileDialog.Multiselect = true;
+            //            if (openFileDialog.ShowDialog() != true)
+            //            {
+            //                return Result.Cancelled;
+            //            }
+            //            selectedFiles = openFileDialog.FileNames.ToList();
+            //            if (selectedFiles.Count == 0) return Result.Cancelled;
+            //            List<string> successList = new List<string>();
+            //            List<string> failList = new List<string>(); // 包含了失败和跳过的记录
+            //                                                        // 2. 遍历处理文件（后台静默处理）
+            //            NoTransactionWithProgressBarHelper.Execute(selectedFiles.Count, "批量删除文字属性", (service) =>
+            //            {
+            //                service.UpdateMax(selectedFiles.Count());
+            //                int index = 0;
+            //                foreach (string filePath in selectedFiles)
+            //                {
+            //                    string fileName = Path.GetFileName(filePath);
+            //                    service.Update(++index, filePath);
+            //                    try
+            //                    {
+            //                        // 3. 版本检查防崩溃
+            //                        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
+            //                        if (int.TryParse(fileInfo.Format, out int fileVersion))
+            //                        {
+            //                            if (fileVersion > currentRevitVersion)
+            //                            {
+            //                                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前 Revit 版本)");
+            //                                continue;
+            //                            }
+            //                        }
+            //                        // 4. 后台静默打开文档
+            //                        Document familyDoc = app.OpenDocumentFile(filePath);
+            //                        if (!familyDoc.IsFamilyDocument)
+            //                        {
+            //                            familyDoc.Close(false);
+            //                            failList.Add($"{fileName} (跳过：不是族文件)");
+            //                            continue;
+            //                        }
+            //                        FamilyManager familyManager = familyDoc.FamilyManager;
+            //                        List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
+            //                        // 专门用于存放需要删除的参数的列表
+            //                        List<FamilyParameter> paramsToDelete = new List<FamilyParameter>();
+            //                        // 5. 遍历并收集符合条件的参数
+            //                        foreach (FamilyParameter param in parameters)
+            //                        {
+            //                            Definition definition = param.Definition;
+            //                            if (definition is InternalDefinition internalDef &&
+            //                                internalDef.BuiltInParameter == BuiltInParameter.INVALID)
+            //                            {
+            //                                // 【兼容多版本】判断是否为文字类型
+            //                                bool isTextParam = false;
+            //                                if (currentRevitVersion >= 2022)
+            //                                {
+            //                                    //// Revit 2022 及以上版本的新 API 判定方式
+            //                                    //ForgeTypeId dataType = definition.GetDataType();
+            //                                    //if (dataType == SpecTypeId.String.Text)
+            //                                    //{
+            //                                    //    isTextParam = true;
+            //                                    //}
+            //                                }
+            //                                else
+            //                                {
+            //                                    // Revit 2021 及以下版本的老 API 判定方式 (使用反射或ToString规避编译报错)
+            //#pragma warning disable CS0618
+            //                                    if (definition.ParameterType.ToString() == "Text")
+            //                                    {
+            //                                        isTextParam = true;
+            //                                    }
+            //#pragma warning restore CS0618
+            //                                }
+            //                                if (isTextParam)
+            //                                {
+            //                                    paramsToDelete.Add(param);
+            //                                }
+            //                            }
+            //                        }
+            //                        // 6. 核心逻辑调整：判断是否包含文字属性
+            //                        if (paramsToDelete.Count == 0)
+            //                        {
+            //                            // 没有找到任何需要删除的文字属性，直接不保存关闭！
+            //                            familyDoc.Close(false);
+            //                            failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
+            //                            continue; // 进入下一个文件
+            //                        }
+            //                        // 7. 找到了文字属性，开启事务进行删除
+            //                        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
+            //                        {
+            //                            trans.Start();
+            //                            foreach (FamilyParameter paramToDelete in paramsToDelete)
+            //                            {
+            //                                familyManager.RemoveParameter(paramToDelete);
+            //                            }
+            //                            trans.Commit();
+            //                        }
+            //                        //TransactionWithProgressBarHelper.Execute(familyDoc, "批量删除文字属性",(service)=>
+            //                        //{
+            //                        //    //        service.UpdateMax(sortedIds.Count());
+            //                        //    //        int index = 0;
+            //                        //    //        foreach (var id in sortedIds)
+            //                        //    //        {
+            //                        //    //            service.Update(++index, id.Value.ToString());
+            //                        //    //        }
+            //                        //    service.UpdateMax(paramsToDelete.Count);
+            //                        //    int index = 0;
+            //                        //    foreach (FamilyParameter paramToDelete in paramsToDelete)
+            //                        //    {
+            //                        //        familyManager.RemoveParameter(paramToDelete);
+            //                        //        service.Update(++index, paramsToDelete.ToString());
+            //                        //    }
+            //                        //});
+            //                        // 8. 保存并关闭后台文档
+            //                        familyDoc.Close(true);
+            //                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个文字属性)");
+            //                    }
+            //                    catch (Exception ex)
+            //                    {
+            //                        failList.Add($"{fileName} (报错：{ex.Message})");
+            //                    }
+            //                }
+            //            });
+            //            // 9. 调用统计弹窗
+            //            ShowResultDialog(selectedFiles.Count, successList, failList);
 
             ////OpenFileDialog openFileDialog = new OpenFileDialog();
             ////openFileDialog.ShowDialog();

@@ -1,0 +1,91 @@
+﻿<Window x:Class="CreatePipe.Form.ParkingLotView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+       mc:Ignorable="d" Topmost="True"
+       Title="车位排序" Height="450" Width="250">
+    <Grid>
+        <TabControl  Margin="5">
+            <TabItem Header="车位自动编号">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="35"/>
+                        <RowDefinition />
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <Label Content="{Binding ParkingLotNum}" ContentStringFormat="已选中车位数：{0}"  HorizontalAlignment="Stretch"
+             HorizontalContentAlignment="Center"
+             BorderBrush="Gray" BorderThickness="1" Margin="5"/>
+                    <StackPanel Margin="5,10,5,5" Grid.Row="1">
+                        <Button Content="自选车位编号" Command="{Binding PickLotCommand}"/>
+                        <TextBlock Text="编号前缀"/>
+                        <TextBox Height="22" Text="{Binding Prefix,UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="起始编号值"/>
+                        <TextBox Height="22" Text="{Binding StartCode,UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="编号格式"/>
+                        <ComboBox ItemsSource="{Binding FormatItems}"
+                SelectedIndex="{Binding SelectedIndex}"            
+                Height="22" />
+                        <TextBlock Text="编号预览"/>
+                        <TextBlock Height="22" Margin="0,10,0,0"
+                     Text="{Binding CodePreview,UpdateSourceTrigger=PropertyChanged}"
+                     HorizontalAlignment="Center"/>
+                    </StackPanel>
+                    <Border Grid.Row="2" Margin="5" Padding="0,2,0,0"
+              BorderThickness="0,1,0,0" BorderBrush="Gray">
+                        <Button  Content="快速编号" Command="{Binding CodeAllCommand}"  />
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem Header="按选择顺序给车位编号">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock  Text="已选中车位数量：" HorizontalAlignment="Center" Margin="10"/>
+                        <TextBlock  Text="{Binding SelectedCount,UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" Margin="10" FontSize="16"/>
+                        <Button Content="{Binding SelectionButtonText}" Height="22" Margin="5"
+                    Command="{Binding ToggleSelectionCommand}"/>
+                    </StackPanel>
+                    <Button Grid.Row="1" Content="按选择顺序重排" HorizontalAlignment="Stretch" Margin="5" 
+                           Command="{Binding EndSelectionCommand}" Click="Button_Click"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="查找车位">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="46*"/>
+                        <ColumnDefinition Width="71*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="35"/>
+                        <RowDefinition />
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <!--<TextBlock Text="按编号查找车位" Margin="75,5,0,5" HorizontalAlignment="Left" Grid.ColumnSpan="2"/>-->
+                    <StackPanel Margin="5,10,5,0" Grid.Row="1" Grid.ColumnSpan="2">
+                        <TextBox Height="26" x:Name="tb_keyword" Text="{Binding findLotName}"/>
+                        <TextBlock Text="说明"/>
+                        <TextBlock Text="   为提高搜索效率，请尽量输入清晰明确的关键字。" TextWrapping="Wrap" />
+                        <Border Grid.Row="2" Height="24" Margin="0,5"
+                                BorderBrush="Gray" Grid.ColumnSpan="2">
+                            <Button  Content="按编号查找车位"  Command="{Binding FindLotCommand}"/>
+                        </Border>
+                        <Border Grid.Row="2" Height="24" Margin="0,5"
+                                BorderBrush="Gray" Grid.ColumnSpan="2">
+                            <Button  Content="查找空号车位"  Command="{Binding FindUnNamedLotCommand}"/>
+                        </Border>
+                    </StackPanel>
+                    <Border Grid.Row="2" Margin="5" Padding="0,2,0,0"
+               BorderThickness="0,1,0,0" BorderBrush="Gray" Grid.ColumnSpan="2">
+                        <Button  Content="查找重号车位"  Command="{Binding FindDuplicateLotCommand}"/>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

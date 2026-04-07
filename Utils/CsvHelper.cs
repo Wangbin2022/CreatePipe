@@ -306,7 +306,89 @@ namespace CreatePipe.Utils
         {
             return EncodingHelper.DetectEncoding(_filePath);
         }
+        /// <summary>
+        /// 解析 CSV 文件，支持处理被双引号包裹的含有逗号/换行符的字段
+        /// </summary>
+        public static List<string[]> ParseCsv(string filePath, Encoding encoding = null)
+        {
+            var result = new List<string[]>();
+            if (!File.Exists(filePath)) return result;
 
+            encoding = encoding ?? Encoding.Default; // 默认编码
+            string fileContent = File.ReadAllText(filePath, encoding);
+
+            var currentLine = new List<string>();
+            var currentField = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < fileContent.Length; i++)
+            {
+                char c = fileContent[i];
+
+                if (inQuotes)
+                {
+                    // 处理转义双引号 "" -> "
+                    if (c == '"' && i + 1 < fileContent.Length && fileContent[i + 1] == '"')
+                    {
+                        currentField.Append('"');
+                        i++; // 跳过下一个双引号
+                    }
+                    else if (c == '"')
+                    {
+                        inQuotes = false; // 退出引号区
+                    }
+                    else
+                    {
+                        currentField.Append(c);
+                    }
+                }
+                else
+                {
+                    if (c == '"')
+                    {
+                        inQuotes = true; // 进入引号区
+                    }
+                    else if (c == ',')
+                    {
+                        // 字段结束
+                        currentLine.Add(currentField.ToString());
+                        currentField.Clear();
+                    }
+                    else if (c == '\r' || c == '\n')
+                    {
+                        // 行结束
+                        currentLine.Add(currentField.ToString());
+                        currentField.Clear();
+
+                        // 忽略空行
+                        if (currentLine.Count > 1 || !string.IsNullOrEmpty(currentLine[0]))
+                        {
+                            result.Add(currentLine.ToArray());
+                        }
+                        currentLine.Clear();
+
+                        // 处理 \r\n
+                        if (c == '\r' && i + 1 < fileContent.Length && fileContent[i + 1] == '\n')
+                        {
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        currentField.Append(c);
+                    }
+                }
+            }
+
+            // 处理文件末尾没有换行符的情况
+            if (currentField.Length > 0 || currentLine.Count > 0)
+            {
+                currentLine.Add(currentField.ToString());
+                result.Add(currentLine.ToArray());
+            }
+
+            return result;
+        }
         #region 读取方法
 
         /// <summary>
