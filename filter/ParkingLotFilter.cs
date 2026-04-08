@@ -1,7 +1,6 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using System;
 
 namespace CreatePipe.filter
 {
@@ -18,7 +17,7 @@ namespace CreatePipe.filter
                 return false;
 
             }
-            else if (elem is FamilyInstance familyInstance )
+            else if (elem is FamilyInstance familyInstance)
             {
                 //获取 FamilySymbol
                 FamilySymbol familySymbol = familyInstance.Symbol;

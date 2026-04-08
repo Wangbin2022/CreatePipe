@@ -1,7 +1,8 @@
 ﻿using Autodesk.Revit.UI;
+using CreatePipe.NCCoding;
 using System.Windows;
 
-namespace CreatePipe.NCCoding
+namespace CreatePipe.Obselete.NCCoding
 {
     /// <summary>
     /// NCCodingView.xaml 的交互逻辑

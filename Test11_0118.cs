@@ -265,147 +265,301 @@ namespace CreatePipe
 
             TaskDialog.Show("批量修改完成", resultMessage);
         }
+        //0407 参数提取
         /// <summary>
-        /// 提取面外轮廓线以及所有的洞口对角点 (从原 ViewModel 移植到这里)
+        /// 通用的参数提取逻辑
         /// </summary>
-        private Tuple<List<Curve>, List<XYZ[]>> ExtractFaceOutline(PlanarFace face, double width)
+        private List<RevitParameterItem> GetParameterItems(Element elem)
         {
-            var profile = new List<Curve>();
-            var openingPoints = new List<XYZ[]>();
-            var curveLoops = face.GetEdgesAsCurveLoops().OrderByDescending(x => x.GetExactLength()).ToList();
-            Transform translation = Transform.CreateTranslation(face.FaceNormal * (width / 2));
-            for (int i = 0; i < curveLoops.Count; i++)
+            List<RevitParameterItem> results = new List<RevitParameterItem>();
+            if (elem == null) return results;
+            // 使用排序后的参数，体验更好
+            foreach (Parameter param in elem.GetOrderedParameters())
             {
-                var loop = curveLoops[i];
-                loop.Transform(translation);
+                // 过滤掉没有定义的无效参数
+                if (param == null || !param.HasValue && param.StorageType == StorageType.None) continue;
 
-                if (i == 0)
+                RevitParameterItem item = new RevitParameterItem
                 {
-                    profile.AddRange(loop.Cast<Curve>());
+                    Name = param.Definition.Name,
+                    Type = param.StorageType.ToString()
+                };
+                // 统一处理值解析
+                switch (param.StorageType)
+                {
+                    case StorageType.Double:
+                        // 自动处理单位转换后的字符串（如 3000 mm）
+                        item.Value = param.AsValueString() ?? param.AsDouble().ToString("F3");
+                        break;
+                    case StorageType.Integer:
+                        // 处理 Yes/No 或者 整数值
+                        item.Value = param.AsValueString() ?? param.AsInteger().ToString();
+                        break;
+                    case StorageType.String:
+                        item.Value = param.AsString() ?? "";
+                        break;
+                    case StorageType.ElementId:
+                        ElementId id = param.AsElementId();
+                        if (id != ElementId.InvalidElementId)
+                        {
+                            Element linked = elem.Document.GetElement(id);
+                            item.Value = linked != null ? linked.Name : id.IntegerValue.ToString();
+                        }
+                        else { item.Value = "None"; }
+                        break;
+                    default:
+                        item.Value = "N/A";
+                        break;
+                }
+                results.Add(item);
+            }
+            return results;
+        }
+        //找实例共同文字属性列表
+        public List<string> GetCommonStringParameterNames(Document doc)
+        {
+            // 1. 收集文档中所有的族实例
+            var allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance))
+                .WhereElementIsNotElementType().ToList();
+            // 如果文档中没有实例，直接返回空列表
+            if (allInstances.Count == 0)
+            {
+                return new List<string>();
+            }
+            HashSet<string> commonParams = null;
+            // 2. 遍历所有实例，求参数名称的交集
+            foreach (Element instance in allInstances)
+            {
+                HashSet<string> currentStringParams = new HashSet<string>();
+                // 遍历当前实例的所有参数
+                foreach (Parameter param in instance.Parameters)
+                {
+                    // 只收集"文字"（String）类型的参数
+                    // 可选：如果只需要可编辑的参数，可以加上 && !param.IsReadOnly
+                    if (param.StorageType == StorageType.String && !param.IsReadOnly)
+                    {
+                        currentStringParams.Add(param.Definition.Name);
+                    }
+                }
+                // 如果是第一个实例，直接将其参数集合作为初始的“共同参数”集合
+                if (commonParams == null)
+                {
+                    commonParams = currentStringParams;
                 }
                 else
                 {
-                    var pts = loop.Cast<Curve>().SelectMany(c => new[] { c.GetEndPoint(0), c.GetEndPoint(1) }).ToList();
-                    XYZ p1 = new XYZ(pts.Min(p => p.X), pts.Min(p => p.Y), pts.Min(p => p.Z));
-                    XYZ p2 = new XYZ(pts.Max(p => p.X), pts.Max(p => p.Y), pts.Max(p => p.Z));
-                    openingPoints.Add(new[] { p1, p2 });
+                    // 与当前实例的参数集合求交集（保留两者都有的参数）
+                    commonParams.IntersectWith(currentStringParams);
+                }
+                // 性能优化：如果在遍历中途交集已经为空，说明没有任何共同参数，直接提前结束
+                if (commonParams.Count == 0)
+                {
+                    break;
                 }
             }
-            return new Tuple<List<Curve>, List<XYZ[]>>(profile, openingPoints);
+            // 将 HashSet 转换为 List<string> 返回并按字母排序
+            return commonParams?.OrderBy(name => name).ToList() ?? new List<string>();
         }
+        //自适应路径族绘制
         ///// <summary>
-        ///// 智能获取目标元素：优先使用已选中的单个元素，否则提示用户拾取 抽成公共方法
+        ///// 核心绘制逻辑
         ///// </summary>
-        //private ElementId GetTargetElementId(UIDocument uiDoc)
+        //private void ExecuteDrawing(UIDocument uiDoc, FamilySymbol symbol, int pointNum)
         //{
-        //    var selectedIds = uiDoc.Selection.GetElementIds().ToList();
-        //    // 情况1：没有选中任何元素，提示拾取
-        //    if (selectedIds.Count == 0)
+        //    Document doc = uiDoc.Document;
+        //    View activeView = uiDoc.ActiveView;
+        //    string levelName = activeView.GenLevel?.Name ?? "默认标高";
+
+        //    // 2. 优化点：引入 TransactionGroup (事务组)
+        //    // 事务组的好处：如果用户中途按 ESC 取消，直接 RollBack，所有临时线会自动撤销，不需要写容易报错的 Delete 逻辑。
+        //    using (TransactionGroup tg = new TransactionGroup(doc, "绘制疏散路线"))
         //    {
-        //        var reference = uiDoc.Selection.PickObject(ObjectType.Element, "请选择一个构件");
-        //        return uiDoc.Document.GetElement(reference)?.Id;
+        //        tg.Start();
+        //        // 激活族
+        //        using (Transaction tx = new Transaction(doc, "激活自适应族"))
+        //        {
+        //            tx.Start();
+        //            if (!symbol.IsActive)
+        //            {
+        //                symbol.Activate();
+        //                doc.Regenerate();
+        //            }
+        //            tx.Commit();
+        //        }
+        //        List<XYZ> placementPoints = new List<XYZ>();
+        //        List<ElementId> tempLines = new List<ElementId>();
+        //        XYZ prevPoint = null;
+        //        for (int i = 0; i < pointNum; i++)
+        //        {
+        //            try
+        //            {
+        //                // 3. 优化点：PickPoint 不能包含在长时间开启的 Transaction 中，否则极易引起崩溃
+        //                XYZ rawPoint = uiDoc.Selection.PickPoint($"请选择第 {i + 1}/{pointNum} 个放置点");
+        //                XYZ point = new XYZ(rawPoint.X, rawPoint.Y, rawPoint.Z + 300.0 / 304.8);
+        //                placementPoints.Add(point);
+        //                if (prevPoint != null)
+        //                {
+        //                    // 绘制临时线（短事务）
+        //                    using (Transaction txLine = new Transaction(doc, "绘制临时线"))
+        //                    {
+        //                        txLine.Start();
+        //                        Line line = Line.CreateBound(prevPoint, point);
+        //                        if (doc.Create.NewDetailCurve(activeView, line) is DetailLine detailLine)
+        //                        {
+        //                            tempLines.Add(detailLine.Id);
+        //                        }
+        //                        txLine.Commit();
+        //                    }
+        //                }
+        //                prevPoint = point;
+        //            }
+        //            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+        //            {
+        //                // 用户按 ESC 取消，直接回滚事务组，临时线瞬间消失，安全又干净
+        //                tg.RollBack();
+        //                return;
+        //            }
+        //        }
+        //        // 所有点选取完毕，生成自适应族并清理临时线
+        //        using (Transaction txFinal = new Transaction(doc, "生成路线"))
+        //        {
+        //            txFinal.Start();
+        //            // 删除临时线
+        //            foreach (var id in tempLines)
+        //            {
+        //                doc.Delete(id);
+        //            }
+        //            // 创建自适应实例
+        //            FamilyInstance adaptiveInstance = AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(doc, symbol);
+        //            // 4. 优化点：设置参数前增加空值安全判断
+        //            Parameter levelParam = adaptiveInstance.LookupParameter("楼层标高");
+        //            if (levelParam != null && !levelParam.IsReadOnly && levelParam.StorageType == StorageType.String)
+        //            {
+        //                levelParam.Set(levelName);
+        //            }
+        //            // 移动自适应点到指定位置
+        //            IList<ElementId> adaptivePointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(adaptiveInstance);
+        //            for (int i = 0; i < pointNum && i < adaptivePointIds.Count; i++)
+        //            {
+        //                if (doc.GetElement(adaptivePointIds[i]) is ReferencePoint adaptivePoint)
+        //                {
+        //                    adaptivePoint.Position = placementPoints[i];
+        //                }
+        //            }
+        //            txFinal.Commit();
+        //        }
+        //        // 整合事务组：将“激活族”、“画线”、“生成实例”合并为 Revit Undo 列表中的一步操作
+        //        tg.Assimilate();
         //    }
-        //    // 情况2：选中了多个元素，不支持
-        //    if (selectedIds.Count > 1)
-        //    {
-        //        TaskDialog.Show("提示", $"请只选择一个构件。\n当前已选中{selectedIds.Count}个构件，请重新选择。");
-        //        return null;
-        //    }
-        //    // 情况3：恰好选中一个，直接使用
-        //    return selectedIds[0];
         //}
         /// <summary>
-        /// 格式化输出最终清单对话框
+        /// 核心绘制逻辑 (基于自定义主事务与子事务封装)
         /// </summary>
-        private void ShowResultDialog(int totalCount, List<string> successList, List<string> failList)
+        private void ExecuteDrawing(UIDocument uiDoc, FamilySymbol symbol, int pointNum)
         {
-            string resultMessage = $"共选中 {totalCount} 个文件。\n\n";
-
-            // 成功清单展示
-            resultMessage += $"处理成功 ({successList.Count} 个)：\n";
-            if (successList.Count > 0)
+            Document doc = uiDoc.Document;
+            View activeView = uiDoc.ActiveView;
+            string levelName = activeView.GenLevel?.Name ?? "默认标高";
+            try
             {
-                var displaySuccess = successList.Take(15).ToList();
-                resultMessage += string.Join("\n", displaySuccess);
-                if (successList.Count > 15) resultMessage += "\n... (省略显示更多)";
+                // 1. 开启统一的主事务包裹整个绘制流程
+                NewTransaction.Execute(doc, "绘制疏散路线", () =>
+                {
+                    // [子事务] 激活自适应族
+                    NewSubTransaction.Execute(doc, () =>
+                    {
+                        if (!symbol.IsActive)
+                        {
+                            symbol.Activate();
+                            doc.Regenerate();
+                        }
+                    });
+                    List<XYZ> placementPoints = new List<XYZ>();
+                    List<ElementId> tempLines = new List<ElementId>();
+                    XYZ prevPoint = null;
+                    for (int i = 0; i < pointNum; i++)
+                    {
+                        XYZ rawPoint;
+                        try
+                        {
+                            rawPoint = uiDoc.Selection.PickPoint($"请选择第 {i + 1}/{pointNum} 个放置点");
+                        }
+                        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                        {
+                            // 核心逻辑：用户按 ESC 取消时，抛出一个特定的异常。
+                            // 这样就能触发你的 NewTransaction 封装中的 catch -> t.RollBack() 机制，
+                            // 所有通过子事务画出来的临时线会自动瞬间消失，不需要手动写 Delete。
+                            throw new Exception("USER_CANCELED");
+                        }
+                        XYZ point = new XYZ(rawPoint.X, rawPoint.Y, rawPoint.Z + 300.0 / 304.8);
+                        placementPoints.Add(point);
+                        if (prevPoint != null)
+                        {
+                            // [子事务] 绘制两点之间的临时连线
+                            NewSubTransaction.Execute(doc, () =>
+                            {
+                                Line line = Line.CreateBound(prevPoint, point);
+                                if (doc.Create.NewDetailCurve(activeView, line) is DetailLine detailLine)
+                                {
+                                    tempLines.Add(detailLine.Id);
+                                }
+                            });
+                        }
+                        prevPoint = point;
+                    }
+                    // [子事务] 所有点选取完毕，清理临时线并生成最终的自适应族
+                    NewSubTransaction.Execute(doc, () =>
+                    {
+                        // 删除所有的临时线
+                        foreach (var id in tempLines)
+                        {
+                            doc.Delete(id);
+                        }
+                        // 创建自适应族实例
+                        FamilyInstance adaptiveInstance = AdaptiveComponentInstanceUtils.CreateAdaptiveComponentInstance(doc, symbol);
+                        // 赋值楼层标高属性
+                        Parameter levelParam = adaptiveInstance.LookupParameter("楼层标高");
+                        if (levelParam != null && !levelParam.IsReadOnly && levelParam.StorageType == StorageType.String)
+                        {
+                            levelParam.Set(levelName);
+                        }
+                        // 将自适应点移动到用户点击的位置
+                        IList<ElementId> adaptivePointIds = AdaptiveComponentInstanceUtils.GetInstancePlacementPointElementRefIds(adaptiveInstance);
+                        for (int i = 0; i < pointNum && i < adaptivePointIds.Count; i++)
+                        {
+                            if (doc.GetElement(adaptivePointIds[i]) is ReferencePoint adaptivePoint)
+                            {
+                                adaptivePoint.Position = placementPoints[i];
+                            }
+                        }
+                    });
+                });
             }
-            else
+            catch (Exception ex)
             {
-                resultMessage += "无\n";
+                // 捕获由主事务封装抛出的异常
+                // 如果是用户按 ESC 取消触发的，静默处理（因为主事务已经自动 RollBack 帮我们清理了垃圾）
+                if (ex.Message.Contains("USER_CANCELED"))
+                {
+                    // 用户正常取消，什么也不做
+                }
+                else
+                {
+                    TaskDialog.Show("错误提示", ex.Message);
+                }
             }
-            resultMessage += "\n\n";
-
-            // 失败/跳过清单展示
-            resultMessage += $"失败或跳过 ({failList.Count} 个)：\n";
-            if (failList.Count > 0)
-            {
-                var displayFail = failList.Take(15).ToList();
-                resultMessage += string.Join("\n", displayFail);
-                if (failList.Count > 15) resultMessage += "\n... (省略显示更多)";
-            }
-            else
-            {
-                resultMessage += "无";
-            }
-
-            TaskDialog resultDialog = new TaskDialog("批量处理报告")
-            {
-                MainInstruction = "批量删除族文字属性已完成！",
-                MainContent = resultMessage
-            };
-            resultDialog.Show();
         }
-        ////0406 csv转明细表升级相关方法
-        //public class ColumnProperties
-        //{
-        //    public string Title { get; set; }
-        //    public double Width { get; set; } = 1.0; // 默认值为 1
-        //    public string Alignment { get; set; } = "居中";
-        //    //public int RowCount { get; set; } = 1; // 默认值为 1
-        //}
-        //private ObservableCollection<ColumnProperties> columnPropertiesList = new ObservableCollection<ColumnProperties>();
-        //public ObservableCollection<ColumnProperties> ColumnPropertiesList
-        //{
-        //    get => columnPropertiesList;
-        //    set => SetProperty(ref columnPropertiesList, value);
-        //}
-        //private string[] lines { get; set; }
-        //public string[] csvContents { get; set; }
-        //public string filePath = @"D:\CACCWPF\test.xml";
-        //private ObservableCollection<TableSingle> tableSingles = new ObservableCollection<TableSingle>();
-        //public ObservableCollection<TableSingle> TableSingles { get => tableSingles; set => SetProperty(ref tableSingles, value); }
-        //private TableSingle selectedTableSingle;
-        //public TableSingle SelectedTableSingle
-        //{
-        //    get => selectedTableSingle;
-        //    set
-        //    {
-        //        selectedTableSingle = value;
-        //        OnPropertyChanged(nameof(SelectedTableSingle));
-        //        UpdateDataGridFromSelectedTable();
-        //    }
-        //}
-        //public List<string> tableTitles = new List<string>();
-        //public int fieldCount = 0;
-        //private void UpdateDataGridFromSelectedTable()
-        //{
-        //    if (SelectedTableSingle == null || SelectedTableSingle.tableEntities == null)
-        //    {
-        //        ColumnPropertiesList.Clear();
-        //        return;
-        //    }
-        //    ColumnPropertiesList.Clear();
-        //    // 将选中的 TableSingle 的 tableEntities 映射到 ColumnPropertiesList
-        //    foreach (TableEntity item in SelectedTableSingle.tableEntities)
-        //    {
-        //        ColumnPropertiesList.Add(new ColumnProperties
-        //        {
-        //            Title = item.entityName,
-        //            Width = item.entityWidth,
-        //            Alignment = item.entityAligh,
-        //        });
-        //    }
-        //}
+        /// <summary>
+        /// 辅助方法：从族名称解析需要的点数
+        /// </summary>
+        private int GetPointCountFromName(string name)
+        {
+            if (name.Contains("两")) return 2;
+            if (name.Contains("三")) return 3;
+            if (name.Contains("四")) return 4;
+            if (name.Contains("五")) return 5;
+            return 0; // 默认防错
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -413,491 +567,155 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0406 停车位修改
-            ParkingLotView parkingLotView = new ParkingLotView(uiApp);
-            parkingLotView.Show();
-
-            //if(activeView.ViewType != ViewType.DraftingView)
-            //    TaskDialog.Show("tt", "NNPASS");
-            //0406 csv转明细表升级，读csv和整理对比
-            //ColumnPropertiesList.Clear();
-            //OpenFileDialog fDialog = new OpenFileDialog();
-            //fDialog.Filter = "csv 文件 (*.csv)|*.csv";
-            //// 提前返回，减少嵌套深度
-            //if (fDialog.ShowDialog() != true) return Result.Cancelled;
-            //string targetFilePath = fDialog.FileName;
-            //// 1. 使用自定义 CsvHelper 解析数据源（完美规避逗号拆分Bug）
-            //List<string[]> parsedCsvData = CsvHelper.ParseCsv(targetFilePath, Encoding.Default);
-            //if (parsedCsvData == null || parsedCsvData.Count == 0)
-            //{
-            //    TaskDialog.Show("错误", "读取到的CSV文件为空，或格式无法识别。");
-            //    return Result.Cancelled;
-            //}
-            //// 2. 提取表头并验证列数
-            //string[] tableTitles = parsedCsvData[0];
-            //int totalColumns = tableTitles.Length;
-            //if (totalColumns > 12)
-            //{
-            //    TaskDialog.Show("提示", $"当前表格包含 {totalColumns} 列，本工具暂不支持超过 12 列表格绘制！");
-            //    return Result.Cancelled;
-            //}
-            //// 3. 校验每一行的列数是否统一
-            //List<int> errorRows = new List<int>();
-            //for (int i = 0; i < parsedCsvData.Count; i++)
-            //{
-            //    if (parsedCsvData[i].Length != totalColumns)
-            //    {
-            //        errorRows.Add(i + 1); // 记录异常行号（从1开始）
-            //    }
-            //}
-            //TaskDialog.Show("解析结果", $"待生成表格总行数: {parsedCsvData.Count}\n总列数: {totalColumns}");
-            //if (errorRows.Count > 0)
-            //{
-            //    TaskDialog.Show("数据异常", $"以下行数的列数与表头不一致，请检查源文件！\n异常行号: {string.Join(", ", errorRows)}");
-            //    return Result.Cancelled;
-            //}
-            //// 4. 更新全局变量兼容其他逻辑
-            //// 提示：如果你有条件，建议把后期的 lines 从 string[] 改成 List<string[]> 结构化数据，这样后续画表填字更稳定。
-            //lines = File.ReadAllLines(targetFilePath, Encoding.Default);
-            //csvContents = lines;
-            //// 拼装首行用于匹配 XML
-            //string firstLineStr = string.Join(",", tableTitles);
-            //////当对比xml内容有相同组合时，列出标题到combobox，内容到datagrid并绑定。更新ColumnPropertiesList
-            //try
-            //{
-            //    TableCollection test = XMLUtil.DeserializeFromXml<TableCollection>(filePath);
-            //    TableSingles = new ObservableCollection<TableSingle>();
-            //    foreach (TableSingle ts in test.tableSingles)
-            //    {
-            //        StringBuilder sb = new StringBuilder();
-            //        foreach (TableEntity item in ts.tableEntities)
-            //        {
-            //            sb.Append(item.entityName + ",");
-            //        }
-            //        sb.Remove(sb.Length - 1, 1);
-            //        if (sb.ToString() == firstLineStr)
-            //        {
-            //            TableSingles.Add(ts);
-            //        }
-            //    }
-            //    //// 在初始化时设置默认选中项
-            //    if (TableSingles.Count > 0)
-            //    {
-            //        SelectedTableSingle = TableSingles[0]; // 默认选中第一个 
-            //    }
-            //    //当对比xml内容无相同组合时
-            //    else
-            //    {
-            //        fieldCount = totalColumns;
-            //        foreach (var title in tableTitles)
-            //        {
-            //            ColumnPropertiesList.Add(new ColumnProperties { Title = title });
-            //        }
-            //    }
-            //    //CanExportXML = true;
-            //}
-            //catch (Exception ex)
-            //{
-            //    TaskDialog.Show("tt", ex.Message.ToString());
-            //}
-
-            //            //0405批量删除族文字属性，改后。OK
-            //            Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
-            //            // 获取当前 Revit 的版本号 (如 "2024")
-            //            int currentRevitVersion = int.Parse(app.VersionNumber);
-            //            List<string> selectedFiles = new List<string>();
-            //            // 1. 使用 Win32 OpenFileDialog 实现多选文件
-            //            OpenFileDialog openFileDialog = new OpenFileDialog();
-            //            openFileDialog.Title = "请选择要处理的族文件（可按住 Ctrl/Shift 多选）";
-            //            openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
-            //            openFileDialog.Multiselect = true;
-            //            if (openFileDialog.ShowDialog() != true)
-            //            {
-            //                return Result.Cancelled;
-            //            }
-            //            selectedFiles = openFileDialog.FileNames.ToList();
-            //            if (selectedFiles.Count == 0) return Result.Cancelled;
-            //            List<string> successList = new List<string>();
-            //            List<string> failList = new List<string>(); // 包含了失败和跳过的记录
-            //                                                        // 2. 遍历处理文件（后台静默处理）
-            //            NoTransactionWithProgressBarHelper.Execute(selectedFiles.Count, "批量删除文字属性", (service) =>
-            //            {
-            //                service.UpdateMax(selectedFiles.Count());
-            //                int index = 0;
-            //                foreach (string filePath in selectedFiles)
-            //                {
-            //                    string fileName = Path.GetFileName(filePath);
-            //                    service.Update(++index, filePath);
-            //                    try
-            //                    {
-            //                        // 3. 版本检查防崩溃
-            //                        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
-            //                        if (int.TryParse(fileInfo.Format, out int fileVersion))
-            //                        {
-            //                            if (fileVersion > currentRevitVersion)
-            //                            {
-            //                                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前 Revit 版本)");
-            //                                continue;
-            //                            }
-            //                        }
-            //                        // 4. 后台静默打开文档
-            //                        Document familyDoc = app.OpenDocumentFile(filePath);
-            //                        if (!familyDoc.IsFamilyDocument)
-            //                        {
-            //                            familyDoc.Close(false);
-            //                            failList.Add($"{fileName} (跳过：不是族文件)");
-            //                            continue;
-            //                        }
-            //                        FamilyManager familyManager = familyDoc.FamilyManager;
-            //                        List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-            //                        // 专门用于存放需要删除的参数的列表
-            //                        List<FamilyParameter> paramsToDelete = new List<FamilyParameter>();
-            //                        // 5. 遍历并收集符合条件的参数
-            //                        foreach (FamilyParameter param in parameters)
-            //                        {
-            //                            Definition definition = param.Definition;
-            //                            if (definition is InternalDefinition internalDef &&
-            //                                internalDef.BuiltInParameter == BuiltInParameter.INVALID)
-            //                            {
-            //                                // 【兼容多版本】判断是否为文字类型
-            //                                bool isTextParam = false;
-            //                                if (currentRevitVersion >= 2022)
-            //                                {
-            //                                    //// Revit 2022 及以上版本的新 API 判定方式
-            //                                    //ForgeTypeId dataType = definition.GetDataType();
-            //                                    //if (dataType == SpecTypeId.String.Text)
-            //                                    //{
-            //                                    //    isTextParam = true;
-            //                                    //}
-            //                                }
-            //                                else
-            //                                {
-            //                                    // Revit 2021 及以下版本的老 API 判定方式 (使用反射或ToString规避编译报错)
-            //#pragma warning disable CS0618
-            //                                    if (definition.ParameterType.ToString() == "Text")
-            //                                    {
-            //                                        isTextParam = true;
-            //                                    }
-            //#pragma warning restore CS0618
-            //                                }
-            //                                if (isTextParam)
-            //                                {
-            //                                    paramsToDelete.Add(param);
-            //                                }
-            //                            }
-            //                        }
-            //                        // 6. 核心逻辑调整：判断是否包含文字属性
-            //                        if (paramsToDelete.Count == 0)
-            //                        {
-            //                            // 没有找到任何需要删除的文字属性，直接不保存关闭！
-            //                            familyDoc.Close(false);
-            //                            failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
-            //                            continue; // 进入下一个文件
-            //                        }
-            //                        // 7. 找到了文字属性，开启事务进行删除
-            //                        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
-            //                        {
-            //                            trans.Start();
-            //                            foreach (FamilyParameter paramToDelete in paramsToDelete)
-            //                            {
-            //                                familyManager.RemoveParameter(paramToDelete);
-            //                            }
-            //                            trans.Commit();
-            //                        }
-            //                        //TransactionWithProgressBarHelper.Execute(familyDoc, "批量删除文字属性",(service)=>
-            //                        //{
-            //                        //    //        service.UpdateMax(sortedIds.Count());
-            //                        //    //        int index = 0;
-            //                        //    //        foreach (var id in sortedIds)
-            //                        //    //        {
-            //                        //    //            service.Update(++index, id.Value.ToString());
-            //                        //    //        }
-            //                        //    service.UpdateMax(paramsToDelete.Count);
-            //                        //    int index = 0;
-            //                        //    foreach (FamilyParameter paramToDelete in paramsToDelete)
-            //                        //    {
-            //                        //        familyManager.RemoveParameter(paramToDelete);
-            //                        //        service.Update(++index, paramsToDelete.ToString());
-            //                        //    }
-            //                        //});
-            //                        // 8. 保存并关闭后台文档
-            //                        familyDoc.Close(true);
-            //                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个文字属性)");
-            //                    }
-            //                    catch (Exception ex)
-            //                    {
-            //                        failList.Add($"{fileName} (报错：{ex.Message})");
-            //                    }
-            //                }
-            //            });
-            //            // 9. 调用统计弹窗
-            //            ShowResultDialog(selectedFiles.Count, successList, failList);
-
-            ////OpenFileDialog openFileDialog = new OpenFileDialog();
-            ////openFileDialog.ShowDialog();
-            ////var filePath = openFileDialog.FileName;
-            ////Document familyDoc = uiApp.OpenAndActivateDocument(filePath).Document;
-            //////// 获取当前 Revit 的版本号 (如 "2024")
-            //Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
-            //int currentRevitVersion = int.Parse(app.VersionNumber);
-            //List<string> selectedFiles = new List<string>();
-            //// 1. 使用 Win32 OpenFileDialog 实现多选文件
-            //Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog();
-            //openFileDialog.Title = "请选择要处理的族文件（可多选）";
-            //openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
-            //openFileDialog.Multiselect = true; // 开启多选
-            //if (openFileDialog.ShowDialog() != true)
-            //{
-            //    return Result.Cancelled;
-            //}
-            //selectedFiles = openFileDialog.FileNames.ToList();
-            //if (selectedFiles.Count == 0) return Result.Cancelled;
-            //List<string> successList = new List<string>();
-            //List<string> failList = new List<string>();
-            //// 2. 遍历处理文件（使用后台静默处理，不闪屏）
-            //foreach (string filePath in selectedFiles)
-            //{
-            //    string fileName = Path.GetFileName(filePath);
-            //    try
-            //    {
-            //        // 3. 核心机制：提取文件信息，判断版本号，防止高版本导致崩溃
-            //        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
-            //        if (int.TryParse(fileInfo.Format, out int fileVersion))
-            //        {
-            //            if (fileVersion > currentRevitVersion)
-            //            {
-            //                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前版本)");
-            //                continue;
-            //            }
-            //        }
-            //        // 4. 后台静默打开文档（极大地提升速度，不干扰当前UI）
-            //        Document familyDoc = app.OpenDocumentFile(filePath);
-            //        if (!familyDoc.IsFamilyDocument)
-            //        {
-            //            familyDoc.Close(false);
-            //            failList.Add($"{fileName} (跳过：不是族文件)");
-            //            continue;
-            //        }
-            //        int deletedCount = 0;
-            //        // 5. 使用标准事务处理参数删除
-            //        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
-            //        {
-            //            trans.Start();
-            //            FamilyManager familyManager = familyDoc.FamilyManager;
-            //            // 获取所有参数
-            //            List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-            //            foreach (FamilyParameter param in parameters)
-            //            {
-            //                Definition definition = param.Definition;
-            //                // 检查是否为自定义参数且为文字类型
-            //                if (definition is InternalDefinition internalDef &&
-            //                    internalDef.BuiltInParameter == BuiltInParameter.INVALID)
-            //                {
-            //                    // 兼容多版本的文字类型判断
-            //                    // 旧版本用 ParameterType.Text，新版本用 DataType == SpecTypeId.String.Text
-            //                    // 这里保留你的字符串判断方式以最大化兼容跨版本编译
-            //                    if (definition.ParameterType.ToString() == "Text")
-            //                    {
-            //                        familyManager.RemoveParameter(param);
-            //                        deletedCount++;
-            //                    }
-            //                }
-            //            }
-            //            trans.Commit();
-            //        }
-            //        // 6. 保存并关闭后台文档 (true 表示保存更改)
-            //        familyDoc.Close(true);
-            //        successList.Add($"{fileName} (成功删除了 {deletedCount} 个属性)");
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        failList.Add($"{fileName} (报错：{ex.Message})");
-            //    }
-            //}
-            //// 7. 调用统计弹窗
-            //ShowResultDialog(selectedFiles.Count, successList, failList);
 
 
-            ////0405 单撞检测SingleIntersectDetect 增加碰撞service和选择helper
-            //try
+            //////0407 改写自适应路径穿越判断
+            //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
+            //evacRouteManagerView.Show();
+
+            ////0407 改写自适应路径布置方法
+            //if (activeView.ViewType != ViewType.FloorPlan)
             //{
-            //    // 1. 获取目标元素（已选或手动拾取）
-            //    ElementId targetId = SelectionHelper.GetSingleElementId(uiDoc,"请选择一个待碰撞检查构件");
-            //    if (targetId == null) return Result.Cancelled;
-            //    Element targetElement = doc.GetElement(targetId);
-            //    // 2. 合法性验证
-            //    var validation = ClashDetectionService.ValidateElement(targetElement);
-            //    if (!validation.IsValid)
-            //    {
-            //        TaskDialog.Show("不支持的构件类型", validation.Message);
-            //        return Result.Failed;
-            //    }
-            //    // 3. 执行碰撞检测（Service 封装，一句话搞定）
-            //    var service = new ClashDetectionService(doc);
-            //    var result = service.DetectClash(targetElement);
-            //    if (!result.IsExecuted)
-            //    {
-            //        TaskDialog.Show("检测失败", result.ErrorMessage);
-            //        return Result.Failed;
-            //    }
-            //    // 4. 高亮显示碰撞元素
-            //    if (result.HasClash)
-            //    {
-            //        uiDoc.Selection.SetElementIds(result.ClashElementIds);
-            //    }
-            //    // 5. 显示结果
-            //    TaskDialog.Show("碰撞检测结果", result.GetSummary());
-            //    return Result.Succeeded;
-            //}
-            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //{
-            //    return Result.Cancelled;
-            //}
-            //catch (Exception ex)
-            //{
-            //    TaskDialog.Show("未知错误", ex.Message);
+            //    TaskDialog.Show("提示", "请调整到平面视图再操作本命令");
             //    return Result.Failed;
             //}
-            ////0405 新贴墙面.OK
-            //// 1.提前声明 window 变量，以便在回调中可以使用它来恢复按钮状态
-            //UniversalComboBoxSelection window = null;
-            //var wallTypes = new FilteredElementCollector(doc).OfClass(typeof(WallType)).Cast<WallType>().ToList();
-            //if (wallTypes.Count == 0)
+            //// 1. 优化点：使用字典映射消除冗长的 Switch 语句
+            //var routeSymbols = new FilteredElementCollector(doc)
+            //    .OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+            //    .Where(s => s.Name.Contains("点确定路线")).ToDictionary(s => GetPointCountFromName(s.Name), s => s);
+            //if (!routeSymbols.ContainsKey(2) || !routeSymbols.ContainsKey(3) ||
+            //    !routeSymbols.ContainsKey(4) || !routeSymbols.ContainsKey(5))
             //{
-            //    TaskDialog.Show("提示", "当前项目中没有墙类型。");
-            //    return Result.Cancelled;
+            //    TaskDialog.Show("错误", "未找到完整的自适应族 (缺失2~5点确定路线)");
+            //    return Result.Failed;
             //}
-            //List<string> wallTypeNames = wallTypes.Select(w => w.Name).ToList();
-            //Action<string> onConfirmed = (selectedName) =>
+            //List<string> routeNames = new List<string>() { "两点确定路线", "三点确定路线", "四点确定路线", "五点确定路线" };
+            //UniversalComboBoxSelection subView = null;
+            //Action<string> onSelected = selectedName =>
             //{
-            //    WallType selectedWallType = wallTypes.FirstOrDefault(w => w.Name == selectedName);
-            //    if (selectedWallType == null)
-            //    {
-            //        window?.ViewModel.SetCommandCompleted(); // 解锁按钮
-            //        return;
-            //    }
-            //    // 将任务放入外部事件中
+            //    subView.ViewModel.IsCommandRunning = true;
+            //    int pointNum = GetPointCountFromName(selectedName);
+            //    FamilySymbol selectSymbol = routeSymbols[pointNum];
+            //    // 将绘图逻辑解耦到独立方法
             //    _externalHandler.Run(app =>
             //    {
-            //        try
-            //        {
-            //            // 2. 核心逻辑：开启无限循环，实现连续拾取
-            //            while (true)
-            //            {
-            //                // 提示语中告诉用户按 ESC 可以退出
-            //                var faceReference = uiDoc.Selection.PickObject(ObjectType.Face, new filterWallClass(), "拾取要复制的墙面(按ESC退出当前拾取)");
-            //                var wallOfFace = doc.GetElement(faceReference) as Wall;
-            //                var face = wallOfFace.GetGeometryObjectFromReference(faceReference) as PlanarFace;
-            //                if (face == null)
-            //                {
-            //                    // 在连续循环中，建议不用 TaskDialog 弹窗报错，否则非常打断工作流。直接 continue 重新拾取即可。
-            //                    continue;
-            //                }
-            //                NewTransaction.Execute(doc, "创建面生面", () =>
-            //                {
-            //                    var outlineData = ExtractFaceOutline(face, selectedWallType.Width);
-            //                    List<Curve> profile = outlineData.Item1;
-            //                    List<XYZ[]> openingPoints = outlineData.Item2;
-            //                    var wall = Wall.Create(doc, profile, selectedWallType.Id, wallOfFace.LevelId, false); 
-            //                    double offset = wallOfFace.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).AsDouble();
-            //                    wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).Set(offset);//设置底部偏移
-            //                    foreach (var pts in openingPoints)
-            //                    {
-            //                        doc.Create.NewOpening(wall, pts[0], pts[1]);
-            //                    }
-            //                });
-            //            } 
-            //        }
-            //        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //        {
-            //            // 3. 核心机制：当用户按下 ESC 键时，PickObject 会抛出此异常
-            //            // 这里我们什么都不做，仅仅是为了跳出上面的 while(true) 循环
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            TaskDialog.Show("错误", "发生异常：" + ex.Message);
-            //        }
-            //        finally
-            //        {
-            //            // 4. 极其关键：ESC 退出循环后，通过 WPF 的 Dispatcher 将按钮状态恢复为可用
-            //            // 这样用户就可以在通用窗口里重新选择一个墙类型，再次点击“确认”进行下一波操作！
-            //            window?.Dispatcher.Invoke(() =>
-            //            {
-            //                window?.ViewModel.SetCommandCompleted();
-            //            });
-            //        }
+            //        ExecuteDrawing(app.ActiveUIDocument, selectSymbol, pointNum);
+            //        subView.ViewModel.SetCommandCompleted();
             //    });
             //};
-            //window = new UniversalComboBoxSelection(wallTypeNames, "提示：将依据所选墙类型生成面层", onConfirmed);
-            //// 5. 必须设置为 false，彻底避免 DialogResult = true 导致的崩溃！
-            //window.IsModal = false;
-            //window.Show();
+            //subView = new UniversalComboBoxSelection(routeNames, "提示：选择疏散路线由几点连线", onSelected)
+            //{
+            //    IsModal = false
+            //};
+            //subView.Show();
 
-            ////模态，只能执行一次
-            ////// 1. 获取所有墙类型集合
-            ////var wallTypes = new FilteredElementCollector(doc).OfClass(typeof(WallType)).Cast<WallType>().ToList();
-            ////if (wallTypes.Count == 0)
+            ////0407 改写统一赋码方法，以后可另外改造
+            //CodingNCElementIDView codingNCElementIDView = new CodingNCElementIDView(uiApp);
+            //codingNCElementIDView.Show();
+
+            //查找全部实例共同文字属性
+            //var list = GetCommonStringParameterNames(doc);
+            //StringBuilder stringBuilder = new StringBuilder();
+            //foreach (var item in list)
+            //{
+            //    stringBuilder.AppendLine(item);
+            //}
+            //TaskDialog.Show("tt", stringBuilder.ToString());
+            //////0407 参数示例测试，改WPF窗口OK
+            //var selectedIds = uiDoc.Selection.GetElementIds();
+            //Element element;
+            //if (selectedIds.Count == 0)
+            //{
+            //    element = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "选择一个对象")) as Element;
+            //}
+            //else
+            //{
+            //    // 获取选中的构件
+            //    element = doc.GetElement(selectedIds.First());
+            //}
+            //FamilyInstance instance = element as FamilyInstance;
+            //// 1. 获取实例参数
+            //List<RevitParameterItem> instanceParams = GetParameterItems(instance);
+            //// 2. 获取类型参数 (Symbol/Type)
+            //List<RevitParameterItem> typeParams = new List<RevitParameterItem>();
+            //ElementId typeId = instance.GetTypeId();
+            //if (typeId != ElementId.InvalidElementId)
+            //{
+            //    Element typeElem = doc.GetElement(typeId);
+            //    typeParams = GetParameterItems(typeElem);
+            //}
+            //// 3. 显示窗体
+            //PropertiesWindow win = new PropertiesWindow(instanceParams, typeParams);
+            //// 设置所有者为 Revit 主窗口
+            //new System.Windows.Interop.WindowInteropHelper(win).Owner =
+            //    Autodesk.Windows.ComponentManager.ApplicationWindow;
+            //win.ShowDialog();
+
+            ////// 优化点1：直接获取 ICollection<ElementId>，不需要旧时代的 ElementSet
+            ////var selectedIds = uiDoc.Selection.GetElementIds();
+            ////Element element;
+            ////if (selectedIds.Count == 0)
             ////{
-            ////    TaskDialog.Show("提示", "当前项目中没有墙类型。");
-            ////    return Result.Cancelled;
+            ////    element = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, "选择一个对象")) as Element;
             ////}
-            ////// 2. 将墙类型名称提取为 List<string> 供通用窗口使用
-            ////List<string> wallTypeNames = wallTypes.Select(w => w.Name).ToList();
-            ////// 3. 定义回调 Action，当用户在通用窗口点击“确认”后执行
-            ////Action<string> onConfirmed = (selectedName) =>
+            ////else
             ////{
-            ////    // 通过名字找回对应的墙类型实例
-            ////    WallType selectedWallType = wallTypes.FirstOrDefault(w => w.Name == selectedName);
-            ////    if (selectedWallType == null) return;
-            ////    // 异步执行 Revit 拾取和创建操作
-            ////    _externalHandler.Run(app =>
+            ////    // 获取选中的构件
+            ////    element = doc.GetElement(selectedIds.First());
+            ////}
+            ////List<RevitParameterItem> parameterList = new List<RevitParameterItem>();
+            ////// 优化点2：使用 GetOrderedParameters() 让展示更符合 Revit UI 面板的顺序
+            ////foreach (Parameter param in element.GetOrderedParameters())
+            ////{
+            ////    if (param == null) continue;
+            ////    // 实例化数据模型
+            ////    RevitParameterItem item = new RevitParameterItem
             ////    {
-            ////        try
-            ////        {
-            ////            var faceReference = uiDoc.Selection.PickObject(ObjectType.Face, new filterWallClass(), "拾取要复制的墙面");
-            ////            var wallOfFace = doc.GetElement(faceReference) as Wall;
-            ////            var face = wallOfFace.GetGeometryObjectFromReference(faceReference) as PlanarFace;
-            ////            if (face == null)
+            ////        Name = param.Definition.Name,
+            ////        Type = param.StorageType.ToString() // 直接转成字符串: Double, Integer, String...
+            ////    };
+            ////    // 优化点3：解析参数值
+            ////    switch (param.StorageType)
+            ////    {
+            ////        case StorageType.Double:
+            ////            // 优先尝试获取带单位的格式化字符串，失败则直接转数值
+            ////            item.Value = param.AsValueString() ?? param.AsDouble().ToString();
+            ////            break;
+            ////        case StorageType.ElementId:
+            ////            // 优化点4：不再重新 new ElementId，直接验证有效性
+            ////            ElementId elemId = param.AsElementId();
+            ////            if (elemId != null && elemId != ElementId.InvalidElementId)
             ////            {
-            ////                TaskDialog.Show("提示", "只能拾取平整的墙面！");
-            ////                return;
+            ////                Element linkedElem = doc.GetElement(elemId);
+            ////                item.Value = linkedElem != null ? linkedElem.Name : "Not set";
             ////            }
-            ////            NewTransaction.Execute(doc, "创建面生面", () =>
+            ////            else
             ////            {
-            ////                var outlineData = ExtractFaceOutline(face, selectedWallType.Width);
-            ////                List<Curve> profile = outlineData.Item1;
-            ////                List<XYZ[]> openingPoints = outlineData.Item2;
-            ////                var wall = Wall.Create(doc, profile, selectedWallType.Id, wallOfFace.LevelId, false);
-            ////                wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).Set(0);
-            ////                foreach (var pts in openingPoints)
-            ////                {
-            ////                    doc.Create.NewOpening(wall, pts[0], pts[1]);
-            ////                }
-            ////            });
-            ////        }
-            ////        catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            ////        {
-            ////            // 忽略用户按 ESC 取消拾取的异常
-            ////        }
-            ////        catch (Exception ex)
-            ////        {
-            ////            TaskDialog.Show("错误", "发生异常：" + ex.Message);
-            ////        }
-            ////    });
+            ////                item.Value = "Not set";
+            ////            }
+            ////            break;
+            ////        case StorageType.Integer:
+            ////            // 判断是否是Yes/No参数 (由于API调整，部分需依据类型判定，这里保持简化)
+            ////            item.Value = param.AsValueString() ?? param.AsInteger().ToString();
+            ////            break;
+            ////        case StorageType.String:
+            ////            item.Value = param.AsString() ?? "";
+            ////            break;
+            ////        case StorageType.None:
+            ////            item.Value = param.AsValueString() ?? "";
+            ////            break;
+            ////    }
+            ////    parameterList.Add(item);
+            ////}
+            ////// 优化点5：调用 WPF 窗体，并将 Revit 主窗口设为 Owner，防止弹窗被遮挡
+            ////PropertiesWindow propertiesForm = new PropertiesWindow(parameterList);
+            ////// 绑定 Revit 窗口句柄
+            ////var wih = new System.Windows.Interop.WindowInteropHelper(propertiesForm)
+            ////{
+            ////    Owner = Autodesk.Windows.ComponentManager.ApplicationWindow
             ////};
-            ////// 4. 实例化通用选择窗口，传入数据、提示语和回调函数
-            ////var window = new UniversalComboBoxSelection(wallTypeNames, "提示：将依据所选墙类型生成面层", onConfirmed);
-            ////window.ShowDialog();
-            ////0405 平行参照平面修改
-            //TwinReferencePlaneView twinReferencePlaneView = new TwinReferencePlaneView(uiApp);
-            //twinReferencePlaneView.Show();
-            ////0405 拷族类别功能
-            //CopyFamilySymbolsView copyFamilySymbolsView = new CopyFamilySymbolsView(uiApp);
-            //copyFamilySymbolsView.ShowDialog();
+            ////propertiesForm.ShowDialog();
 
-            //0403 测试功能
-            //ProjectInfoUpdater projectInfoUpdater = new ProjectInfoUpdater(uiApp);
-            //projectInfoUpdater.ShowDialog();
             ////0331 集成错误处理测试报告.OK
             //try
             //{

@@ -5,6 +5,7 @@ using System.Linq;
 
 namespace CreatePipe.Utils
 {
+    // 在 AdaptiveRouteEntity 中有简易包围框简易算法，需要补充
     /// <summary>
     /// 碰撞检测结果封装类
     /// </summary>

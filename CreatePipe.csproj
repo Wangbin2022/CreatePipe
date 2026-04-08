@@ -104,6 +104,9 @@
     <Compile Include="Form\ClipboardCatcher.xaml.cs">
       <DependentUpon>ClipboardCatcher.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\CodingNCElementIDView.xaml.cs">
+      <DependentUpon>CodingNCElementIDView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\ColorPickerDialog.xaml.cs">
       <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
     </Compile>
@@ -160,6 +163,9 @@
     </Compile>
     <Compile Include="Form\ProjectInfoUpdater.xaml.cs">
       <DependentUpon>ProjectInfoUpdater.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\PropertiesWindow.xaml.cs">
+      <DependentUpon>PropertiesWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\SelectByWindowView.xaml.cs">
       <DependentUpon>SelectByWindowView.xaml</DependentUpon>
@@ -300,11 +306,11 @@
     <Compile Include="models\RoomSingleEntity.cs" />
     <Compile Include="models\SheetEntity.cs" />
     <Compile Include="models\ViewTemplateEntity.cs" />
-    <Compile Include="NCCoding\NCCodingEntity.cs" />
-    <Compile Include="NCCoding\NCCodingView.xaml.cs">
+    <Compile Include="Obselete\NCCoding\NCCodingEntity.cs" />
+    <Compile Include="Obselete\NCCoding\NCCodingView.xaml.cs">
       <DependentUpon>NCCodingView.xaml</DependentUpon>
     </Compile>
-    <Compile Include="NCCoding\NCCodingViewModel.cs" />
+    <Compile Include="Obselete\NCCoding\NCCodingViewModel.cs" />
     <Compile Include="Obselete\CountParkingLot\CountParkingLotForm.xaml.cs">
       <DependentUpon>CountParkingLotForm.xaml</DependentUpon>
     </Compile>
@@ -597,6 +603,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\CodingNCElementIDView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\ColorPickerDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -682,6 +692,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ProjectInfoUpdater.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\PropertiesWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -785,7 +799,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="NCCoding\NCCodingView.xaml">
+    <Page Include="Obselete\NCCoding\NCCodingView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

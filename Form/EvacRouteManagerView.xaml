@@ -28,7 +28,7 @@
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <TextBlock Text="{Binding AllRoutes.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
                 <Button Width="80" Margin="5" Content="选择所有实例" Command="{Binding PickRoutesCommand}"/>
-                <Button Width="80" Margin="5" Content="删除所有实例" Command="{Binding DeleteElementsCommand}"
+                <Button Width="80" Margin="5" Content="删除选择实例" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>
         </Grid>
@@ -50,16 +50,16 @@
                 </DataGrid.Resources>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="名称标记" Width="80" SortMemberPath="entityMark" 
-  Binding="{Binding entityMark, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+  Binding="{Binding EntityMark}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="类型" Width="145" SortMemberPath="entityName" 
-  Binding="{Binding entityName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+  Binding="{Binding EntityName}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="楼层" Width="45" SortMemberPath="levelName" 
-  Binding="{Binding levelName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+  Binding="{Binding LevelName}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="长度" Width="60" SortMemberPath="totalLength" 
-  Binding="{Binding totalLength, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+  Binding="{Binding TotalLength}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
                     <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>

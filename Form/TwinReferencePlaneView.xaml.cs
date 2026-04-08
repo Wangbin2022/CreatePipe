@@ -297,51 +297,51 @@ namespace CreatePipe.Form
             ExternalHandler.Run(app =>
             {
                 NewTransaction.Execute(Doc, "画平行参照平面", () =>
-                 {
-                     // 设置绘制平面
-                     if (activeView.SketchPlane == null)
-                     {
-                         Plane workPlane = Plane.CreateByNormalAndOrigin(activeView.ViewDirection, activeView.Origin);
-                         activeView.SketchPlane = SketchPlane.Create(Doc, workPlane);
-                     }
-                     XYZ pt1 = uiDoc.Selection.PickPoint("请选择参考平面的起点");
-                     XYZ pt2 = uiDoc.Selection.PickPoint("请选择参考平面的终点");
-                     // 【优化点】：直接使用视图方向作为参照平面的拉伸向量 (cVec)
-                     XYZ cVec = activeView.ViewDirection;
-                     // 画主参照平面
-                     CreateSafeRP(pt1, pt2, cVec, activeView);
-                     // 【优化点】：利用“叉乘”极其优雅地计算偏移方向，完美支持任何倾斜的剖面/平面
-                     XYZ lineDirection = (pt2 - pt1).Normalize();
-                     XYZ offsetDirection = cVec.CrossProduct(lineDirection).Normalize();
-                     double offsetDistance = D / 304.8;
-                     if (num == "A")
-                     {
-                         // 偏移一条
-                         XYZ offsetPt1 = pt1 - offsetDirection * offsetDistance;
-                         XYZ offsetPt2 = pt2 - offsetDirection * offsetDistance;
-                         CreateSafeRP(offsetPt1, offsetPt2, cVec, activeView);
-                         //要想让它在 * *“右侧”**生成，非常简单，只需要把叉乘的两个向量互换位置即可（或者将结果乘以 - 1）。
-                         //修改方法
-                         //找到计算 offsetDirection 的那行代码：
-                         //修改前：
-                         //XYZ offsetDirection = cVec.CrossProduct(lineDirection).Normalize();
-                         //修改后（调换叉乘顺序）：
-                         //XYZ offsetDirection = lineDirection.CrossProduct(cVec).Normalize();
-                         //或者另一种改法（反转方向）
-                         //如果你不想改上面那句，也可以直接在下方计算偏移点时，把加号改成减号，效果完全一样：
-                     }
-                     else
-                     {
-                         // 两侧偏移两条
-                         XYZ offsetPt1 = pt1 + offsetDirection * offsetDistance / 2;
-                         XYZ offsetPt2 = pt2 + offsetDirection * offsetDistance / 2;
-                         XYZ offsetPt3 = pt1 - offsetDirection * offsetDistance / 2;
-                         XYZ offsetPt4 = pt2 - offsetDirection * offsetDistance / 2;
-                         CreateSafeRP(offsetPt1, offsetPt2, cVec, activeView);
-                         CreateSafeRP(offsetPt3, offsetPt4, cVec, activeView);
-                     }
+                {
+                    // 设置绘制平面
+                    if (activeView.SketchPlane == null)
+                    {
+                        Plane workPlane = Plane.CreateByNormalAndOrigin(activeView.ViewDirection, activeView.Origin);
+                        activeView.SketchPlane = SketchPlane.Create(Doc, workPlane);
+                    }
+                    XYZ pt1 = uiDoc.Selection.PickPoint("请选择参考平面的起点");
+                    XYZ pt2 = uiDoc.Selection.PickPoint("请选择参考平面的终点");
+                    // 【优化点】：直接使用视图方向作为参照平面的拉伸向量 (cVec)
+                    XYZ cVec = activeView.ViewDirection;
+                    // 画主参照平面
+                    CreateSafeRP(pt1, pt2, cVec, activeView);
+                    // 【优化点】：利用“叉乘”极其优雅地计算偏移方向，完美支持任何倾斜的剖面/平面
+                    XYZ lineDirection = (pt2 - pt1).Normalize();
+                    XYZ offsetDirection = cVec.CrossProduct(lineDirection).Normalize();
+                    double offsetDistance = D / 304.8;
+                    if (num == "A")
+                    {
+                        // 偏移一条
+                        XYZ offsetPt1 = pt1 - offsetDirection * offsetDistance;
+                        XYZ offsetPt2 = pt2 - offsetDirection * offsetDistance;
+                        CreateSafeRP(offsetPt1, offsetPt2, cVec, activeView);
+                        //要想让它在 * *“右侧”**生成，非常简单，只需要把叉乘的两个向量互换位置即可（或者将结果乘以 - 1）。
+                        //修改方法
+                        //找到计算 offsetDirection 的那行代码：
+                        //修改前：
+                        //XYZ offsetDirection = cVec.CrossProduct(lineDirection).Normalize();
+                        //修改后（调换叉乘顺序）：
+                        //XYZ offsetDirection = lineDirection.CrossProduct(cVec).Normalize();
+                        //或者另一种改法（反转方向）
+                        //如果你不想改上面那句，也可以直接在下方计算偏移点时，把加号改成减号，效果完全一样：
+                    }
+                    else
+                    {
+                        // 两侧偏移两条
+                        XYZ offsetPt1 = pt1 + offsetDirection * offsetDistance / 2;
+                        XYZ offsetPt2 = pt2 + offsetDirection * offsetDistance / 2;
+                        XYZ offsetPt3 = pt1 - offsetDirection * offsetDistance / 2;
+                        XYZ offsetPt4 = pt2 - offsetDirection * offsetDistance / 2;
+                        CreateSafeRP(offsetPt1, offsetPt2, cVec, activeView);
+                        CreateSafeRP(offsetPt3, offsetPt4, cVec, activeView);
+                    }
 
-                 });
+                });
             });
         }
         /// <summary>
@@ -358,138 +358,5 @@ namespace CreatePipe.Form
                 return Doc.Create.NewReferencePlane(pt1, pt2, cutVec, view);
             }
         }
-        //private void CreateReferencePlane(string num)
-        //{
-        //    if (isFuncableView(View))
-        //    {
-        //        XmlDoc.Instance.Task.Run(app =>
-        //        {
-        //            Doc.NewTransaction(() =>
-        //            {
-        //                if (View.SketchPlane == null)
-        //                {
-        //                    // 获取视图的视角方向（法线方向）
-        //                    XYZ normal = View.ViewDirection;
-        //                    // 定义工作平面的原点（通常使用视图的原点）
-        //                    XYZ origin = View.Origin;
-        //                    Plane workPlane = Plane.CreateByNormalAndOrigin(normal, origin);
-        //                    View.SketchPlane = SketchPlane.Create(Doc, workPlane);
-        //                }
-        //                if (View.GetType().Name == "ViewPlan" || View.GetType().Name == "ViewSection")
-        //                {
-        //                    XYZ pt1 = uiDoc.Selection.PickPoint("请选择参考平面的起点");
-        //                    XYZ pt2 = uiDoc.Selection.PickPoint("请选择参考平面的终点");
-        //                    XYZ direction = (pt2 - pt1).Normalize();
-        //                    Curve curve1 = Line.CreateBound(pt1, pt2) as Curve;
-        //                    XYZ cVec;
-        //                    double tolerance = 1e-6;
-        //                    // 计算垂直于视图方向的向量
-        //                    if (Math.Abs(View.ViewDirection.X) < tolerance && Math.Abs(View.ViewDirection.Y) < tolerance && (View.ViewDirection.Z == 1 || View.ViewDirection.Z == -1))
-        //                    {
-        //                        cVec = new XYZ(0, 0, 1);
-        //                    }
-        //                    else if (Math.Abs(View.ViewDirection.X) < tolerance && Math.Abs(View.ViewDirection.Z) < tolerance && (View.ViewDirection.Y == 1 || View.ViewDirection.Y == -1))
-        //                    {
-        //                        cVec = new XYZ(0, 1, 0);
-        //                    }
-        //                    else if (Math.Abs(View.ViewDirection.Z) < tolerance && Math.Abs(View.ViewDirection.Y) < tolerance && (View.ViewDirection.X == 1 || View.ViewDirection.X == -1))
-        //                    {
-        //                        cVec = new XYZ(1, 0, 0);
-        //                    }
-        //                    else
-        //                    {
-        //                        throw new InvalidOperationException("两个端点的坐标不满足条件。");
-        //                    }
-        //                    if (Doc.IsFamilyDocument)
-        //                    {
-        //                        ReferencePlane rp1 = Doc.FamilyCreate.NewReferencePlane(pt1, pt2, cVec, View);
-        //                    }
-        //                    else { ReferencePlane rp1 = Doc.Create.NewReferencePlane(pt1, pt2, cVec, View); }
-        //                    XYZ offsetDirection = getnormal(curve1, View);
-        //                    double offsetDistance = D / 304.8;
-
-        //                    if (Doc.IsFamilyDocument)
-        //                    {
-        //                        if (num == "A")
-        //                        {
-        //                            XYZ offsetPt1 = pt1 + offsetDirection * offsetDistance;
-        //                            XYZ offsetPt2 = pt2 + offsetDirection * offsetDistance;
-        //                            ReferencePlane rp2 = Doc.FamilyCreate.NewReferencePlane(offsetPt1, offsetPt2, cVec, View);
-        //                        }
-        //                        else
-        //                        {
-        //                            //计算偏移后的起点和终点
-        //                            XYZ offsetPt1 = pt1 + offsetDirection * offsetDistance / 2;
-        //                            XYZ offsetPt3 = pt1 - offsetDirection * offsetDistance / 2;
-        //                            XYZ offsetPt2 = pt2 + offsetDirection * offsetDistance / 2;
-        //                            XYZ offsetPt4 = pt2 - offsetDirection * offsetDistance / 2;
-        //                            ReferencePlane rp2 = Doc.FamilyCreate.NewReferencePlane(offsetPt1, offsetPt2, cVec, View);
-        //                            ReferencePlane rp3 = Doc.FamilyCreate.NewReferencePlane(offsetPt3, offsetPt4, cVec, View);
-        //                        }
-        //                    }
-        //                    else
-        //                    {
-        //                        if (num == "A")
-        //                        {
-        //                            XYZ offsetPt1 = pt1 + offsetDirection * offsetDistance;
-        //                            XYZ offsetPt2 = pt2 + offsetDirection * offsetDistance;
-        //                            ReferencePlane rp2 = Doc.Create.NewReferencePlane(offsetPt1, offsetPt2, cVec, View);
-        //                        }
-        //                        else
-        //                        {
-        //                            XYZ offsetPt1 = pt1 + offsetDirection * offsetDistance / 2;
-        //                            XYZ offsetPt3 = pt1 - offsetDirection * offsetDistance / 2;
-        //                            XYZ offsetPt2 = pt2 + offsetDirection * offsetDistance / 2;
-        //                            XYZ offsetPt4 = pt2 - offsetDirection * offsetDistance / 2;
-        //                            ReferencePlane rp2 = Doc.Create.NewReferencePlane(offsetPt1, offsetPt2, cVec, View);
-        //                            ReferencePlane rp3 = Doc.Create.NewReferencePlane(offsetPt3, offsetPt4, cVec, View);
-        //                        }
-        //                    }
-        //                }
-        //            }, "画平行参照平面");
-        //        });
-        //    }
-        //    else TaskDialog.Show("tt", "当前视图无法生成参照平面，请切换到平立剖面视图再试");
-        //    //TaskDialog.Show("tt", D.ToString() + "+" + num);
-        //}
-        //private XYZ getnormal(Curve curve, Autodesk.Revit.DB.View view)
-        //{
-        //    XYZ p1 = curve.GetEndPoint(0);
-        //    XYZ p2 = curve.GetEndPoint(1);
-        //    double res = 100;
-        //    double tolerance = 1e-6;
-        //    if (Math.Abs(view.ViewDirection.X) < tolerance && Math.Abs(view.ViewDirection.Y) < tolerance && (view.ViewDirection.Z == 1 || view.ViewDirection.Z == -1))
-        //    {
-        //        XYZ t0 = new XYZ(p1.X - (p2.Y - p1.Y) * (res / curve.ApproximateLength), p1.Y + (p2.X - p1.X) * (res / curve.ApproximateLength), p1.Z);
-        //        XYZ t1 = new XYZ(p1.X + (p2.Y - p1.Y) * (res / curve.ApproximateLength), p1.Y - (p2.X - p1.X) * (res / curve.ApproximateLength), p1.Z);
-        //        return Line.CreateBound(t0, t1).Direction;
-        //    }
-        //    // 检查 Y 坐标是否都为 0
-        //    else if (Math.Abs(view.ViewDirection.X) < tolerance && Math.Abs(view.ViewDirection.Z) < tolerance && (view.ViewDirection.Y == 1 || view.ViewDirection.Y == -1))
-        //    {
-        //        XYZ t0 = new XYZ(p1.X + (p2.Z - p1.Z) * (res / curve.ApproximateLength), p1.Y, p1.Z - (p2.X - p1.X) * (res / curve.ApproximateLength));
-        //        XYZ t1 = new XYZ(p1.X - (p2.Z - p1.Z) * (res / curve.ApproximateLength), p1.Y, p1.Z + (p2.X - p1.X) * (res / curve.ApproximateLength));
-        //        return Line.CreateBound(t0, t1).Direction;
-        //    }
-        //    // 检查 Z 坐标是否都为 0
-        //    else if (Math.Abs(view.ViewDirection.Z) < tolerance && Math.Abs(view.ViewDirection.Y) < tolerance && (view.ViewDirection.X == 1 || view.ViewDirection.X == -1))
-        //    {
-        //        XYZ t0 = new XYZ(p1.X, p1.Y - (p2.Z - p1.Z) * (res / curve.ApproximateLength), p1.Z + (p2.Y - p1.Y) * (res / curve.ApproximateLength));
-        //        XYZ t1 = new XYZ(p1.X, p1.Y + (p2.Z - p1.Z) * (res / curve.ApproximateLength), p1.Z - (p2.Y - p1.Y) * (res / curve.ApproximateLength));
-        //        return Line.CreateBound(t0, t1).Direction;
-        //    }
-        //    else
-        //    {
-        //        throw new InvalidOperationException("两个端点的坐标不满足条件。");
-        //    }
-        //}
-        //private bool isFuncableView(View view)
-        //{
-        //    if (view.GetType().Name == "ViewPlan" || view.GetType().Name == "ViewSection")
-        //    {
-        //        return true;
-        //    }
-        //    return false;
-        //}
     }
 }
