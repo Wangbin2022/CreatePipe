@@ -26,7 +26,7 @@
   bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <TextBlock Text="{Binding AllSheets.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
                 <Button Width="80" Margin="5" Content="删除选中图纸" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>
@@ -37,7 +37,7 @@
                      AutoGenerateColumns="False" CanUserAddRows="False"
                      SelectionUnit="FullRow" EnableColumnVirtualization="False"
                      GridLinesVisibility="None" Width="auto" Height="325"
-                     SelectionMode="Extended" ItemsSource="{Binding AllSheets}">
+                     SelectionMode="Extended" ItemsSource="{Binding Collection}">
                 <DataGrid.Resources>
                     <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -48,11 +48,11 @@
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="编号" Width="50" SortMemberPath="sheetNum" 
-  Binding="{Binding sheetNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    <DataGridTextColumn Header="编号" Width="50" SortMemberPath="SheetNum" 
+  Binding="{Binding SheetNum}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="名称" Width="160" SortMemberPath="sheetName" 
-  Binding="{Binding sheetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                    <DataGridTextColumn Header="名称" Width="210" SortMemberPath="SheetName" 
+  Binding="{Binding SheetName}" 
 IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="关联视图" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
@@ -62,15 +62,25 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="视口数" Width="50" SortMemberPath="viewCount" 
-  Binding="{Binding viewCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="转向操作" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="转向视图" Width="auto" Command="{Binding DataContext.FindViewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
-CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch" 
-                                        Click="btn_OK_Click"/>
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="视口数" Width="50" SortMemberPath="ViewCount" 
+  Binding="{Binding ViewCount}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="明细表" Width="150" SortMemberPath="Schedule" 
+  Binding="{Binding Schedule}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="" CanUserResize="False" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="删除所有视口" Width="auto" Command="{Binding DataContext.DeleteElementCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

@@ -8,11 +8,10 @@ namespace CreatePipe.models
 {
     public class GuidanceSignEntity : ObserverableObject
     {
-        private Document _document { get; set; }
-        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        public FamilyInstance Entity { get; private set; }
-        public ElementId EntityId { get; private set; }
-        public ElementId Id { get; private set; }
+        // Removed _document and _externalHandler, they belong in the ViewModel for API operations
+        public FamilyInstance Entity { get; private set; } // The actual FamilyInstance (Guidance Sign)
+        public ElementId EntityId { get; private set; } // ID of the FamilyInstance
+        public ElementId Id { get; private set; } // ID of the IndependentTag
 
         private bool hasSameSerial = false;
         public bool HasSameSerial
@@ -26,29 +25,13 @@ namespace CreatePipe.models
         public double EntityLength
         {
             get => _entityLength;
-            set
-            {
-                if (Math.Abs(_entityLength - value) > 0.001)
-                {
-                    _entityLength = value;
-                    UpdateModelLength(value);
-                    OnPropertyChanged();
-                }
-            }
+            // Setter logic will be handled by ViewModel's command
         }
         private string _serialCode;
         public string SerialCode
         {
             get => _serialCode;
-            set
-            {
-                if (_serialCode != value)
-                {
-                    _serialCode = value;
-                    UpdateSerialCodeToModel(value);
-                    OnPropertyChanged();
-                }
-            }
+            // Setter logic will be handled by ViewModel's command
         }
         public string TagName => $"{LocationCode}{LevelCode}-{TypeCode}-{SerialCode}";
         public string EntityName { get; private set; }
@@ -57,35 +40,60 @@ namespace CreatePipe.models
         public string TypeCode { get; private set; }
         public string LevelCode { get; private set; }
         public string LocationCode { get; private set; }
+
+        private string entityContent;
+        public string EntityContent
+        {
+            get => entityContent;
+            set => SetProperty(ref entityContent, value); // Keep this for UI updates
+        }
+        // Constructor now takes Document as a parameter to safely read properties
         public GuidanceSignEntity(IndependentTag tag)
         {
+            Document document = tag.Document;
             if (tag == null) throw new ArgumentNullException(nameof(tag));
-            _document = tag.Document ?? throw new ArgumentException("Tag document is null");
+            if (document == null) throw new ArgumentException("Document is null");
 
-            Id = tag.Id;
-            EntityId = tag.TaggedLocalElementId;
-            Entity = _document.GetElement(EntityId) as FamilyInstance;
+            Id = tag.Id; // ID of the IndependentTag
+            EntityId = tag.TaggedLocalElementId; // ID of the FamilyInstance it tags
+
+            Entity = document.GetElement(EntityId) as FamilyInstance;
+            if (Entity == null)
+            {
+                throw new ArgumentException($"Tagged element with ID {EntityId} is not a FamilyInstance.");
+            }
+
             EntityName = Entity.Name;
-            EntityLevelName = _document.GetElement(Entity.LevelId).Name;
-            LocationCode = Entity.Symbol.LookupParameter("位置编码").AsString();
-            LevelCode = Entity.LookupParameter("层高编码").AsString();
-            TypeCode = Entity.Symbol.LookupParameter("性质编码").AsString();
-            SerialCode = Entity.LookupParameter("本层编号").AsString();
-            InstallCode = Entity.Symbol.LookupParameter("悬挂方式").AsString();
+            // Ensure LevelId is valid before getting element
+            EntityLevelName = Entity.LevelId != ElementId.InvalidElementId ? document.GetElement(Entity.LevelId)?.Name : "N/A";
+
+            // Parameter reading with null checks
+            LocationCode = Entity.Symbol.LookupParameter("位置编码")?.AsString() ?? "";
+            LevelCode = Entity.LookupParameter("层高编码")?.AsString() ?? "";
+            TypeCode = Entity.Symbol.LookupParameter("性质编码")?.AsString() ?? "";
+            _serialCode = Entity.LookupParameter("本层编号")?.AsString() ?? ""; // Initialize backing field
+            InstallCode = Entity.Symbol.LookupParameter("悬挂方式")?.AsString() ?? "";
             IsDouble = InstallCode != "附着式";
 
-            _entityLength = Math.Round(Entity.LookupParameter("推荐长度").AsDouble() * 304.8, 0);
-            EntityContent = Entity.LookupParameter("标识内容").AsString();
-            if (EntityContent == "")
+            // Length conversion
+            _entityLength = Math.Round(Entity.LookupParameter("推荐长度")?.AsDouble() * 304.8 ?? 0.0, 0); // Initialize backing field
+
+            // Content extraction logic
+            var contentParam = Entity.LookupParameter("标识内容")?.AsString();
+            if (!string.IsNullOrEmpty(contentParam))
+            {
+                entityContent = contentParam;
+            }
+            else // Fallback to multiple text parameters if "标识内容" is empty
             {
                 var front = new[]
                 {
-                                Entity.LookupParameter("文字转换")?.AsString() ?? "",
-                                Entity.LookupParameter("文字转换 第二行")?.AsString() ?? "",
-                                Entity.LookupParameter("文字转换 第三行")?.AsString() ?? ""
-                            };
+                Entity.LookupParameter("文字转换")?.AsString() ?? "",
+                Entity.LookupParameter("文字转换 第二行")?.AsString() ?? "",
+                Entity.LookupParameter("文字转换 第三行")?.AsString() ?? ""
+            };
                 string frontLine = string.Join("；", front.Where(s => !string.IsNullOrEmpty(s)));
-                // 读取背面三行并用分号拼接
+
                 var backParam = Entity.LookupParameter("文字转换 背面")?.AsString();
                 bool hasBackSide = !string.IsNullOrWhiteSpace(backParam);
                 string backLine = "";
@@ -93,76 +101,194 @@ namespace CreatePipe.models
                 {
                     var back = new[]
                     {
-                                    backParam ?? "",
-                                    Entity.LookupParameter("文字转换 第二行背面")?.AsString() ?? "",
-                                    Entity.LookupParameter("文字转换 第三行背面")?.AsString() ?? ""
-                                };
+                    backParam ?? "",
+                    Entity.LookupParameter("文字转换 第二行背面")?.AsString() ?? "",
+                    Entity.LookupParameter("文字转换 第三行背面")?.AsString() ?? ""
+                };
                     backLine = string.Join("；", back.Where(s => !string.IsNullOrEmpty(s)));
                 }
-                EntityContent = hasBackSide ? $"{frontLine} |背面：{backLine}" : frontLine;
+                entityContent = hasBackSide ? $"{frontLine} |背面：{backLine}" : frontLine;
             }
         }
-        private string entityContent;
-        public string EntityContent
-        {
-            get => entityContent;
-            set => SetProperty(ref entityContent, value);
-        }
-        public void UpdateSerialCodeToModel(string newSerialCode)
-        {
-            _externalHandler.Run(app =>
-            {
-                using (var tx = new Transaction(_document, "更新编号"))
-                {
-                    tx.Start();
-                    Entity.LookupParameter("本层编号")?.Set(newSerialCode);
-                    OnPropertyChanged(nameof(TagName));
-                    CheckForDuplicates();
-                    tx.Commit();
-                }
-            });
-            SerialCode = newSerialCode; // 同步内存数据
-        }
-        public void UpdateModelLength(double lengthMm)
-        {
-            _externalHandler.Run(app =>
-            {
-                using (var tx = new Transaction(_document, "更新标识长度"))
-                {
-                    tx.Start();
-                    Entity.LookupParameter("推荐长度")?.Set(EntityLength / 304.8);
-                    tx.Commit();
-                }
-            });
 
-            EntityLength = lengthMm; // 同步内存数据
-        }
-        private void CheckForDuplicates()
+        // Helper method to update SerialCode (called from ViewModel)
+        public void SetSerialCode(string newSerialCode)
         {
-            var collector = new FilteredElementCollector(_document);
-            var categoryId = this.Entity.Category.Id;
-            var otherTags = collector.OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(t => t.Id != this.Id);
-            bool foundDuplicate = false;
-            foreach (var otherTag in otherTags)
+            if (_serialCode != newSerialCode)
             {
-                var otherTaggedEntity = this._document.GetElement(otherTag.TaggedLocalElementId) as FamilyInstance;
-                if (otherTaggedEntity == null || otherTaggedEntity.Category.Id != categoryId)
-                {
-                    continue;
-                }
-                string otherLocationCode = otherTaggedEntity.Symbol.LookupParameter("位置编码")?.AsString() ?? "";
-                string otherLevelCode = otherTaggedEntity.LookupParameter("层高编码")?.AsString() ?? "";
-                string otherTypeCode = otherTaggedEntity.Symbol.LookupParameter("性质编码")?.AsString() ?? "";
-                string otherSerialCode = otherTaggedEntity.LookupParameter("本层编号")?.AsString() ?? "";
-                string otherTagName = otherLocationCode + otherLevelCode + "-" + otherTypeCode + "-" + otherSerialCode;
-                if (otherTagName == this.TagName)
-                {
-                    foundDuplicate = true;
-                    break; // 找到一个就足够了，可以立即退出循环
-                }
+                _serialCode = newSerialCode;
+                OnPropertyChanged(nameof(SerialCode));
+                OnPropertyChanged(nameof(TagName)); // TagName depends on SerialCode
             }
-            this.HasSameSerial = foundDuplicate;
         }
 
+        // Helper method to update EntityLength (called from ViewModel)
+        public void SetEntityLength(double newLength)
+        {
+            if (Math.Abs(_entityLength - newLength) > 0.001)
+            {
+                _entityLength = newLength;
+                OnPropertyChanged(nameof(EntityLength));
+            }
+        }
     }
+    //public class GuidanceSignEntity : ObserverableObject
+    //{
+    //    private Document _document { get; set; }
+    //    private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+    //    public FamilyInstance Entity { get; private set; }
+    //    public ElementId EntityId { get; private set; }
+    //    public ElementId Id { get; private set; }
+
+    //    private bool hasSameSerial = false;
+    //    public bool HasSameSerial
+    //    {
+    //        get => hasSameSerial;
+    //        set => SetProperty(ref hasSameSerial, value);
+    //    }
+    //    public bool IsDouble { get; private set; } = false;
+
+    //    private double _entityLength;
+    //    public double EntityLength
+    //    {
+    //        get => _entityLength;
+    //        set
+    //        {
+    //            if (Math.Abs(_entityLength - value) > 0.001)
+    //            {
+    //                _entityLength = value;
+    //                UpdateModelLength(value);
+    //                OnPropertyChanged();
+    //            }
+    //        }
+    //    }
+    //    private string _serialCode;
+    //    public string SerialCode
+    //    {
+    //        get => _serialCode;
+    //        set
+    //        {
+    //            if (_serialCode != value)
+    //            {
+    //                _serialCode = value;
+    //                UpdateSerialCodeToModel(value);
+    //                OnPropertyChanged();
+    //            }
+    //        }
+    //    }
+    //    public string TagName => $"{LocationCode}{LevelCode}-{TypeCode}-{SerialCode}";
+    //    public string EntityName { get; private set; }
+    //    public string EntityLevelName { get; private set; }
+    //    public string InstallCode { get; private set; }
+    //    public string TypeCode { get; private set; }
+    //    public string LevelCode { get; private set; }
+    //    public string LocationCode { get; private set; }
+    //    public GuidanceSignEntity(IndependentTag tag)
+    //    {
+    //        if (tag == null) throw new ArgumentNullException(nameof(tag));
+    //        _document = tag.Document ?? throw new ArgumentException("Tag document is null");
+
+    //        Id = tag.Id;
+    //        EntityId = tag.TaggedLocalElementId;
+    //        Entity = _document.GetElement(EntityId) as FamilyInstance;
+    //        EntityName = Entity.Name;
+    //        EntityLevelName = _document.GetElement(Entity.LevelId).Name;
+    //        LocationCode = Entity.Symbol.LookupParameter("位置编码").AsString();
+    //        LevelCode = Entity.LookupParameter("层高编码").AsString();
+    //        TypeCode = Entity.Symbol.LookupParameter("性质编码").AsString();
+    //        SerialCode = Entity.LookupParameter("本层编号").AsString();
+    //        InstallCode = Entity.Symbol.LookupParameter("悬挂方式").AsString();
+    //        IsDouble = InstallCode != "附着式";
+
+    //        _entityLength = Math.Round(Entity.LookupParameter("推荐长度").AsDouble() * 304.8, 0);
+    //        EntityContent = Entity.LookupParameter("标识内容").AsString();
+    //        if (EntityContent == "")
+    //        {
+    //            var front = new[]
+    //            {
+    //                            Entity.LookupParameter("文字转换")?.AsString() ?? "",
+    //                            Entity.LookupParameter("文字转换 第二行")?.AsString() ?? "",
+    //                            Entity.LookupParameter("文字转换 第三行")?.AsString() ?? ""
+    //                        };
+    //            string frontLine = string.Join("；", front.Where(s => !string.IsNullOrEmpty(s)));
+    //            // 读取背面三行并用分号拼接
+    //            var backParam = Entity.LookupParameter("文字转换 背面")?.AsString();
+    //            bool hasBackSide = !string.IsNullOrWhiteSpace(backParam);
+    //            string backLine = "";
+    //            if (hasBackSide)
+    //            {
+    //                var back = new[]
+    //                {
+    //                                backParam ?? "",
+    //                                Entity.LookupParameter("文字转换 第二行背面")?.AsString() ?? "",
+    //                                Entity.LookupParameter("文字转换 第三行背面")?.AsString() ?? ""
+    //                            };
+    //                backLine = string.Join("；", back.Where(s => !string.IsNullOrEmpty(s)));
+    //            }
+    //            EntityContent = hasBackSide ? $"{frontLine} |背面：{backLine}" : frontLine;
+    //        }
+    //    }
+    //    private string entityContent;
+    //    public string EntityContent
+    //    {
+    //        get => entityContent;
+    //        set => SetProperty(ref entityContent, value);
+    //    }
+    //    public void UpdateSerialCodeToModel(string newSerialCode)
+    //    {
+    //        _externalHandler.Run(app =>
+    //        {
+    //            using (var tx = new Transaction(_document, "更新编号"))
+    //            {
+    //                tx.Start();
+    //                Entity.LookupParameter("本层编号")?.Set(newSerialCode);
+    //                OnPropertyChanged(nameof(TagName));
+    //                CheckForDuplicates();
+    //                tx.Commit();
+    //            }
+    //        });
+    //        SerialCode = newSerialCode; // 同步内存数据
+    //    }
+    //    public void UpdateModelLength(double lengthMm)
+    //    {
+    //        _externalHandler.Run(app =>
+    //        {
+    //            using (var tx = new Transaction(_document, "更新标识长度"))
+    //            {
+    //                tx.Start();
+    //                Entity.LookupParameter("推荐长度")?.Set(EntityLength / 304.8);
+    //                tx.Commit();
+    //            }
+    //        });
+
+    //        EntityLength = lengthMm; // 同步内存数据
+    //    }
+    //    private void CheckForDuplicates()
+    //    {
+    //        var collector = new FilteredElementCollector(_document);
+    //        var categoryId = this.Entity.Category.Id;
+    //        var otherTags = collector.OfClass(typeof(IndependentTag)).Cast<IndependentTag>().Where(t => t.Id != this.Id);
+    //        bool foundDuplicate = false;
+    //        foreach (var otherTag in otherTags)
+    //        {
+    //            var otherTaggedEntity = this._document.GetElement(otherTag.TaggedLocalElementId) as FamilyInstance;
+    //            if (otherTaggedEntity == null || otherTaggedEntity.Category.Id != categoryId)
+    //            {
+    //                continue;
+    //            }
+    //            string otherLocationCode = otherTaggedEntity.Symbol.LookupParameter("位置编码")?.AsString() ?? "";
+    //            string otherLevelCode = otherTaggedEntity.LookupParameter("层高编码")?.AsString() ?? "";
+    //            string otherTypeCode = otherTaggedEntity.Symbol.LookupParameter("性质编码")?.AsString() ?? "";
+    //            string otherSerialCode = otherTaggedEntity.LookupParameter("本层编号")?.AsString() ?? "";
+    //            string otherTagName = otherLocationCode + otherLevelCode + "-" + otherTypeCode + "-" + otherSerialCode;
+    //            if (otherTagName == this.TagName)
+    //            {
+    //                foundDuplicate = true;
+    //                break; // 找到一个就足够了，可以立即退出循环
+    //            }
+    //        }
+    //        this.HasSameSerial = foundDuplicate;
+    //    }
+
+    //}
 }

@@ -569,6 +569,19 @@ namespace CreatePipe
 
 
 
+
+            ////0409 门窗管理
+            //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);
+            //openningManagerView.Show();
+
+            ////0408 标记牌管理
+            //GuidanceSignManagerView guidanceSignManagerView = new GuidanceSignManagerView(uiApp);
+            //guidanceSignManagerView.Show();
+
+            ////0408 图纸管理器重构
+            //SheetManagerView sheetManagerView = new SheetManagerView(uiApp);
+            //sheetManagerView.Show();
+
             //////0407 改写自适应路径穿越判断
             //EvacRouteManagerView evacRouteManagerView = new EvacRouteManagerView(uiApp);
             //evacRouteManagerView.Show();

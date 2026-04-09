@@ -25,7 +25,7 @@
   bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <TextBlock Text="{Binding AllSigns.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
                 <Button Width="80" Margin="5" Content="删除选中标记" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </StackPanel>
@@ -36,7 +36,7 @@
                    AutoGenerateColumns="False" CanUserAddRows="False"
                    SelectionUnit="FullRow" EnableColumnVirtualization="False"
                    GridLinesVisibility="None" Width="auto" Height="325"
-                   SelectionMode="Extended" ItemsSource="{Binding AllSigns}">
+                   SelectionMode="Extended" ItemsSource="{Binding Collection}">
                 <DataGrid.Resources>
                     <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
                         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -48,7 +48,7 @@
                 </DataGrid.Resources>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="名称" Width="90" SortMemberPath="TagName" 
-  Binding="{Binding TagName, UpdateSourceTrigger=PropertyChanged}" 
+  Binding="{Binding TagName}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
@@ -57,19 +57,10 @@ IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
 CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <!--<DataGridTextColumn Header="位置码" Width="45" SortMemberPath="locationCode" 
-  Binding="{Binding locationCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="层码" Width="35" SortMemberPath="levelCode" 
-  Binding="{Binding levelCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="性质码" Width="45" SortMemberPath="typeCode" 
-  Binding="{Binding typeCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>-->
+                    </DataGridTemplateColumn>    
                     <DataGridTextColumn Header="序列码" Width="45" SortMemberPath="SerialCode" 
-  Binding="{Binding SerialCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+  Binding="{Binding SerialCode}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="重码" Width="45"
                                        SortMemberPath="HasSameSerial" >
                         <DataGridTemplateColumn.CellTemplate>
@@ -98,8 +89,8 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="安装 " Width="45" SortMemberPath="InstallCode" 
-  Binding="{Binding InstallCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+  Binding="{Binding InstallCode}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="实体内容" Width="220"
                                             SortMemberPath="EntityContent">
                         <DataGridTemplateColumn.CellTemplate>
@@ -120,11 +111,11 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="所在标高" Width="60" SortMemberPath="EntityLevelName" 
-  Binding="{Binding EntityLevelName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+  Binding="{Binding EntityLevelName}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="长度" Width="45" SortMemberPath="EntityLength" 
-  Binding="{Binding EntityLength, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+  Binding="{Binding EntityLength}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </StackPanel>

@@ -148,28 +148,87 @@ namespace CreatePipe.cmd
         //    return true;
         //}
     }
-    //以下由Kimi生成/跟GPT生成的一模一样
+    //260320 gemini修改优化后
     public class RelayCommand<T> : ICommand
     {
         private readonly Action<T> _execute;
         private readonly Predicate<T> _canExecute;
+        /// <summary>
+        /// 构造函数：确保 _execute 永远不为 null 。.NET 8 推荐直接在构造阶段赋值并检查 null
+        /// </summary>
         public RelayCommand(Action<T> execute, Predicate<T> canExecute = null)
         {
-            _execute = execute ?? throw new ArgumentNullException("execute");
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
             _canExecute = canExecute;
         }
+        /// <summary>
+        /// ICommand 接口实现：检查命令是否可执行
+        /// </summary>
         public bool CanExecute(object parameter)
         {
-            return _canExecute == null || _canExecute((T)parameter);
+            if (_canExecute == null) return true;
+            // 使用模式匹配尝试将参数转换为 T?
+            // 如果转换失败（例如 parameter 类型不匹配），则根据 T 是否为值类型决定传递默认值还是直接转换
+            return _canExecute(ConvertParameter(parameter));
         }
+        /// <summary>
+        /// ICommand 接口实现：执行命令逻辑
+        /// </summary>
         public void Execute(object parameter)
         {
-            _execute((T)parameter);
+            // _execute 在构造函数中已判空，此处直接安全调用
+            _execute(ConvertParameter(parameter));
         }
+        /// <summary>
+        /// 辅助方法：统一处理 object? 到 T? 的转换逻辑，消除类型不匹配的警告
+        /// </summary>
+        private T ConvertParameter(object parameter)
+        {
+            if (parameter is T value)
+            {
+                return value;
+            }
+            // 如果 parameter 为 null，或者类型无法直接转换。对于引用类型返回 null，对于值类型返回 default(T)
+            return default;
+        }
+        /// <summary>
+        /// 挂载到 WPF 的命令管理器，自动触发 UI 更新
+        /// </summary>
         public event EventHandler CanExecuteChanged
         {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
+            add => CommandManager.RequerySuggested += value;
+            remove => CommandManager.RequerySuggested -= value;
+        }
+        /// <summary>
+        /// 手动触发可见性/可用性刷新，同上
+        /// </summary>
+        public void RaiseCanExecuteChanged()
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
+    ////以下由Kimi生成/跟GPT生成的一模一样
+    //public class RelayCommand<T> : ICommand
+    //{
+    //    private readonly Action<T> _execute;
+    //    private readonly Predicate<T> _canExecute;
+    //    public RelayCommand(Action<T> execute, Predicate<T> canExecute = null)
+    //    {
+    //        _execute = execute ?? throw new ArgumentNullException("execute");
+    //        _canExecute = canExecute;
+    //    }
+    //    public bool CanExecute(object parameter)
+    //    {
+    //        return _canExecute == null || _canExecute((T)parameter);
+    //    }
+    //    public void Execute(object parameter)
+    //    {
+    //        _execute((T)parameter);
+    //    }
+    //    public event EventHandler CanExecuteChanged
+    //    {
+    //        add { CommandManager.RequerySuggested += value; }
+    //        remove { CommandManager.RequerySuggested -= value; }
+    //    }
+    //}
 }

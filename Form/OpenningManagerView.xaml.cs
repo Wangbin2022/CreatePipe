@@ -4,6 +4,7 @@ using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
 using CreatePipe.models;
 using CreatePipe.Utils;
+using CreatePipe.Utils.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -30,147 +31,52 @@ namespace CreatePipe.Form
             this.Close();
         }
     }
-    public class OpenningManagerViewModel : ObserverableObject
+    public class OpenningManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<OpenningEntity>
     {
-        public Document Document { get; set; }
-        public UIDocument uIDoc { get; set; }
-        public View ActiveView { get; set; }
-        public UIApplication uIApp { get; set; }
-        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        public OpenningManagerViewModel(UIApplication application)
+        public Document Document { get; }
+        public UIDocument UIDoc { get; }
+        public BaseExternalHandler ExternalHandler { get; } = new BaseExternalHandler();
+        private ObservableCollection<OpenningEntity> _collection = new ObservableCollection<OpenningEntity>();
+        public ObservableCollection<OpenningEntity> Collection { get => _collection; set => SetProperty(ref _collection, value); }
+        public OpenningManagerViewModel(UIApplication app)
         {
-            Document = application.ActiveUIDocument.Document;
-            uIDoc = application.ActiveUIDocument;
-            ActiveView = application.ActiveUIDocument.ActiveView;
-            uIApp = application;
+            UIDoc = app.ActiveUIDocument;
+            Document = UIDoc.Document;
+            InitFunc();
+        }
+        public void InitFunc()
+        {
             QueryElement(null);
-        }
-        public ICommand ShowFromToCommand => new RelayCommand<OpenningEntity>(ShowFromTo);
-        private void ShowFromTo(OpenningEntity entity)
-        {
-            if (entity == null) return;
-            try
+            if (Collection.Count == 0)
             {
-                Dictionary<string, string> floorInstanceCount = new Dictionary<string, string>();
-                foreach (var id in entity.InstanceIds)
+                TaskDialog.Show("提示", "当前模型中没有找到门窗。");
+            }
+        }
+        public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
+        public void QueryElement(string text)
+        {
+            Collection.Clear();
+            // 优化：一次性获取所有实例并按 Symbol 分组
+            var allInstances = new FilteredElementCollector(Document).OfClass(typeof(FamilyInstance)).WhereElementIsNotElementType()
+                .Cast<FamilyInstance>().GroupBy(i => i.Symbol.Id).ToDictionary(g => g.Key, g => g.ToList());
+            var symbols = new FilteredElementCollector(Document).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+            .Where(s => s.Category != null &&
+                       (s.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Doors ||
+                        s.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Windows))
+            .ToList();
+            var result = new List<OpenningEntity>();
+            foreach (var sym in symbols)
+            {
+                string tagName = sym.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID)?.AsString() ?? "";
+                if (string.IsNullOrWhiteSpace(text) ||
+                    sym.Name.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    tagName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    FamilyInstance instance = Document.GetElement(id) as FamilyInstance;
-                    floorInstanceCount[id.IntegerValue.ToString()] = "From=" + (instance.FromRoom?.Name ?? "None")
-                        + "+To=" + (instance.ToRoom?.Name ?? "None");
+                    var openInstances = allInstances.ContainsKey(sym.Id) ? allInstances[sym.Id] : new List<FamilyInstance>();
+                    result.Add(new OpenningEntity(sym, openInstances));
                 }
-                //Dictionary<string, string> floorInstanceCount = entity.FloorInstanceCount;
-                UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(floorInstanceCount, "内外统计");
-                universalDictionaryList.ShowDialog();
             }
-            catch (Exception)
-            {
-
-                throw;
-            }
-        }
-
-        public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteELements);
-        private void DeleteELements(IEnumerable<object> selectedElements)
-        {
-            _externalHandler.Run(app =>
-            {
-                Document.NewTransaction(() =>
-                {
-                    var elementIds = selectedElements?.Cast<OpenningEntity>()
-                        .SelectMany(item => item.InstanceIds).ToList();
-                    if (elementIds?.Count > 0)
-                    {
-                        Document.Delete(elementIds);
-                    }
-                }, "删除多个门窗实体");
-                QueryElement(null);
-            });
-        }
-        public ICommand OpenFamilyCommand => new RelayCommand<OpenningEntity>(OpenFamily);
-        private void OpenFamily(OpenningEntity entity)
-        {
-            if (entity == null) return;
-            ElementId familySymbolId = entity.entityId;
-            Family family = ((FamilySymbol)Document.GetElement(familySymbolId)).Family;
-            string tempDir = @"C:\temp";
-            if (!Directory.Exists(tempDir))
-            {
-                Directory.CreateDirectory(tempDir);
-            }
-            // 生成唯一文件名
-            string familyName = family.Name;
-            string tempFilePath = System.IO.Path.Combine(tempDir, $"{familyName}.rfa");
-            // 处理文件名冲突
-            int counter = 1;
-            while (File.Exists(tempFilePath))
-            {
-                tempFilePath = System.IO.Path.Combine(tempDir, $"{familyName}_{counter}.rfa");
-                counter++;
-            }
-            // 保存族到临时文件
-            Document familyDoc = Document.EditFamily(family);
-            familyDoc.SaveAs(tempFilePath);
-            uIApp.OpenAndActivateDocument(tempFilePath);
-            TaskDialog.Show("成功", $"已打开族：{family.Name}");
-        }
-        public ICommand TagRenameCommand => new RelayCommand<OpenningEntity>(TagRename);
-        private void TagRename(OpenningEntity entity)
-        {
-            if (entity == null) return;
-            _externalHandler.Run(app =>
-            {
-                Document.NewTransaction(() =>
-                {
-                    UniversalNewString subView = new UniversalNewString($"提示：输入新号，原编号{entity.entityTagName}");
-                    if (subView.ShowDialog() != true || !(subView.DataContext is NewStringViewModel vm) || string.IsNullOrWhiteSpace(vm.NewName))
-                    {
-                        return;
-                    }
-                    try
-                    {
-                        FamilySymbol symbol = Document.GetElement(entity.entityId) as FamilySymbol;
-                        symbol.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).Set(vm.NewName);
-                    }
-                    catch (Exception ex)
-                    {
-                        TaskDialog.Show("tt", $"发生错误: {ex.Message}");
-                    }
-                }, "修改门窗类别编号");
-                QueryElement(null);
-            });
-        }
-        public ICommand PickOpenCommand => new RelayCommand<OpenningEntity>(PickOpen);
-        private void PickOpen(OpenningEntity entity)
-        {
-            _externalHandler.Run(app =>
-            {
-                Selection select = uIDoc.Selection;
-                if (ActiveView.GetType().Name != "ViewPlan")
-                {
-                    TaskDialog.Show("tt", "请在平面操作本功能");
-                    return;
-                }
-                Level currentLevel = ActiveView.GenLevel;
-                if (currentLevel == null) return;
-                string currentLevelName = currentLevel.Name;
-                // 获取当前楼层对应的所有实例ID
-                // 直接筛选当前楼层的实例
-                var currentLevelInstances = entity.Instances
-                    .Where(instance =>
-                    {
-                        Level instanceLevel = Document.GetElement(instance.LevelId) as Level;
-                        return instanceLevel?.Name == currentLevelName;
-                    })
-                    .Select(instance => instance.Id)
-                    .ToList();
-                select.SetElementIds(currentLevelInstances);
-                TaskDialog.Show("tt", $"选中{currentLevelInstances.Count().ToString()}个对象");
-            });
-        }
-        public class MyItem
-        {
-            public string Name { get; set; }
-            public int Count { get; set; }
+            foreach (var item in result) Collection.Add(item);
         }
         public ICommand SubViewCommand => new RelayCommand<OpenningEntity>(SubView);
         private static void SubView(OpenningEntity entity)
@@ -179,46 +85,326 @@ namespace CreatePipe.Form
             Dictionary<string, string> floorInstanceCount = entity.FloorInstanceCount;
             UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(floorInstanceCount, "分层统计");
             universalDictionaryList.ShowDialog();
-
-            //刷新？
         }
-        public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
-        private void QueryElement(string obj)
+        public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
+        public void DeleteElements(IEnumerable<object> selectedItems)
         {
-            _externalHandler.Run(app =>
+            if (selectedItems == null) return;
+            var entities = selectedItems.Cast<OpenningEntity>().ToList();
+            if (!entities.Any()) return;
+            // 使用 HashSet 自动去重，防止重复添加相同的 ID
+            var idsToDelete = new HashSet<ElementId>();
+            foreach (var entity in entities)
             {
-                AllOpens.Clear();
-                // 1. 获取所有门窗符号（优化：直接过滤 OST_Doors 和 OST_Windows）
-                var doorWindowSymbols = new FilteredElementCollector(Document).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
-                .Where(s => s.Category != null &&
-                           (s.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Doors ||
-                            s.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Windows))
-                .ToList();
-
-                // 2. 获取所有门窗实例，并按 Symbol.Id 分组（避免重复查询）
-                var allInstances = new FilteredElementCollector(Document).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
-                    .Where(fi => doorWindowSymbols.Any(s => s.Id == fi.Symbol.Id))
-                    .GroupBy(fi => fi.Symbol.Id)
-                    .ToDictionary(g => g.Key, g => g.ToList());
-                // 3. 填充 allOpens（仅遍历有效的符号）
-                foreach (var symbol in doorWindowSymbols)
+                // 1. 加入所有实例 ID
+                if (entity.InstanceIds != null)
                 {
-                    string tagName = symbol.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).AsString();
-                    List<FamilyInstance> instances = allInstances.TryGetValue(symbol.Id, out var list) ? list : new List<FamilyInstance>();
-                    if (string.IsNullOrEmpty(obj) || symbol.Name.Contains(obj) || symbol.Name.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0 || tagName.Contains(obj) || tagName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0)
+                    foreach (var id in entity.InstanceIds)
                     {
-                        allOpens.Add(new OpenningEntity(symbol, instances));
+                        idsToDelete.Add(id);
                     }
                 }
+                // 2. 加入类型 ID (假设您的属性名是 TypeId)
+                // 如果您的属性名不同，请修改这里
+                if (entity.SymbolId != null && entity.SymbolId != ElementId.InvalidElementId)
+                {
+                    idsToDelete.Add(entity.SymbolId);
+                }
+            }
+            if (!idsToDelete.Any()) return;
+
+            ExternalHandler.Run(app =>
+            {
+                NewTransaction.Execute(Document, "删除门窗实例及类型", () =>
+                {
+                    // Document.Delete 接受 ICollection<ElementId>
+                    Document.Delete(idsToDelete.ToList());
+                });
+                // 刷新列表
+                QueryElement(null);
             });
         }
-        private ObservableCollection<OpenningEntity> allOpens = new ObservableCollection<OpenningEntity>();
-        public ObservableCollection<OpenningEntity> AllOpens
+        public ICommand EditElementCommand => new RelayCommand<OpenningEntity>(EditElement);
+        public void EditElement(OpenningEntity entity)
         {
-            get => allOpens;
-            set => SetProperty(ref allOpens, value);
+            if (entity == null) return;
+            ExternalHandler.Run(app =>
+            {
+                var symbol = Document.GetElement(entity.SymbolId) as FamilySymbol;
+                var family = symbol.Family;
+                var familyDoc = Document.EditFamily(family);
+
+                string path = Path.Combine(Path.GetTempPath(), $"{family.Name}.rfa");
+                familyDoc.SaveAs(path, new SaveAsOptions { OverwriteExistingFile = true });
+                familyDoc.Close(false);
+
+                // 在 Revit 线程请求打开文档
+                app.OpenAndActivateDocument(path);
+            });
+        }
+        public ICommand DeleteElementCommand => new RelayCommand<OpenningEntity>(DeleteElement);
+        public void DeleteElement(OpenningEntity entity)
+        {
+            if (entity == null) return;
+            var idsToDelete = entity.InstanceIds;
+            ExternalHandler.Run(app =>
+            {
+                NewTransaction.Execute(Document, "删除门窗实例", () =>
+                {
+                    Document.Delete(idsToDelete);
+                });
+                // 刷新列表
+                QueryElement(null);
+            });
+        }
+        public ICommand TagRenameCommand => new RelayCommand<OpenningEntity>(TagRename);
+        private void TagRename(OpenningEntity entity)
+        {
+            if (entity == null) return;
+            UniversalNewString subView = new UniversalNewString($"原编号: {entity.TagName}", entity.Name);
+            if (subView.ShowDialog() != true) return;
+            var newTag = (subView.DataContext as NewStringViewModel)?.NewName;
+            if (string.IsNullOrEmpty(newTag)) return;
+            ExternalHandler.Run(app =>
+            {
+                NewTransaction.Execute(Document, "修改编号", () =>
+                {
+                    var symbol = Document.GetElement(entity.SymbolId) as FamilySymbol;
+                    symbol?.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).Set(newTag);
+                });
+                QueryElement(null); // 刷新
+            });
+        }
+        public ICommand PickOpenCommand => new RelayCommand<OpenningEntity>(PickOpen);
+        private void PickOpen(OpenningEntity entity)
+        {
+            if (entity == null) return;
+            var activeView = UIDoc.ActiveView;
+            if (activeView.ViewType != ViewType.FloorPlan && activeView.ViewType != ViewType.CeilingPlan)
+            {
+                TaskDialog.Show("错误", "请在平面视图中操作");
+                return;
+            }
+            ExternalHandler.Run(app =>
+            {
+                var levelId = activeView.GenLevel?.Id;
+                var ids = entity.InstanceIds.Where(id =>
+                {
+                    var inst = Document.GetElement(id) as FamilyInstance;
+                    return inst?.LevelId == levelId;
+                }).ToList();
+                if (ids.Count == 0)
+                {
+                    TaskDialog.Show("tt", "当前视图未找到该对象");
+                    return;
+                }
+                else UIDoc.Selection.SetElementIds(ids);
+            });
+        }
+        public ICommand ShowFromToCommand => new RelayCommand<OpenningEntity>(ShowFromTo);
+        private void ShowFromTo(OpenningEntity entity)
+        {
+            if (entity == null) return;
+            var dict = new Dictionary<string, string>();
+            foreach (var id in entity.InstanceIds)
+            {
+                var inst = Document.GetElement(id) as FamilyInstance;
+                string info = $"从: {inst.FromRoom?.Name ?? "无"} | 到: {inst.ToRoom?.Name ?? "无"}";
+                dict.Add(id.ToString(), info);
+            }
+            new UniversalDictionaryListView(dict, "内外统计").ShowDialog();
         }
     }
+
+    //public class OpenningManagerViewModel : ObserverableObject
+    //{
+    //    public Document Document { get; set; }
+    //    public UIDocument uIDoc { get; set; }
+    //    public View ActiveView { get; set; }
+    //    public UIApplication uIApp { get; set; }
+    //    private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+    //    public OpenningManagerViewModel(UIApplication application)
+    //    {
+    //        Document = application.ActiveUIDocument.Document;
+    //        uIDoc = application.ActiveUIDocument;
+    //        ActiveView = application.ActiveUIDocument.ActiveView;
+    //        uIApp = application;
+    //        QueryElement(null);
+    //    }
+    //    public ICommand ShowFromToCommand => new RelayCommand<OpenningEntity>(ShowFromTo);
+    //    private void ShowFromTo(OpenningEntity entity)
+    //    {
+    //        if (entity == null) return;
+    //        try
+    //        {
+    //            Dictionary<string, string> floorInstanceCount = new Dictionary<string, string>();
+    //            foreach (var id in entity.InstanceIds)
+    //            {
+    //                FamilyInstance instance = Document.GetElement(id) as FamilyInstance;
+    //                floorInstanceCount[id.IntegerValue.ToString()] = "From=" + (instance.FromRoom?.Name ?? "None")
+    //                    + "+To=" + (instance.ToRoom?.Name ?? "None");
+    //            }
+    //            //Dictionary<string, string> floorInstanceCount = entity.FloorInstanceCount;
+    //            UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(floorInstanceCount, "内外统计");
+    //            universalDictionaryList.ShowDialog();
+    //        }
+    //        catch (Exception)
+    //        {
+
+    //            throw;
+    //        }
+    //    }
+
+    //    public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteELements);
+    //    private void DeleteELements(IEnumerable<object> selectedElements)
+    //    {
+    //        _externalHandler.Run(app =>
+    //        {
+    //            Document.NewTransaction(() =>
+    //            {
+    //                var elementIds = selectedElements?.Cast<OpenningEntity>()
+    //                    .SelectMany(item => item.InstanceIds).ToList();
+    //                if (elementIds?.Count > 0)
+    //                {
+    //                    Document.Delete(elementIds);
+    //                }
+    //            }, "删除多个门窗实体");
+    //            QueryElement(null);
+    //        });
+    //    }
+    //    public ICommand OpenFamilyCommand => new RelayCommand<OpenningEntity>(OpenFamily);
+    //    private void OpenFamily(OpenningEntity entity)
+    //    {
+    //        if (entity == null) return;
+    //        ElementId familySymbolId = entity.SymbolId;
+    //        Family family = ((FamilySymbol)Document.GetElement(familySymbolId)).Family;
+    //        string tempDir = @"C:\temp";
+    //        if (!Directory.Exists(tempDir))
+    //        {
+    //            Directory.CreateDirectory(tempDir);
+    //        }
+    //        // 生成唯一文件名
+    //        string familyName = family.Name;
+    //        string tempFilePath = System.IO.Path.Combine(tempDir, $"{familyName}.rfa");
+    //        // 处理文件名冲突
+    //        int counter = 1;
+    //        while (File.Exists(tempFilePath))
+    //        {
+    //            tempFilePath = System.IO.Path.Combine(tempDir, $"{familyName}_{counter}.rfa");
+    //            counter++;
+    //        }
+    //        // 保存族到临时文件
+    //        Document familyDoc = Document.EditFamily(family);
+    //        familyDoc.SaveAs(tempFilePath);
+    //        uIApp.OpenAndActivateDocument(tempFilePath);
+    //        TaskDialog.Show("成功", $"已打开族：{family.Name}");
+    //    }
+    //    public ICommand TagRenameCommand => new RelayCommand<OpenningEntity>(TagRename);
+    //    private void TagRename(OpenningEntity entity)
+    //    {
+    //        if (entity == null) return;
+    //        _externalHandler.Run(app =>
+    //        {
+    //            Document.NewTransaction(() =>
+    //            {
+    //                UniversalNewString subView = new UniversalNewString($"提示：输入新号，原编号{entity.TagName}");
+    //                if (subView.ShowDialog() != true || !(subView.DataContext is NewStringViewModel vm) || string.IsNullOrWhiteSpace(vm.NewName))
+    //                {
+    //                    return;
+    //                }
+    //                try
+    //                {
+    //                    FamilySymbol symbol = Document.GetElement(entity.SymbolId) as FamilySymbol;
+    //                    symbol.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).Set(vm.NewName);
+    //                }
+    //                catch (Exception ex)
+    //                {
+    //                    TaskDialog.Show("tt", $"发生错误: {ex.Message}");
+    //                }
+    //            }, "修改门窗类别编号");
+    //            QueryElement(null);
+    //        });
+    //    }
+    //    public ICommand PickOpenCommand => new RelayCommand<OpenningEntity>(PickOpen);
+    //    private void PickOpen(OpenningEntity entity)
+    //    {
+    //        _externalHandler.Run(app =>
+    //        {
+    //            Selection select = uIDoc.Selection;
+    //            if (ActiveView.GetType().Name != "ViewPlan")
+    //            {
+    //                TaskDialog.Show("tt", "请在平面操作本功能");
+    //                return;
+    //            }
+    //            Level currentLevel = ActiveView.GenLevel;
+    //            if (currentLevel == null) return;
+    //            string currentLevelName = currentLevel.Name;
+    //            // 获取当前楼层对应的所有实例ID
+    //            // 直接筛选当前楼层的实例
+    //            var currentLevelInstances = entity.Instances
+    //                .Where(instance =>
+    //                {
+    //                    Level instanceLevel = Document.GetElement(instance.LevelId) as Level;
+    //                    return instanceLevel?.Name == currentLevelName;
+    //                })
+    //                .Select(instance => instance.Id)
+    //                .ToList();
+    //            select.SetElementIds(currentLevelInstances);
+    //            TaskDialog.Show("tt", $"选中{currentLevelInstances.Count().ToString()}个对象");
+    //        });
+    //    }
+    //    public class MyItem
+    //    {
+    //        public string Name { get; set; }
+    //        public int Count { get; set; }
+    //    }
+    //    public ICommand SubViewCommand => new RelayCommand<OpenningEntity>(SubView);
+    //    private static void SubView(OpenningEntity entity)
+    //    {
+    //        if (entity == null) return;
+    //        Dictionary<string, string> floorInstanceCount = entity.FloorInstanceCount;
+    //        UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(floorInstanceCount, "分层统计");
+    //        universalDictionaryList.ShowDialog();
+
+    //        //刷新？
+    //    }
+    //    public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
+    //    private void QueryElement(string obj)
+    //    {
+    //        _externalHandler.Run(app =>
+    //        {
+    //            AllOpens.Clear();
+    //            // 1. 获取所有门窗符号（优化：直接过滤 OST_Doors 和 OST_Windows）
+    //            var doorWindowSymbols = new FilteredElementCollector(Document).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>()
+    //            .Where(s => s.Category != null &&
+    //                       (s.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Doors ||
+    //                        s.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Windows))
+    //            .ToList();
+
+    //            // 2. 获取所有门窗实例，并按 Symbol.Id 分组（避免重复查询）
+    //            var allInstances = new FilteredElementCollector(Document).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
+    //                .Where(fi => doorWindowSymbols.Any(s => s.Id == fi.Symbol.Id))
+    //                .GroupBy(fi => fi.Symbol.Id)
+    //                .ToDictionary(g => g.Key, g => g.ToList());
+    //            // 3. 填充 allOpens（仅遍历有效的符号）
+    //            foreach (var symbol in doorWindowSymbols)
+    //            {
+    //                string tagName = symbol.get_Parameter(BuiltInParameter.WINDOW_TYPE_ID).AsString();
+    //                List<FamilyInstance> instances = allInstances.TryGetValue(symbol.Id, out var list) ? list : new List<FamilyInstance>();
+    //                if (string.IsNullOrEmpty(obj) || symbol.Name.Contains(obj) || symbol.Name.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0 || tagName.Contains(obj) || tagName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0)
+    //                {
+    //                    allOpens.Add(new OpenningEntity(symbol, instances));
+    //                }
+    //            }
+    //        });
+    //    }
+    //    private ObservableCollection<OpenningEntity> allOpens = new ObservableCollection<OpenningEntity>();
+    //    public ObservableCollection<OpenningEntity> AllOpens
+    //    {
+    //        get => allOpens;
+    //        set => SetProperty(ref allOpens, value);
+    //    }
+    //}
     public class SizeComparer : IEqualityComparer<(double width, double height)>
     {
         public bool Equals((double width, double height) x, (double width, double height) y)
