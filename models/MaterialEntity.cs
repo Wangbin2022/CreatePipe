@@ -1,4 +1,5 @@
 ﻿using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Visual;
 using CreatePipe.cmd;
 using CreatePipe.Utils;
 
@@ -9,8 +10,6 @@ namespace CreatePipe.Models
         Document Document;
         private readonly BaseExternalHandler _handler;
         public Material Material { get; set; }
-        // 如果 Material 为空，则返回 InvalidElementId (用于"默认"选项)
-        public ElementId Id => Material?.Id ?? ElementId.InvalidElementId;
         public MaterialEntity(Material material, BaseExternalHandler handler)
         {
             Document = material.Document;
@@ -19,12 +18,21 @@ namespace CreatePipe.Models
             {
                 Material = material;
                 _materialName = Material.Name;
-                ////_category = material.MaterialCategory;
-                //_class = material.MaterialClass;
-                //_colorValue = GetColorValue(material.Color);
-                //colorElemId = material.Id.ToString();
+                Color = Material?.Color;
             }
         }
+        private bool _isUsed;
+        public bool IsUsed
+        {
+            get => _isUsed;
+            set
+            {
+                _isUsed = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusText)); // 可以绑定到界面上显示中文状态
+            }
+        }
+        public string StatusText => IsUsed ? "使用中" : "未使用";
         private string _materialName;
         public string Name
         {
@@ -40,8 +48,28 @@ namespace CreatePipe.Models
                 });
             }
         }
+        // 如果 Material 为空，则返回 InvalidElementId (用于"默认"选项)
+        public ElementId Id => Material?.Id ?? ElementId.InvalidElementId;
+        public string MaterialCategory => Material?.MaterialCategory ?? string.Empty;
         public string MaterialClass => Material?.MaterialClass ?? string.Empty;
-        public Color Color => Material?.Color;
+        public Color Color { get; set; }
+        public Color AppearanceColor => GetAppearanceColor();
+        private AssetPropertyDoubleArray4d GetColorProperty(Asset asset)
+        {
+            return (AssetPropertyDoubleArray4d)asset?.FindByName("generic_diffuse");
+        }
+        private Color GetAppearanceColor()
+        {
+            ElementId id = Material.AppearanceAssetId;
+            if (id != null && id.IntegerValue != -1)
+            {
+                AppearanceAssetElement appearanceAssetElement = Document.GetElement(id) as AppearanceAssetElement;
+                Asset asset = appearanceAssetElement.GetRenderingAsset();
+                AssetPropertyDoubleArray4d property = (AssetPropertyDoubleArray4d)asset?.FindByName("generic_diffuse");
+                return property?.GetValueAsColor();
+            }
+            return null;
+        }
         public string ColorValue => Color != null ? $"{Color.Red}-{Color.Green}-{Color.Blue}" : "无";
     }
     //public class MaterialEntity : INotifyCollectionChanged

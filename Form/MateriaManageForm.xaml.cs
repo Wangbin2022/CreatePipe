@@ -29,118 +29,102 @@ namespace CreatePipe.Form
         }
     }
 
-    public class MateriaManagerViewModel : INotifyPropertyChanged
-    {
-        private ObservableCollection<MaterialEntity> _materialEntityModels;
-        public ObservableCollection<MaterialEntity> MaterialEntityModels
-        {
-            get { return _materialEntityModels; }
-            set
-            {
-                if (_materialEntityModels != value)
-                {
-                    _materialEntityModels = value;
-                    OnPropertyChanged(nameof(MaterialEntityModels));
-                }
-            }
-        }
-        private string _keyword;
-        public string Keyword
-        {
-            get { return _keyword; }
-            set { _keyword = value; }
-        }
-        public string MaterialCount => MaterialEntityModels.Count.ToString();
-        private Document _document;
-        public Document Document
-        {
-            get { return _document; }
-            set
-            {
-                _document = value;
-                OnPropertyChanged();
-            }
-        }
-        public RelayCommand<Document> QueryELementCommand { get; set; }
-
-        public ICommand DeleteELementCommand { get; private set; }
-        public ICommand DeleteELementCommand2 { get; private set; }
-        public MateriaManagerViewModel(Document document)
-        {
-            _document = document;
-            MaterialEntityModels = new ObservableCollection<MaterialEntity>(
-                      new FilteredElementCollector(document).OfClass(typeof(Material))
-                      .Cast<Material>().Select(material => new MaterialEntity((material), null)));
-            QueryELementCommand = new RelayCommand<Document>(QueryElement);
-            DeleteELementCommand = new RelayCommand<IEnumerable<object>>(DeleteElements);
-            DeleteELementCommand2 = new RelayCommand<MaterialEntity>(DeleteElement);
-        }
-
-        //多选删除方法
-        public void DeleteElements(IEnumerable<object> selectedElements)
-        {
-            Document document = _document;
-            List<MaterialEntity> selectedItems = selectedElements.Cast<MaterialEntity>().ToList();
-            if (selectedElements == null) return;
-            document.NewTransaction(() =>
-            {
-                for (int i = selectedItems.Count - 1; i >= 0; i--)
-                {
-                    MaterialEntity material = selectedItems[i] as MaterialEntity;
-                    document.Delete(material.Material.Id);
-                    MaterialEntityModels.Remove(material);
-                }
-            }, "删除多材质");
-            OnPropertyChanged(nameof(MaterialCount));
-        }
-        //单选删除方法
-        public void DeleteElement(MaterialEntity material)
-        {
-            Document document = _document;
-            document.NewTransaction(() =>
-            {
-                document.Delete(material.Material.Id);
-                MaterialEntityModels.Remove(material);
-            }, "删除材质");
-            OnPropertyChanged(nameof(MaterialCount));
-        }
-
-        public void QueryElement(Document doc)
-        {
-            MaterialEntityModels.Clear();
-            FilteredElementCollector elements = new FilteredElementCollector(doc).OfClass(typeof(Material));
-            var materials = elements.ToList()
-                .ConvertAll(x => new MaterialEntity((x as Material), null))
-                .Where(e => string.IsNullOrEmpty(Keyword) || e.Name.Contains(Keyword));
-            foreach (var item in materials)
-            {
-                MaterialEntityModels.Add(item);
-            }
-            OnPropertyChanged(nameof(MaterialCount));
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-    }
-
-    //[Transaction(TransactionMode.Manual)]
-    //public class Test3 : IExternalCommand
+    //public class MateriaManagerViewModel : INotifyPropertyChanged
     //{
-    //    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    //    private ObservableCollection<MaterialEntity> _materialEntityModels;
+    //    public ObservableCollection<MaterialEntity> MaterialEntityModels
     //    {
-    //        UIDocument uiDoc = commandData.Application.ActiveUIDocument;
-    //        Document doc = uiDoc.Document;
+    //        get { return _materialEntityModels; }
+    //        set
+    //        {
+    //            if (_materialEntityModels != value)
+    //            {
+    //                _materialEntityModels = value;
+    //                OnPropertyChanged(nameof(MaterialEntityModels));
+    //            }
+    //        }
+    //    }
+    //    private string _keyword;
+    //    public string Keyword
+    //    {
+    //        get { return _keyword; }
+    //        set { _keyword = value; }
+    //    }
+    //    public string MaterialCount => MaterialEntityModels.Count.ToString();
+    //    private Document _document;
+    //    public Document Document
+    //    {
+    //        get { return _document; }
+    //        set
+    //        {
+    //            _document = value;
+    //            OnPropertyChanged();
+    //        }
+    //    }
+    //    public RelayCommand<Document> QueryELementCommand { get; set; }
 
-    //        MainWindow mainWindow = new MainWindow(doc);
-    //        mainWindow.ShowDialog();
+    //    public ICommand DeleteELementCommand { get; private set; }
+    //    public ICommand DeleteELementCommand2 { get; private set; }
+    //    public MateriaManagerViewModel(Document document)
+    //    {
+    //        _document = document;
+    //        MaterialEntityModels = new ObservableCollection<MaterialEntity>(
+    //                  new FilteredElementCollector(document).OfClass(typeof(Material))
+    //                  .Cast<Material>().Select(material => new MaterialEntity((material), null)));
+    //        QueryELementCommand = new RelayCommand<Document>(QueryElement);
+    //        DeleteELementCommand = new RelayCommand<IEnumerable<object>>(DeleteElements);
+    //        DeleteELementCommand2 = new RelayCommand<MaterialEntity>(DeleteElement);
+    //    }
 
-    //        return Result.Succeeded;
+    //    //多选删除方法
+    //    public void DeleteElements(IEnumerable<object> selectedElements)
+    //    {
+    //        Document document = _document;
+    //        List<MaterialEntity> selectedItems = selectedElements.Cast<MaterialEntity>().ToList();
+    //        if (selectedElements == null) return;
+    //        document.NewTransaction(() =>
+    //        {
+    //            for (int i = selectedItems.Count - 1; i >= 0; i--)
+    //            {
+    //                MaterialEntity material = selectedItems[i] as MaterialEntity;
+    //                document.Delete(material.Material.Id);
+    //                MaterialEntityModels.Remove(material);
+    //            }
+    //        }, "删除多材质");
+    //        OnPropertyChanged(nameof(MaterialCount));
+    //    }
+    //    //单选删除方法
+    //    public void DeleteElement(MaterialEntity material)
+    //    {
+    //        Document document = _document;
+    //        document.NewTransaction(() =>
+    //        {
+    //            document.Delete(material.Material.Id);
+    //            MaterialEntityModels.Remove(material);
+    //        }, "删除材质");
+    //        OnPropertyChanged(nameof(MaterialCount));
+    //    }
+
+    //    public void QueryElement(Document doc)
+    //    {
+    //        MaterialEntityModels.Clear();
+    //        FilteredElementCollector elements = new FilteredElementCollector(doc).OfClass(typeof(Material));
+    //        var materials = elements.ToList()
+    //            .ConvertAll(x => new MaterialEntity((x as Material), null))
+    //            .Where(e => string.IsNullOrEmpty(Keyword) || e.Name.Contains(Keyword));
+    //        foreach (var item in materials)
+    //        {
+    //            MaterialEntityModels.Add(item);
+    //        }
+    //        OnPropertyChanged(nameof(MaterialCount));
+    //    }
+
+    //    public event PropertyChangedEventHandler PropertyChanged;
+    //    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    //    {
+    //        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     //    }
     //}
-
     public class RelayCommand<T> : ICommand
     {
         private readonly Action<T> _execute;

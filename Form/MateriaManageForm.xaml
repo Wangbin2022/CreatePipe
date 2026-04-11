@@ -6,11 +6,11 @@
              xmlns:vm="clr-namespace:CreatePipe.Form"
              xmlns:local="clr-namespace:CreatePipe.Form"             
              mc:Ignorable="d" 
-             xmlns:converter ="clr-namespace:CreatePipe.Utils"  
+        xmlns:conv ="clr-namespace:CreatePipe.Form.Converters"  
         xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
         Title="材质管理" Width="600" Height="450"  WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize">
     <Window.Resources>
-        <converter:ColorConvertHelper x:Key="colorConverter"/>
+        <conv:RevitColorConverter x:Key="colorConverter"/>
     </Window.Resources>
     <StackPanel >
         <StackPanel Orientation="Horizontal" >
@@ -24,7 +24,7 @@
                 </i:Interaction.Triggers>
             </TextBox>
             <TextBlock Text="{Binding MaterialCount,UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
-            <Button Content="删除材质" Margin="5" HorizontalAlignment="Right" Width="80"
+            <Button Content="删除材质1" Margin="5" HorizontalAlignment="Right" Width="80"
                      Command="{Binding DeleteELementCommand}"
         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}" />
         </StackPanel>
@@ -66,7 +66,7 @@
                         <DataTemplate>
                             <Border Width="20" Height="20"
                             Background="{Binding AppearanceColor, Converter={StaticResource colorConverter}}"
-                            BorderBrush="Gray" BorderThickness="1" CornerRadius="5" Margin="5,0"/>
+                            BorderBrush="Gray" BorderThickness="1"  Margin="5,0"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

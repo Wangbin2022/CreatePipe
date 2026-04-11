@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Electrical;
+using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
@@ -9,6 +10,7 @@ using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -560,15 +562,240 @@ namespace CreatePipe
             if (name.Contains("五")) return 5;
             return 0; // 默认防错
         }
+        ////0410
+        //private static readonly Guid SchemaGuid = new Guid("98017A5F-F4A7-451C-8807-EF137B587C50");
+        //private static readonly Schema ScheduleSchema = GetOrCreateSchema();
+        //public static void SetupUpdater(UIControlledApplication app)
+        //{
+        //    RegisterUpdater(CreateFormatter(app.ActiveAddInId));
+        //}
+        //private static ScheduleFormatter CreateFormatter(AddInId id) => new ScheduleFormatter { Schema = ScheduleSchema, AddInId = id };
+        //private static void MarkAsFormatted(ViewSchedule schedule)
+        //{
+        //    if (schedule.GetEntity(ScheduleSchema).IsValid()) return;
+        //    var entity = new Entity(ScheduleSchema);
+        //    entity.Set("Formatted", true);
+        //    schedule.SetEntity(entity);
+        //}
+        //////private static Schema GetOrCreateSchema() => Schema.Lookup(SchemaGuid) ?? new SchemaBuilder(SchemaGuid)
+        ////        .SetSchemaName("ScheduleFormatterFlag").AddSimpleField("Formatted", typeof(bool)).Finish();
+        //private static void RegisterUpdater(ScheduleFormatter formatter)
+        //{
+        //    if (UpdaterRegistry.IsUpdaterRegistered(formatter.UpdaterId)) return;
+        //    var filter = new LogicalAndFilter(
+        //        new ElementClassFilter(typeof(ViewSchedule)),
+        //        new ExtensibleStorageFilter(ScheduleSchema.GUID));
+        //    UpdaterRegistry.RegisterUpdater(formatter);
+        //    UpdaterRegistry.AddTrigger(formatter.UpdaterId, filter, Element.GetChangeTypeAny());
+        //}
+        private static string ReplaceIllegalChars(string input) =>
+    new string(input.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray());
+        private static string ColorToHex(Color color) =>
+            $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
+        private static bool ColorsEqual(Color a, Color b) =>
+            a.Red == b.Red && a.Green == b.Green && a.Blue == b.Blue;
+        private string GenerateMaterialReport(Material material)
+        {
+            var materialTypeParam = material.get_Parameter(BuiltInParameter.PHY_MATERIAL_PARAM_TYPE);
+            int materialType = materialTypeParam?.AsInteger() ?? 0;
+            string materialTypeName;
+            switch (materialType)
+            {
+                case (0):
+                    materialTypeName = "通用";
+                    break;
+                case (1):
+                    materialTypeName = "混凝土";
+                    break;
+                case (2):
+                    materialTypeName = "钢材";
+                    break;
+                default:
+                    materialTypeName = "未知";
+                    break;
+            }
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"材料类型: {materialTypeName}");
+
+            // 仅当有物理属性时才提取（材料类型 > 0）
+            if (materialType > 0)
+            {
+                // 提取三轴属性
+                AppendArrayParameter(sb, "杨氏模量", material,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_YOUNG_MOD1,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_YOUNG_MOD2,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_YOUNG_MOD3);
+                AppendArrayParameter(sb, "泊松比", material,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_POISSON_MOD1,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_POISSON_MOD2,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_POISSON_MOD3);
+                AppendArrayParameter(sb, "剪切模量", material,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_SHEAR_MOD1,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_SHEAR_MOD2,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_SHEAR_MOD3);
+                AppendArrayParameter(sb, "热膨胀系数", material,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_EXP_COEFF1,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_EXP_COEFF2,
+                    BuiltInParameter.PHY_MATERIAL_PARAM_EXP_COEFF3);
+                // 单值属性
+                AppendSingleParameter(sb, "单位重量", material, BuiltInParameter.PHY_MATERIAL_PARAM_UNIT_WEIGHT);
+                //AppendSingleParameter(sb, "阻尼比", material, BuiltInParameter.PHY_MATERIAL_PARAM_DAMPING_RATIO);
+
+                int behavior = material.get_Parameter(BuiltInParameter.PHY_MATERIAL_PARAM_BEHAVIOR)?.AsInteger() ?? 0;
+                sb.AppendLine($"材料行为: {(behavior == 0 ? "各向同性" : "正交异性")}");
+
+                // 材料特定属性
+                switch (materialType)
+                {
+                    case 1: // 混凝土
+                        AppendSingleParameter(sb, "混凝土抗压强度", material, BuiltInParameter.PHY_MATERIAL_PARAM_CONCRETE_COMPRESSION);
+                        AppendSingleParameter(sb, "轻质系数", material, BuiltInParameter.PHY_MATERIAL_PARAM_LIGHT_WEIGHT);
+                        AppendSingleParameter(sb, "抗剪强度折减系数", material, BuiltInParameter.PHY_MATERIAL_PARAM_SHEAR_STRENGTH_REDUCTION);
+                        break;
+
+                    case 2: // 钢材
+                        AppendSingleParameter(sb, "最小屈服应力", material, BuiltInParameter.PHY_MATERIAL_PARAM_MINIMUM_YIELD_STRESS);
+                        AppendSingleParameter(sb, "最小抗拉强度", material, BuiltInParameter.PHY_MATERIAL_PARAM_MINIMUM_TENSILE_STRENGTH);
+                        AppendSingleParameter(sb, "折减系数", material, BuiltInParameter.PHY_MATERIAL_PARAM_REDUCTION_FACTOR);
+                        break;
+                }
+            }
+
+            return sb.ToString();
+        }
+        private void AppendArrayParameter(System.Text.StringBuilder sb, string name, Material material,
+            BuiltInParameter param1, BuiltInParameter param2, BuiltInParameter param3)
+        {
+            double v1 = material.get_Parameter(param1)?.AsDouble() ?? 0;
+            double v2 = material.get_Parameter(param2)?.AsDouble() ?? 0;
+            double v3 = material.get_Parameter(param3)?.AsDouble() ?? 0;
+            sb.AppendLine($"{name}: {v1}, {v2}, {v3}");
+        }
+        private void AppendSingleParameter(System.Text.StringBuilder sb, string name, Material material, BuiltInParameter param)
+        {
+            double value = material.get_Parameter(param)?.AsDouble() ?? 0;
+            sb.AppendLine($"{name}: {value}");
+        }
+
+        public HashSet<ElementId> GetAllUsedMaterialIds(Document doc)
+        {
+            HashSet<ElementId> usedMaterialIds = new HashSet<ElementId>();
+            // 1. 检查所有类别和子类别的默认材质 (Object Styles)
+            foreach (Category cat in doc.Settings.Categories)
+            {
+                if (cat.Material != null && cat.Material.Id != ElementId.InvalidElementId)
+                {
+                    usedMaterialIds.Add(cat.Material.Id);
+                }
+                // 遍历子类别
+                foreach (Category subCat in cat.SubCategories)
+                {
+                    if (subCat.Material != null && subCat.Material.Id != ElementId.InvalidElementId)
+                    {
+                        usedMaterialIds.Add(subCat.Material.Id);
+                    }
+                }
+            }
+            // 2. 收集模型中的所有实例 (Instances) 和 类型 (Types)
+            FilteredElementCollector instances = new FilteredElementCollector(doc).WhereElementIsNotElementType();
+            FilteredElementCollector types = new FilteredElementCollector(doc).WhereElementIsElementType();
+            // 合并实例和类型的集合
+            var allElements = instances.UnionWith(types);
+            // 3. 遍历所有元素，提取它们使用的材质
+            foreach (Element el in allElements)
+            {
+                // 排除一些没有材质的系统级元素，提升部分性能
+                if (el.Category == null) continue;
+                // 获取元素本身的材质（包含通过参数赋予的、以及复合结构层中的）
+                ICollection<ElementId> baseMatIds = el.GetMaterialIds(false);
+                foreach (ElementId matId in baseMatIds)
+                {
+                    if (matId != ElementId.InvalidElementId) usedMaterialIds.Add(matId);
+                }
+                // 获取通过"油漆(Paint)"工具涂抹在该元素表面的材质
+                ICollection<ElementId> paintedMatIds = el.GetMaterialIds(true);
+                foreach (ElementId matId in paintedMatIds)
+                {
+                    if (matId != ElementId.InvalidElementId) usedMaterialIds.Add(matId);
+                }
+            }
+            return usedMaterialIds;
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
             Document doc = uiDoc.Document;
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
+            //需补充验证批量删除进度条，改非模态，model导入handeler改名
 
+            ////0410 查询结构构件的物理材料属性
+            //try
+            //{
+            //    // 获取选中的单个构件
+            //    var selectedIds = uiDoc.Selection.GetElementIds();
+            //    if (selectedIds.Count != 1)
+            //    {
+            //        message = "请仅选择一个构件";
+            //        return Result.Failed;
+            //    }
+            //    // 验证是否为FamilyInstance
+            //    var familyInstance = doc.GetElement(selectedIds.First()) as FamilyInstance;
+            //    if (familyInstance == null)
+            //    {
+            //        TaskDialog.Show("Revit", "请选择一个结构构件（柱、梁、支撑等）");
+            //        return Result.Failed;
+            //    }
+            //    // 获取Structural Material参数对应的Material元素
+            //    var structuralMaterialParam = familyInstance.get_Parameter(BuiltInParameter.STRUCTURAL_MATERIAL_PARAM);
+            //    if (structuralMaterialParam == null)
+            //    {
+            //        TaskDialog.Show("Revit", "未找到Structural Material参数");
+            //        return Result.Failed;
+            //    }
+            //    var material = doc.GetElement(structuralMaterialParam.AsElementId()) as Material;
+            //    if (material == null)
+            //    {
+            //        TaskDialog.Show("Revit", "未找到关联的材料");
+            //        return Result.Failed;
+            //    }
+            //    // 提取材料属性
+            //    string report = GenerateMaterialReport(material);
+            //    TaskDialog.Show("物理材料属性", report);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("错误", ex.Message);
+            //    return Result.Failed;
+            //}
 
+            //0410 ScheduleToHTML.CS将时间表导出为格式化的HTML 需要引用Web。UI，建议放弃
+            ////0410 Samples.ScheduleAutomaticFormatter.CS自动将时间表的交替列格式化成不同的背景颜色代码升级
+            //if (!(commandData.View is ViewSchedule viewSchedule)) return Result.Cancelled;
+            //var formatter = CreateFormatter(commandData.Application.ActiveAddInId);
+            //using (var t = new Transaction(viewSchedule.Document, "Format schedule columns"))
+            //{
+            //    t.Start();
+            //    formatter.Format(viewSchedule);
+            //    MarkAsFormatted(viewSchedule);
+            //    t.Commit();
+            //}
+            //RegisterUpdater(formatter);
 
+            ////0410 材质管理器
+            /////查找未使用材质方法
+            //HashSet<ElementId> usedMaterialIds = GetAllUsedMaterialIds(doc);
+            //TaskDialog.Show("tt", usedMaterialIds.Count().ToString());
+
+            MateriaManageView materiaManageView = new MateriaManageView(doc);
+            materiaManageView.Show();
+            //MateriaManageForm materiaManageForm = new MateriaManageForm(doc);
+            //materiaManageForm.Show();
+
+            //////0410 族管理器
+            //FamilyManagerView familyManagerView = new FamilyManagerView(uiApp);
+            //familyManagerView.Show();
 
             ////0409 门窗管理
             //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);
@@ -1454,6 +1681,49 @@ namespace CreatePipe
             store = v;
             this.OnPropertyChanged(propertyName);
         }
+        //0410
+        public class ScheduleFormatter : IUpdater
+        {
+            private static readonly Guid UpdaterGuid = new Guid("C8483107-EF6D-4FDB-BB88-AF79E0E62361");
+            private static readonly Color White = new Color(0xFF, 0xFF, 0xFF);
+            private static readonly Color Highlight = new Color(0xD8, 0xD8, 0xD8);
+            public Schema Schema { get; set; }
+            public AddInId AddInId { get; set; }
+            public UpdaterId UpdaterId => new UpdaterId(AddInId, UpdaterGuid);
+            public string GetUpdaterName() => "AutomaticScheduleFormatter";
+            public string GetAdditionalInformation() => "Automatic schedule formatter";
+            public ChangePriority GetChangePriority() => ChangePriority.Views;
+            public void Format(ViewSchedule schedule)
+            {
+                var definition = schedule.Definition;
 
+                foreach (var (field, index) in definition.GetFieldOrder()
+                    .Select(id => definition.GetField(id))
+                    .Select((f, i) => (f, i)))
+                {
+                    bool useHighlight = index % 2 == 0;
+                    var style = field.GetStyle();
+                    var options = style.GetCellStyleOverrideOptions();
+
+                    options.BackgroundColor = useHighlight;
+                    style.SetCellStyleOverrideOptions(options);
+                    style.BackgroundColor = useHighlight ? Highlight : White;
+
+                    field.SetStyle(style);
+                }
+            }
+            public void Execute(UpdaterData data)
+            {
+                foreach (var scheduleId in data.GetModifiedElementIds())
+                {
+                    if (data.GetDocument().GetElement(scheduleId) is ViewSchedule schedule)
+                        Format(schedule);
+                }
+            }
+            public UpdaterId GetUpdaterId()
+            {
+                throw new NotImplementedException();
+            }
+        }
     }
 }

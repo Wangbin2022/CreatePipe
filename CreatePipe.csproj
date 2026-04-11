@@ -119,7 +119,9 @@
     <Compile Include="Form\Converters\ColorConverter.cs" />
     <Compile Include="Form\Converters\ColorToNameConverter.cs" />
     <Compile Include="Form\Converters\ContentTemplateSelector.cs" />
+    <Compile Include="Form\Converters\FileSizeConverter.cs" />
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
+    <Compile Include="Form\Converters\InverseBooleanConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
     <Compile Include="Form\Converters\RevitColorConverter.cs" />
     <Compile Include="Form\Converters\RevitColorToBrushConverter.cs" />
@@ -131,8 +133,14 @@
     <Compile Include="Form\FamilyInstanceSerializeView.xaml.cs">
       <DependentUpon>FamilyInstanceSerializeView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\FamilyManagerView.xaml.cs">
+      <DependentUpon>FamilyManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\GapWidthWindow.xaml.cs">
       <DependentUpon>GapWidthWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\MateriaManageView.xaml.cs">
+      <DependentUpon>MateriaManageView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\MEPSlopeCheckView.xaml.cs">
       <DependentUpon>MEPSlopeCheckView.xaml</DependentUpon>
@@ -185,6 +193,7 @@
     <Compile Include="Form\UniversialSplitButton.xaml.cs">
       <DependentUpon>UniversialSplitButton.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\UserControls\EnhancedTreeView.cs" />
     <Compile Include="Form\ViewFilterManagerView.xaml.cs">
       <DependentUpon>ViewFilterManagerView.xaml</DependentUpon>
     </Compile>
@@ -200,6 +209,7 @@
     </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
     <Compile Include="models\FamilyEntity.cs" />
+    <Compile Include="models\FileSingle.cs" />
     <Compile Include="models\NodeWithColor.cs" />
     <Compile Include="models\ParameterEntity.cs" />
     <Compile Include="models\SingleMarkModel.cs" />
@@ -631,6 +641,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\FamilyManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\GapWidthWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -644,6 +658,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\ListboxTest.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\MateriaManageView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
