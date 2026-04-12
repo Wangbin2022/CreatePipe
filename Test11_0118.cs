@@ -6,6 +6,7 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using CreatePipe.Form;
+using CreatePipe.models;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+
 
 namespace CreatePipe
 {
@@ -729,6 +731,12 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
             //需补充验证批量删除进度条，改非模态，model导入handeler改名
 
+            ////0411 水系统管理
+            PipeSystemManagerView pipeSystemManagerView = new PipeSystemManagerView(uiApp);
+            pipeSystemManagerView.Show();
+            ////PipeSystemManagerSubView pipeSystemManagerSubView = new PipeSystemManagerSubView("NewTab", uiDoc, _externalHandler);
+            ////pipeSystemManagerSubView.ShowDialog();
+
             ////0410 查询结构构件的物理材料属性
             //try
             //{
@@ -784,18 +792,20 @@ namespace CreatePipe
             //RegisterUpdater(formatter);
 
             ////0410 材质管理器
-            /////查找未使用材质方法
+            ///////查找未使用材质方法。OK
+            //MateriaManageView materiaManageView = new MateriaManageView(doc);
+            //materiaManageView.Show();
             //HashSet<ElementId> usedMaterialIds = GetAllUsedMaterialIds(doc);
             //TaskDialog.Show("tt", usedMaterialIds.Count().ToString());
-
-            MateriaManageView materiaManageView = new MateriaManageView(doc);
-            materiaManageView.Show();
             //MateriaManageForm materiaManageForm = new MateriaManageForm(doc);
             //materiaManageForm.Show();
 
-            //////0410 族管理器
+            ////////0410 族管理器
             //FamilyManagerView familyManagerView = new FamilyManagerView(uiApp);
             //familyManagerView.Show();
+            ////Dirs dirs = new Dirs(new DirectoryInfo("D:\\CACCWPF\\"));
+            ////FamilyManagerSubView familyManagerSubView = new FamilyManagerSubView(uiApp,dirs,_externalHandler);
+            ////familyManagerSubView.ShowDialog();
 
             ////0409 门窗管理
             //OpenningManagerView openningManagerView = new OpenningManagerView(uiApp);

@@ -1,6 +1,5 @@
 ﻿using Autodesk.Revit.DB;
 using CreatePipe.cmd;
-using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +19,7 @@ namespace CreatePipe.models
         public double Height { get; set; }
         public string WidthType { get; set; }
         public int InstanceCount { get; set; } = 0;
-        public bool HaveInstance =>  InstanceCount > 0;
+        public bool HaveInstance => InstanceCount > 0;
         public bool IsMatching { get; set; }
         public Dictionary<string, string> FloorInstanceCount { get; set; } = new Dictionary<string, string>();
         // 原始数据引用 (供 ViewModel 逻辑使用)

@@ -1,5 +1,4 @@
 ﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Lighting;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.Models;
@@ -9,13 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 
 
@@ -41,7 +34,9 @@ namespace CreatePipe.Form
     public class MateriaManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<MaterialEntity>
     {
         private Document _document;
-        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+        public BaseExternalHandler ExternalHandler => new BaseExternalHandler();
+        //private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+        //public BaseExternalHandler ExternalHandler => _externalHandler;
 
         // 缓存全量材质列表，用于内存级快速搜索
         private List<MaterialEntity> _cachedMaterials = new List<MaterialEntity>();
@@ -61,7 +56,6 @@ namespace CreatePipe.Form
                 OnPropertyChanged(nameof(Collection));
             }
         }
-        public BaseExternalHandler ExternalHandler => _externalHandler;
         // 4. 初始化方法
         public void InitFunc()
         {
@@ -70,7 +64,7 @@ namespace CreatePipe.Form
             var materials = new FilteredElementCollector(_document).OfClass(typeof(Material)).Cast<Material>()
                 .Select(m =>
                 {
-                    var entity = new MaterialEntity(m, _externalHandler);
+                    var entity = new MaterialEntity(m, ExternalHandler);
                     // 3. O(1) 极速校验该材质是否被使用
                     entity.IsUsed = usedMaterialIds.Contains(m.Id);
                     return entity;
@@ -150,7 +144,7 @@ namespace CreatePipe.Form
             var dialog = new UniversalNewString("请输入新材质名称：", defaultName);
             bool? result = dialog.ShowDialog();
             // 3. 用户取消则退出
-            if (result != true || string.IsNullOrWhiteSpace(dialog.ViewModel.NewName))                return;
+            if (result != true || string.IsNullOrWhiteSpace(dialog.ViewModel.NewName)) return;
             string finalName = dialog.ViewModel.NewName.Trim();
             // 4. 检查名称是否已存在
             if (existingNames.Contains(finalName))

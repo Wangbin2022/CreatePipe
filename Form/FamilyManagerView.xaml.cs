@@ -11,17 +11,11 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
+using System.Windows.Forms;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+
 
 namespace CreatePipe.Form
 {
@@ -37,349 +31,201 @@ namespace CreatePipe.Form
         }
         private void btn_OK_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            try
-            {
-                // 假设 directoryTreeView 是您 UI 中的树控件
-                if (directoryTreeView?.SelectedItem is Dirs selectedDirectory)
-                {
-                    string output = selectedDirectory.Info.FullName;
-                    System.Windows.Clipboard.SetText(output);
-                    System.Windows.Clipboard.Flush();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"复制剪贴板失败: {ex.Message}");
-            }
+            //try
+            //{
+            //    // 假设 directoryTreeView 是您 UI 中的树控件
+            //    if (directoryTreeView?.SelectedItem is Dirs selectedDirectory)
+            //    {
+            //        string output = selectedDirectory.Info.FullName;
+            //        System.Windows.Clipboard.SetText(output);
+            //        System.Windows.Clipboard.Flush();
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    Debug.WriteLine($"复制剪贴板失败: {ex.Message}");
+            //}
             this.Close();
         }
     }
-    public class FamilyManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<FileSingle>
+    public class FamilyManagerViewModel : ObserverableObject, IQueryViewModel<FileSingle>
     {
-        private UIApplication application;
+        private readonly UIApplication _application;
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        private List<FileSingle> _cachedFiles = new List<FileSingle>(); // 缓存完整的文件列表
-
-        public DirectoryInfo Info { get; set; }
+        private List<FileSingle> _cachedFiles = new List<FileSingle>();
+        public ObservableCollection<FileSingle> Collection { get; set; } = new ObservableCollection<FileSingle>();
         public ObservableCollection<Dirs> RootDirectories { get; set; } = new ObservableCollection<Dirs>();
-
-        public FamilyManagerViewModel(UIApplication uiApp)
-        {
-            application = uiApp;
-            InitFunc(); // 接口方法：初始化数据
-        }
-
-        #region IQueryViewModelWithDelete<FileSingle> 接口实现
-
-        // 1. 核心数据集合 (替代原 FilesView)
-        private ObservableCollection<FileSingle> _collection = new ObservableCollection<FileSingle>();
-        public ObservableCollection<FileSingle> Collection
-        {
-            get => _collection;
-            set
-            {
-                _collection = value;
-                OnPropertyChanged(nameof(Collection));
-            }
-        }
-
-        // 2. 外部事件处理器
-        public BaseExternalHandler ExternalHandler => _externalHandler;
-
-        // 3. 基础逻辑命令
-        public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
-        public ICommand DeleteElementCommand => new RelayCommand<FileSingle>(DeleteElement);
-        public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
-
-        // 4. 初始化方法
-        public void InitFunc()
-        {
-            RootDirectories.Clear();
-            foreach (var drive in DriveInfo.GetDrives())
-            {
-                try
-                {
-                    if (drive.IsReady)
-                    {
-                        var rootDir = new Dirs(new DirectoryInfo(drive.RootDirectory.FullName));
-                        RootDirectories.Add(rootDir);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"读取驱动器失败 {drive.Name}: {ex.Message}");
-                }
-            }
-        }
-
-        // 5. 过滤查询逻辑
-        public void QueryElement(string text)
-        {
-            if (Collection == null) return;
-            Collection.Clear();
-
-            var queryResult = string.IsNullOrWhiteSpace(text)
-                ? _cachedFiles
-                : _cachedFiles.Where(file => file.name.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0);
-
-            foreach (var file in queryResult)
-            {
-                Collection.Add(file);
-            }
-            FileCount = Collection.Count.ToString();
-        }
-
-        // 6. 单个删除逻辑 (物理文件放入回收站)
-        public void DeleteElement(FileSingle entity)
-        {
-            if (entity == null) return;
-            try
-            {
-                FileSystem.DeleteFile(entity.fullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-                _cachedFiles.Remove(entity);
-                Collection.Remove(entity);
-                FileCount = Collection.Count.ToString();
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("错误", $"删除文件失败: {ex.Message}");
-            }
-        }
-
-        // 7. 批量删除逻辑
-        public void DeleteElements(IEnumerable<object> selectedItems)
-        {
-            if (selectedItems == null) return;
-            var entities = selectedItems.Cast<FileSingle>().ToList();
-            if (!entities.Any()) return;
-
-            int count = 0;
-            foreach (var entity in entities)
-            {
-                try
-                {
-                    FileSystem.DeleteFile(entity.fullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-                    _cachedFiles.Remove(entity);
-                    Collection.Remove(entity);
-                    count++;
-                }
-                catch (Exception) { /* 忽略单个删除失败，继续删下一个 */ }
-            }
-            FileCount = Collection.Count.ToString();
-            TaskDialog.Show("提示", $"成功删除 {count} 个文件！");
-        }
-
-        #endregion
-
-        #region 属性与UI绑定
-
-        private string _fileCount = "0";
-        public string FileCount
-        {
-            get => _fileCount;
-            set { _fileCount = value; OnPropertyChanged(nameof(FileCount)); }
-        }
-
-        private string _keyword;
-        public string Keyword
-        {
-            get => _keyword;
-            set
-            {
-                _keyword = value;
-                OnPropertyChanged(nameof(Keyword));
-                QueryElement(_keyword); // 关键字变化直接触发查询
-            }
-        }
-
         private Dirs _selectedDirectory;
         public Dirs SelectedDirectory
         {
             get => _selectedDirectory;
             set
             {
-                _selectedDirectory = value;
-                OnPropertyChanged(nameof(SelectedDirectory));
-                SelectedDirectoryPath = _selectedDirectory?.Info.FullName ?? string.Empty;
-                LoadFilesFromDirectory();
+                SetProperty(ref _selectedDirectory, value);
+                _ = LoadFilesFromDirectoryAsync();
             }
         }
-
+        public FamilyManagerViewModel(UIApplication uiApp)
+        {
+            _application = uiApp;
+            InitLayers();
+        }
+        // IQueryViewModel<FileSingle> 实现
+        public void InitLayers()
+        {
+            RootDirectories.Clear();
+            foreach (var drive in DriveInfo.GetDrives())
+            {
+                try { RootDirectories.Add(new Dirs(new DirectoryInfo(drive.RootDirectory.FullName))); }
+                catch { }
+            }
+        }
+        public ICommand QueryElementCommand => new RelayCommand<string>(QueryELement);
+        public void QueryELement(string text)
+        {
+            var loadedNames = GetLoadedFamilyNames();
+            var filtered = string.IsNullOrEmpty(text) ? _cachedFiles
+                : _cachedFiles.Where(f => f.FamilyName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0);
+            Collection.Clear();
+            foreach (var file in filtered)
+            {
+                file.HasLoaded = loadedNames.Contains(file.FamilyName);
+                Collection.Add(file);
+            }
+        }
+        private HashSet<string> GetLoadedFamilyNames()
+        {
+            return new FilteredElementCollector(_application.ActiveUIDocument.Document).OfClass(typeof(Family))
+                .Cast<Family>().Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
         private string _selectedDirectoryPath;
         public string SelectedDirectoryPath
         {
             get => _selectedDirectoryPath;
-            set { _selectedDirectoryPath = value; OnPropertyChanged(nameof(SelectedDirectoryPath)); }
+            set => SetProperty(ref _selectedDirectoryPath, value);
         }
-
-        #endregion
-
-        #region 文件加载核心逻辑
-
-        private async void LoadFilesFromDirectory()
+        private async Task LoadFilesFromDirectoryAsync()
         {
-            Collection.Clear();
-            _cachedFiles.Clear();
-            FileCount = "0";
-
-            if (string.IsNullOrEmpty(SelectedDirectoryPath) || !Directory.Exists(SelectedDirectoryPath)) return;
-
+            if (SelectedDirectory == null) return;
+            string path = SelectedDirectory.Info.FullName;
+            _cachedFiles = await Task.Run(() =>
+                Directory.GetFiles(path, "*.rfa").Select(f => new FileSingle(new FileInfo(f))).ToList());
+            QueryELement(null);
+        }
+        public ICommand GetNewFolderCommand => new BaseBindingCommand(_ =>
+        {
+            var dialog = new FolderBrowserDialog { ShowNewFolderButton = false };
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                RootDirectories.Clear();
+                RootDirectories.Add(new Dirs(new DirectoryInfo(dialog.SelectedPath)));
+            }
+        });
+        public ICommand UpgradeFamilyCommand => new RelayCommand<Dirs>(_ =>
+            _externalHandler.Run(app =>
+            {
+                foreach (var file in Collection.Where(f =>
+                    f.Version != _application.Application.VersionNumber.ToString() &&
+                    f.Version != "版本太高"))
+                {
+                    try
+                    {
+                        var doc = _application.Application.OpenDocumentFile(file.fullName);
+                        doc.Close();
+                    }
+                    catch { }
+                }
+                QueryELement(null);
+            }));
+        public ICommand LoadFamilyCommand => new RelayCommand<FileSingle>(LoadFamily);
+        private void LoadFamily(FileSingle single)
+        {
+            if (single.Version == "版本太高" && single.Version == "读取失败") return;
+            _externalHandler.Run(app =>
+            {
+                NewTransaction.Execute(app.ActiveUIDocument.Document, "载入族", () =>
+                {
+                    app.ActiveUIDocument.Document.LoadFamily(single.fullName);
+                });
+                // 回到UI线程刷新状态
+                System.Windows.Application.Current.Dispatcher.Invoke(() => QueryELement(null));
+            });
+        }
+        private bool CanLoadFamily(FileSingle file)
+        {
+            return file != null && file.Version != "版本太高" && file.Version != "读取失败";
+        }
+        public ICommand OpenFamilyCommand => new RelayCommand<FileSingle>(
+            file => _externalHandler.Run(_ => _application.OpenAndActivateDocument(file.fullName)),
+            canExecute: f => f != null && f.Version != "版本太高" && f.Version != "读取失败");
+        public ICommand OpenThumbCommand => new RelayCommand<FileSingle>(file =>
+        {
+            string jpg = Path.ChangeExtension(file.fullName, "jpg");
+            try { Process.Start(jpg); } catch { }
+        });
+        public ICommand MakeThumbCommand => new RelayCommand<Dirs>(MakeThumb);
+        private void MakeThumb(Dirs dirs)
+        {
+            if (dirs == null) return;
+            _externalHandler.Run(_ =>
+            {
+                FamilyManagerSubView familyThumbExportForm = new FamilyManagerSubView(_application, dirs, _externalHandler);
+                familyThumbExportForm.ShowDialog();
+            });
+        }
+        public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
+        public void DeleteElements(IEnumerable<object> selectedItems)
+        {
+            if (selectedItems == null) return;
+            var toDeleteList = selectedItems.Cast<FileSingle>().ToList();
+            if (toDeleteList.Count == 0) return;
+            // 【关键】事务前缓存所有 ID
             try
             {
-                // 异步在后台线程加载磁盘文件
-                var files = await Task.Run(() =>
+                NoTransactionWithProgressBarHelper.Execute(toDeleteList.Count, "批量删除族文件", (service) =>
                 {
-                    return Directory.GetFiles(SelectedDirectoryPath, "*.rfa")
-                                    .Select(f => new FileInfo(f))
-                                    .Select(fi => new FileSingle(fi))
-                                    .ToList();
-                });
-
-                // await 之后回到 UI 线程，安全赋值
-                _cachedFiles = files;
-                QueryElement(Keyword); // 加载完后应用当前的关键字过滤
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"加载文件夹内容失败: {ex.Message}");
-            }
-        }
-
-        #endregion
-
-        #region 其他业务命令 (升级、打开、载入等)
-
-        public ICommand UpgradeFamilyCommand => new RelayCommand<object>(UpgradeFamily);
-        private void UpgradeFamily(object obj)
-        {
-            _externalHandler.Run(app =>
-            {
-                foreach (var file in Collection)
-                {
-                    if (file.Version != application.Application.VersionNumber.ToString() && file.Version != "版本太高")
+                    service.UpdateMax(toDeleteList.Count());
+                    int index = 0;
+                    foreach (var id in toDeleteList)
                     {
-                        try
-                        {
-                            Document doc = application.Application.OpenDocumentFile(file.fullName);
-                            doc.Close(); // 打开并立即关闭即视为静默升级触发
-                        }
-                        catch (Exception ex) { Debug.WriteLine($"升级失败: {file.fullName} - {ex.Message}"); }
+                        service.Update(++index, id.name);
+
+                        FileSystem.DeleteFile(id.fullName, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
                     }
-                }
-            });
-        }
-
-        public ICommand MakeThumbCommand => new RelayCommand<Dirs>(MakeThumbView);
-        private void MakeThumbView(Dirs dirs)
-        {
-            //// 此处需要确保 FamilyThumbExportForm 能够处理 dirs 为 null 的情况
-            //FamilyThumbExportForm familyThumbExportForm = new FamilyThumbExportForm(application, dirs ?? SelectedDirectory);
-            //familyThumbExportForm.Show();
-        }
-
-        public ICommand LoadFamilyCommand => new RelayCommand<FileSingle>(LoadFamily, canExecute: obj => obj != null && obj.Version != "版本太高" && obj.Version != "读取失败");
-        private void LoadFamily(FileSingle file)
-        {
-            _externalHandler.Run(app =>
-            {
-                application.ActiveUIDocument.Document.NewTransaction(() =>
+                });
+                foreach (var item in toDeleteList)
                 {
-                    application.ActiveUIDocument.Document.LoadFamily(file.fullName);
-                }, "载入族");
-            });
-        }
-
-        public ICommand OpenFamilyCommand => new RelayCommand<FileSingle>(OpenFile, canExecute: obj => obj != null && obj.Version != "版本太高" && obj.Version != "读取失败");
-        private void OpenFile(FileSingle file)
-        {
-            _externalHandler.Run(app =>
-            {
-                try { application.OpenAndActivateDocument(file.fullName); }
-                catch (Exception ex) { TaskDialog.Show("错误", $"打开失败: {ex.Message}"); }
-            });
-        }
-
-        public ICommand OpenThumbCommand => new RelayCommand<FileSingle>(OpenView);
-        private void OpenView(FileSingle file)
-        {
-            if (file == null) return;
-            string jpgFilePath = System.IO.Path.ChangeExtension(file.fullName, "jpg");
-            if (File.Exists(jpgFilePath))
-            {
-                try { Process.Start(new ProcessStartInfo(jpgFilePath) { UseShellExecute = true }); }
-                catch (Exception ex) { Debug.WriteLine($"打开图片失败: {ex.Message}"); }
+                    _cachedFiles.Remove(item);
+                    Collection.Remove(item);
+                }
+                string resultMessage = $"已成功删除 {toDeleteList.Count} 个文件。";
+                TaskDialog.Show("删除完成", resultMessage);
+                QueryELement(null);
             }
+            catch (IOException) { }
         }
-
-        // 清理备份（利用复用的 DeleteElements 批量删除）
-        public ICommand DelBackupCommand => new RelayCommand<object>(DelBackup);
-        private void DelBackup(object obj)
-        {
-            var backupPattern = new Regex(@"\.[0-9]{3,4}\.r(vt|fa|te)", RegexOptions.IgnoreCase);
-            var bakFiles = Collection.Where(f => backupPattern.IsMatch(f.name)).ToList();
-
-            if (bakFiles.Any())
-            {
-                DeleteElements(bakFiles); // 直接复用接口的批量删除方法
-            }
-            else
-            {
-                TaskDialog.Show("提示", "未找到族备份文件");
-            }
-        }
-
         public ICommand SaveCsvCommand => new RelayCommand<object>(SaveCsv);
-        private void SaveCsv(object para)
+        private void SaveCsv(object obj)
         {
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "CSV 文件 (*.csv)|*.csv",
                 DefaultExt = "csv",
                 FileName = "file_list.csv"
             };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                try
+            if (dialog.ShowDialog() != true) return;
+            var csv = new CsvHelper(dialog.FileName);
+            // 写入标题行 + 数据行（覆盖模式）
+            csv.WriteAllWithHeaders(new[] { "文件名称", "文件大小", "文件版本", "文件路径" },
+                Collection.Select(file => new[]
                 {
-                    using (var writer = new StreamWriter(saveFileDialog.FileName, false, System.Text.Encoding.UTF8))
-                    {
-                        writer.WriteLine("文件名称,文件大小,文件版本,文件路径");
-                        foreach (var file in Collection)
-                        {
-                            var fileName = System.IO.Path.GetFileNameWithoutExtension(file.fullName);
-                            writer.WriteLine($"{fileName},{file.DisplaySize},{file.Version},{file.directoryName}");
-                        }
-                    }
-                    TaskDialog.Show("提示", "文件清单已成功导出！");
-                }
-                catch (Exception ex)
-                {
-                    TaskDialog.Show("错误", $"导出失败: {ex.Message}");
-                }
-            }
+                        Path.GetFileNameWithoutExtension(file.fullName),
+                        file.DisplaySize,
+                        file.Version,
+                        file.directoryName
+                })
+            );
+            TaskDialog.Show("导出成功", "文件清单已成功导出为 CSV 文件！");
         }
-
-        public ICommand GetNewFolderCommand => new RelayCommand<object>(GetNewFolder);
-        private void GetNewFolder(object para)
-        {
-            //// .NET 8 原生文件夹选择方案
-            //var folderDialog = new Microsoft.Win32.OpenFolderDialog
-            //{
-            //    Title = "请选择一个文件夹",
-            //    Multiselect = false
-            //};
-
-            //if (folderDialog.ShowDialog() == true)
-            //{
-            //    RootDirectories.Clear();
-            //    string selectedPath = folderDialog.FolderName;
-            //    DirectoryInfo dir = new DirectoryInfo(selectedPath);
-            //    RootDirectories.Add(new Dirs(dir));
-            //    SelectedDirectory = RootDirectories.First(); // 自动选中
-            //}
-        }
-
-        #endregion
     }
 }

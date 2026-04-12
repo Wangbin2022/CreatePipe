@@ -109,7 +109,7 @@ namespace CreatePipe.Form
             }
             _externalHandler.Run(app =>
             {
-                NewTransaction.Execute(Document, "批量修改族ID",() =>
+                NewTransaction.Execute(Document, "批量修改族ID", () =>
                 {
                     foreach (var item in entity.FamilyCollection)
                     {

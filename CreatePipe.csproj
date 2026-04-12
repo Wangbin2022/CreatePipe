@@ -123,6 +123,7 @@
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
     <Compile Include="Form\Converters\InverseBooleanConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
+    <Compile Include="Form\Converters\LastPipeSystemTextColor.cs" />
     <Compile Include="Form\Converters\RevitColorConverter.cs" />
     <Compile Include="Form\Converters\RevitColorToBrushConverter.cs" />
     <Compile Include="Form\Converters\TextColorConverter.cs" />
@@ -132,6 +133,9 @@
     </Compile>
     <Compile Include="Form\FamilyInstanceSerializeView.xaml.cs">
       <DependentUpon>FamilyInstanceSerializeView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\FamilyManagerSubView.xaml.cs">
+      <DependentUpon>FamilyManagerSubView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\FamilyManagerView.xaml.cs">
       <DependentUpon>FamilyManagerView.xaml</DependentUpon>
@@ -165,6 +169,9 @@
     </Compile>
     <Compile Include="Form\PipeDiameterSelectView.xaml.cs">
       <DependentUpon>PipeDiameterSelectView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\PipeSystemManagerSubView.xaml.cs">
+      <DependentUpon>PipeSystemManagerSubView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\PipeSystemManagerView.xaml.cs">
       <DependentUpon>PipeSystemManagerView.xaml</DependentUpon>
@@ -641,6 +648,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\FamilyManagerSubView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\FamilyManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -702,6 +713,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\PipeDiameterSelectView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\PipeSystemManagerSubView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

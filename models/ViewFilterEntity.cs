@@ -29,6 +29,7 @@ namespace CreatePipe.models
             filterUsageMap = usageViews;
             Color = new Color(127, 127, 127);
             TransparencyNum = 0;
+            _handler = handler;
         }
         public Dictionary<ElementId, string> filterUsageMap;
         public int filterUsageCount { get; set; } = 0;

@@ -10,7 +10,7 @@ namespace CreatePipe.WpfDirectoryTreeView
         public TestTreeView()
         {
             InitializeComponent();
-            this.DataContext = new TestTreeViewModel();
+            //this.DataContext = new TestTreeViewModel();
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

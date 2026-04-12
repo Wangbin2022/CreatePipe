@@ -228,7 +228,7 @@ namespace CreatePipe.Form
         private void ExecuteUpdateEntityLength(GuidanceSignEntity entity)
         {
             if (entity == null) return;
-            double newLengthMm = entity.EntityLength; 
+            double newLengthMm = entity.EntityLength;
             ExternalHandler.Run(app =>
             {
                 try

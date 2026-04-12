@@ -8,11 +8,11 @@
         Title="视图管理器" Height="450" Width="720"
        Topmost="True"
        WindowStartupLocation="Manual" Left="30" Top="300" ResizeMode="CanMinimize"
-       xmlns:vc="clr-namespace:CreatePipe.Form.Converters"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
     <Grid Margin="5">
         <Grid.Resources>
-            <vc:IntToStringConverter x:Key="IntToStringConverter"/>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="32"/>

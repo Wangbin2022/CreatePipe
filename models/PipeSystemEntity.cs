@@ -2,28 +2,34 @@
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
+using CreatePipe.Form;
 using CreatePipe.Utils;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace CreatePipe.models
 {
     public class PipeSystemEntity : ObserverableObject
     {
         public PipingSystemType pipingSystemType { get; set; }
-        public Document Document { get => pipingSystemType.Document; }
-        public IEnumerable<object> selectedElements { get; set; }
-        public PipeSystemEntity(PipingSystemType pipingSystem)
+        public Document Document;
+        private readonly BaseExternalHandler _handler;
+        public List<ElementId> selectedElements { get; set; }
+        public PipeSystemEntity(PipingSystemType pipingSystem, BaseExternalHandler handler)
         {
-            Document document = pipingSystem.Document;
+            Document = pipingSystem.Document;
+            _handler = handler;
             if (pipingSystem != null)
             {
                 pipingSystemType = pipingSystem;
                 systemName = pipingSystem.Name;
                 abbreviation = pipingSystem.Abbreviation;
-                colorName = GetColorValue(pipingSystem);
-                lineColor = pipingSystem.LineColor;
+                _lineColor = pipingSystem.LineColor;
                 lineWeight = pipingSystem.LineWeight;
                 linePatternElementInfos = LinePatterns();
                 linePatternElem = linePatternElementInfos.Find(x => x.Id == pipingSystem.LinePatternId);
@@ -31,10 +37,13 @@ namespace CreatePipe.models
                 MEPSystemClassOrigin = pipingSystem.SystemClassification;
                 selectedElements = ElementCount(pipingSystem);
                 singleSystemElementCount = selectedElements.Count();
-                Material = GetPipeMaterial(pipingSystem);
-                _colorValue = GetColorValue(Material.Color);
+                _material = Document.GetElement(pipingSystem.MaterialId) as Material;
 
+                _materialName=_material.Name;
+                //_colorValue = GetColorValue(Material.Color);
                 dNList = getDNList(pipingSystem);
+                UpdateColorName();
+                UpdateLineColorName();
             }
         }
         private List<string> dNList;
@@ -70,19 +79,6 @@ namespace CreatePipe.models
             }
             return strings;
         }
-        private Material GetPipeMaterial(PipingSystemType pipingSystem)
-        {
-            //ElementId id = pipingSystem.MaterialId;
-            //if (id.IntegerValue == -1)
-            //{
-            //    FilteredElementCollector collector = new FilteredElementCollector(pipingSystem.Document).OfCategory(BuiltInCategory.OST_Materials);
-            //    List<Material> materials = collector.Cast<Material>().ToList();
-            //    ElementId materialId = materials.FirstOrDefault().Id;
-            //    Document.NewTransaction(() => pipingSystem.MaterialId = materialId, "默认材质赋值");
-            //}
-            Material material = Document.GetElement(pipingSystem.MaterialId) as Material;
-            return material;
-        }
         private List<LinePatternElement> LinePatterns()
         {
             FilteredElementCollector elements3 = new FilteredElementCollector(Document);
@@ -104,40 +100,80 @@ namespace CreatePipe.models
         }
         private int singleSystemElementCount;
         public int SingleSystemElementCount { get => singleSystemElementCount; set => singleSystemElementCount = value; }
-        public string Name
+        private string _materialName;
+        public string MaterialName
         {
-            get => Material.Name;
+            get => _materialName;
             set
             {
-                Document.NewTransaction(() => Material.Name = value, "修改名称");
-                OnPropertyChanged();
+                if (_materialName != value)
+                {
+                    var AllMaterials = new FilteredElementCollector(Document).OfClass(typeof(Material)).Cast<Material>().ToList(); 
+                    Dictionary<string, Material> _nameToMaterialMap = AllMaterials.ToDictionary(m => m.Name, m => m);
+                    // 获取对应的材质对象以获取 ID
+                    var material = _nameToMaterialMap[value];
+                    _handler.Run(app =>
+                    {
+                        using (Transaction t = new Transaction(Document, "修改材质"))
+                        {
+                            t.Start();
+                            var p = pipingSystemType.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM);
+                            p.Set(material.Id);
+                            t.Commit();
+                        }
+                        _materialName = value;
+                        OnPropertyChanged(nameof(Material));
+                    });
+                }
             }
         }
-        public Color Color
+        private Material _material;
+        public Material Material
         {
-            get => Material.Color;
+            get => _material;
             set
             {
-                Material.Color = value;
-                OnPropertyChanged();
+                _material = value;
+                OnPropertyChanged(nameof(Material));
+                //if (_material?.Id != value?.Id)
+                //{
+                //    try
+                //    {
+                //        // 切换到 Revit 线程执行更新
+                //        _handler.Run(app =>
+                //        {
+                //            NewTransaction.Execute(Document, "修改系统材质", () =>
+                //            {
+                //                Parameter p = pipingSystemType.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM);
+                //                if (p != null)
+                //                {
+                //                    p.Set(value.Id);
+                //                }
+                //            });
+                //            _material = value;
+                //            OnPropertyChanged(nameof(Material));
+                //        });
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        TaskDialog.Show("tt", ex.Message);
+                //    }
+                //}
             }
         }
-        private string _colorValue;
-        public string ColorValue
-        {
-            get => _colorValue;
-            set
-            {
-                _colorValue = value;
-            }
-        }
-        public Material Material { get; set; }
-        public string GetColorValue(Color color)
-        {
-            string colorvalue;
-            colorvalue = color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
-            return colorvalue;
-        }
+        //public string Name
+        //{
+        //    get => Material.Name;
+        //    set
+        //    {
+        //        _handler.Run(app =>
+        //        {
+        //            Document.NewTransaction(() => Material.Name = value, "修改名称");
+        //        });
+        //        OnPropertyChanged();
+        //    }
+        //}
+        //public Material Material { get; set; }
         public MEPSystemClassification MEPSystemClassOrigin { get; }
 
         private string mEPSystemClass;
@@ -173,27 +209,104 @@ namespace CreatePipe.models
                 }
             }
         }
-        private Autodesk.Revit.DB.Color lineColor;
-        public Autodesk.Revit.DB.Color LineColor
+        //要加上动态属性才能跟随线改色？
+        public Color Color
         {
-            get => lineColor;
+            get => Material.Color;
             set
             {
-                lineColor = value;
-                //Document.NewTransaction(() => pipingSystemType.LineColor = value, "修改线颜色");
-                OnPropertyChanged("LineColor");
+                // 如果新值和旧值相同，则不执行任何操作，避免不必要的事务和UI更新
+                if (Material.Color != null && Material.Color.IsValid && value != null && value.IsValid &&
+                    Material.Color.Red == value.Red && Material.Color.Green == value.Green && Material.Color.Blue == value.Blue)
+                {
+                    return;
+                }
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改材质颜色", () => Material.Color = value);
+                    Material.Color = value;
+                    OnPropertyChanged();
+                    UpdateColorName();
+                });
             }
         }
-        private string colorName;
+        public ICommand MaterialEditCommand => new RelayCommand<PipeSystemEntity>(MaterialEdit);
+        private void MaterialEdit(PipeSystemEntity entity)
+        {
+            ////TaskDialog.Show("tt", entity.SystemName);
+            var initialRevitColor = Material.Color;
+            var initialMediaColor = System.Windows.Media.Color.FromRgb(initialRevitColor.Red, initialRevitColor.Green, initialRevitColor.Blue);
+            var dialog = new ColorPickerDialog(initialMediaColor);
+            if (dialog.ShowDialog() == true)
+            {
+                var newRevitColor = new Color(dialog.SelectedColor.R, dialog.SelectedColor.G, dialog.SelectedColor.B);
+                Color = newRevitColor;
+            }
+        }
+        private string _colorName;
         public string ColorName
         {
-            get => colorName;
+            get => _colorName;
             set
             {
-                colorName = value;
-                //colorName = GetColorValue(pipingSystemType.LineColor);
-                OnPropertyChanged("ColorName");
+                if (_colorName != value)
+                {
+                    _colorName = value;
+                    OnPropertyChanged(nameof(ColorName));
+                }
             }
+        }
+        private void UpdateColorName()
+        {
+            ColorName = Color != null ? $"{Color.Red}-{Color.Green}-{Color.Blue}" : "无";
+        }
+        private Autodesk.Revit.DB.Color _lineColor;
+        public Autodesk.Revit.DB.Color LineColor
+        {
+            get => _lineColor;
+            set
+            {
+                // 如果新值和旧值相同，则不执行任何操作，避免不必要的事务和UI更新
+                if (_lineColor != null && _lineColor.IsValid && value != null && value.IsValid &&
+                    _lineColor.Red == value.Red && _lineColor.Green == value.Green && _lineColor.Blue == value.Blue)
+                {
+                    return;
+                }
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改线颜色", () => pipingSystemType.LineColor = value);
+                    _lineColor = value;
+                    OnPropertyChanged();
+                    UpdateLineColorName();
+                });
+            }
+        }
+        public ICommand SetLineColorCommand => new RelayCommand<PipeSystemEntity>(SetLineColor);
+        private void SetLineColor(PipeSystemEntity entity)
+        {
+            //TaskDialog.Show("tt", entity.SystemName);
+            var initialRevitColor = entity.LineColor;
+            var initialMediaColor = System.Windows.Media.Color.FromRgb(initialRevitColor.Red, initialRevitColor.Green, initialRevitColor.Blue);
+            var dialog = new ColorPickerDialog(initialMediaColor);
+            if (dialog.ShowDialog() == true)
+            {
+                var newRevitColor = new Color(dialog.SelectedColor.R, dialog.SelectedColor.G, dialog.SelectedColor.B);
+                entity.LineColor = newRevitColor;
+            }
+        }
+        private string _lineColorName;
+        public string LineColorName
+        {
+            get => _lineColorName;
+            set
+            {
+                _lineColorName = value;
+                OnPropertyChanged(nameof(LineColorName));
+            }
+        }
+        private void UpdateLineColorName()
+        {
+            LineColorName = LineColor != null ? $"{LineColor.Red}-{LineColor.Green}-{LineColor.Blue}" : "无";
         }
         private LinePatternElement linePatternElem;
         public LinePatternElement LinePatternElem
@@ -201,8 +314,12 @@ namespace CreatePipe.models
             get => linePatternElem;
             set
             {
-                Document.NewTransaction(() => pipingSystemType.LinePatternId = value.Id, "修改线型");
-                OnPropertyChanged("LinePatternElem");
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改线型", () => pipingSystemType.LinePatternId = value.Id);
+                    linePatternElem = value;
+                    OnPropertyChanged();
+                });
             }
         }
         private List<LinePatternElement> linePatternElementInfos;
@@ -227,61 +344,71 @@ namespace CreatePipe.models
         private int lineWeight;
         public int LineWeight
         {
-            get { return lineWeight; }
+            get => lineWeight;
             set
             {
-                Document.NewTransaction(() => pipingSystemType.LineWeight = value, "修改线宽");
-                OnPropertyChanged("LineWeight");
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改线宽", () => pipingSystemType.LineWeight = value);
+                    lineWeight = value;
+                });
+                OnPropertyChanged();
             }
         }
         private string systemName;
         public string SystemName
         {
-            get { return systemName; }
+            get => systemName;
             set
             {
-                Document.NewTransaction(() => pipingSystemType.Name = value, "修改名称");
-                systemName = value;
-                OnPropertyChanged("SystemName");
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改名称", () => pipingSystemType.Name = value);
+                    systemName = value;
+                });
+                OnPropertyChanged();
             }
         }
         private string abbreviation;
         public string Abbreviation
         {
-            get { return abbreviation; }
+            get => abbreviation;
             set
             {
-                Document.NewTransaction(() => pipingSystemType.Abbreviation = value, "修改缩写");
-                abbreviation = value;
-                OnPropertyChanged();
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改缩写", () => pipingSystemType.Abbreviation = value);
+                    abbreviation = value;
+                    OnPropertyChanged();
+                });
             }
         }
-        public string GetColorValue(PipingSystemType systemType)
-        {
-            Autodesk.Revit.DB.Color color = systemType.LineColor;
-            //if (color == null || !color.IsValid)//不少模板没有给管道系统线颜色预制值，只能提前赋值否则报错崩溃
-            //{
-            //    Document.NewTransaction(() => systemType.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0), "修改线颜色");
-            //    return null;
-            //}
-            //else
-            //{
-            try
-            {
-                string colorvalue = color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
-                //string colorvalue = Convert.ToString(color.Red) + "-" + Convert.ToString(color.Green) + "-" + Convert.ToString(color.Blue);
-                //string colorvalue = $"{color.Red}-{color.Green}-{color.Blue}";
-                //string colorvalue = String.Concat(color.Red.ToString(), "-", color.Green.ToString(), "-", color.Blue.ToString());
-                //string colorvalue = string.Format("{0}-{1}-{2}", color.Red, color.Green, color.Blue);
-                return colorvalue;
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("tt", ex.ToString());
-            }
-            //}
-            return null;
-        }
+        //public string GetColorValue(PipingSystemType systemType)
+        //{
+        //    Autodesk.Revit.DB.Color color = systemType.LineColor;
+        //    //if (color == null || !color.IsValid)//不少模板没有给管道系统线颜色预制值，只能提前赋值否则报错崩溃
+        //    //{
+        //    //    Document.NewTransaction(() => systemType.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0), "修改线颜色");
+        //    //    return null;
+        //    //}
+        //    //else
+        //    //{
+        //    try
+        //    {
+        //        string colorvalue = color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
+        //        //string colorvalue = Convert.ToString(color.Red) + "-" + Convert.ToString(color.Green) + "-" + Convert.ToString(color.Blue);
+        //        //string colorvalue = $"{color.Red}-{color.Green}-{color.Blue}";
+        //        //string colorvalue = String.Concat(color.Red.ToString(), "-", color.Green.ToString(), "-", color.Blue.ToString());
+        //        //string colorvalue = string.Format("{0}-{1}-{2}", color.Red, color.Green, color.Blue);
+        //        return colorvalue;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        TaskDialog.Show("tt", ex.ToString());
+        //    }
+        //    //}
+        //    return null;
+        //}
     }
     //public class PipeSystemEntity : ObserverableObject
     //{

@@ -4,21 +4,27 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace CreatePipe.models
 {
     public class FileSingle : ObserverableObject
     {
+        private static readonly Regex BackupPattern = new Regex(@"\.[0-9]{3,4}\.r(vt|fa|te)$", RegexOptions.IgnoreCase);
         public string fullName { get; set; }
         public string name { get; set; }
         public string directoryName { get; set; }
         public double length { get; set; }
         public string Version { get; set; } = "读取失败";
         public bool HasJpgFile { get; set; } = false;
-
+        public bool IsBackup => BackupPattern.IsMatch(name);
+        private bool _hasLoaded = false;
+        public bool HasLoaded
+        {
+            get => _hasLoaded;
+            set => SetProperty(ref _hasLoaded, value);
+        }
+        public string FamilyName => Path.GetFileNameWithoutExtension(IsBackup ? name.Substring(0, name.LastIndexOf('.', name.LastIndexOf('.') - 1)) : name);
         public FileSingle(FileInfo fileInfo)
         {
             fullName = fileInfo.FullName.ToLower();
@@ -54,7 +60,6 @@ namespace CreatePipe.models
             }
         }
     }
-
     public class Dirs : ObserverableObject
     {
         public DirectoryInfo Info { get; set; }
@@ -62,9 +67,7 @@ namespace CreatePipe.models
         {
             Info = info;
         }
-
         public IEnumerable<FileInfo> Files => Info.GetFiles();
-
         private ObservableCollection<Dirs> _directories;
         public ObservableCollection<Dirs> Directories
         {
@@ -86,6 +89,7 @@ namespace CreatePipe.models
             }
         }
     }
+
     //public class FileSingle : ObserverableObject
     //{
     //    public string fullName { get; set; }

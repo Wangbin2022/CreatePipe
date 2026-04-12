@@ -1,12 +1,12 @@
-﻿<Window x:Class="CreatePipe.WpfDirectoryTreeView.FamilyThumbExportForm"
+﻿<Window x:Class="CreatePipe.Form.FamilyManagerSubView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:CreatePipe.WpfDirectoryTreeView"
+        xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
-        Title="FamilyThumbExportForm" Height="300" Width="240"
-        WindowStartupLocation="CenterScreen">
+        Title="FamilyManagerSubView" Height="300" Width="240"
+        WindowStartupLocation="CenterScreen" Topmost="True">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition />
@@ -50,7 +50,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="导出背景：" Margin="0,3"/>
                 <ComboBox Grid.Column="1" Margin="0,3" 
-                 ItemsSource="{Binding IsWhiteBack}" 
+                 ItemsSource="{Binding IsWhiteBackList}" 
                   SelectedItem="{Binding SelectWhiteBackGroudnd}"/>
             </Grid>
             <Grid Margin="0,2">
@@ -58,15 +58,15 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <!--<TextBlock Text="导出尺寸：" Margin="0,3"/>
+                <TextBlock Text="导出尺寸：" Margin="0,3"/>
                 <TextBox Text="{Binding ImagePixel}"
             Grid.Column="1" Margin="0,3" 
-                 TextChanged="numberTextBox_TextChanged"/>-->
+                 TextChanged="numberTextBox_TextChanged"/>
             </Grid>
         </StackPanel>
         <Border Grid.Row="1" Margin="5" Padding="0,2,0,0"
              BorderThickness="0,1,0,0" BorderBrush="Gray">
-            <Button  Content="开始" Command="{Binding ExportSnapCommand}" />
+            <Button  Content="生成缩略图" Command="{Binding ExportSnapCommand}" Click="Button_Click"/>
         </Border>
     </Grid>
 </Window>

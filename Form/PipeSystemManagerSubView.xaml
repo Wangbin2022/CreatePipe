@@ -1,0 +1,67 @@
+﻿<Window x:Class="CreatePipe.Form.PipeSystemManagerSubView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="PipeSystemManagerSubView" Height="360" Width="240"         Topmost="True" WindowStartupLocation="CenterScreen"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
+        xmlns:uc="clr-namespace:CreatePipe.Form">
+    <Grid>
+        <Grid.Resources>
+            <conv:ColorConverter x:Key="colorConverter"/>
+        </Grid.Resources>
+        <TabControl Margin="5" x:Name="SubTabControl">
+            <TabItem Header="新建管道" x:Name="NewTab">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="5,5,5,5" Grid.Row="0">
+                        <TextBlock FontWeight="Black" Text="名称"/>
+                        <TextBox Margin="0,5" Text="{Binding SystemName,UpdateSourceTrigger=PropertyChanged}" Height="22"/>
+                        <TextBlock FontWeight="Black" Text="缩写"/>
+                        <TextBox Margin="0,5" Text="{Binding Abbreviation,UpdateSourceTrigger=PropertyChanged}" Height="22"/>
+                        <TextBlock FontWeight="Black" Text="系统类型"/>
+                        <ComboBox Height="20" Margin="0,5" 
+                      ItemsSource="{Binding PipeSystemClass}" SelectedValue="{Binding MEPSystemClass,UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Text="提示：其它属性请建立后自行更改" HorizontalAlignment="Center" Margin="0,0,0,35" Grid.RowSpan="2" Grid.Column="1" Width="180"/>
+                    <Button Grid.Row="2" Content="新建系统并退出" x:Name="btn_OK" Command="{Binding NewSystemCommand}" CommandParameter="{Binding RelativeSource={RelativeSource FindAncestor,AncestorType={x:Type Window}}}"
+                    Click="Button_Click" Margin="5,5,5,5" Grid.ColumnSpan="2"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="添加管道保温层" x:Name="EditTab">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="35"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Margin="5" Grid.Row="0">
+                        <TextBlock FontWeight="Black" Text="管道系统名称"/>
+                        <TextBox Margin="0,2" Text="{Binding SelectedPipeSystem}" TextAlignment="Center" 
+                  HorizontalAlignment="Stretch" IsReadOnly="True" x:Name="nm" Height="22"/>
+                        <TextBlock FontWeight="Black" Text="管道管径 DN" Margin="0,10,0,2"/>
+                        <uc:MultiSelectComboBox  ItemsSource="{Binding Items}" 
+SelectedItems="{Binding SelectedItems}" 
+ToolTip="{Binding Path=Text, RelativeSource={RelativeSource Self}}" />
+                        <TextBlock FontWeight="Black" Text="管道保温材质" Margin="0,8,0,2"/>
+                        <ComboBox ItemsSource="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.Insulations}"
+                    SelectedValue="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.Insulation}"
+                    HorizontalAlignment="Stretch" Loaded="ComboBox_Loaded"/>
+                        <TextBlock FontWeight="Black" Text="管道保温厚度设定 mm" Margin="0,10,0,4"/>
+                        <TextBox Margin="0,2" Text="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.Thickness}" TextAlignment="Center" 
+                  HorizontalAlignment="Stretch" IsReadOnly="False" 
+                                 Height="22"/>
+                    </StackPanel>
+                    <Button Grid.Row="1" Content="新建保温并退出" Command="{Binding AddInsulationCommand}"
+                            CommandParameter="{Binding SelectedPipeSystem}"
+                    Click="Button_Click" Margin="5"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

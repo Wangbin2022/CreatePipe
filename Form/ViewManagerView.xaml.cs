@@ -33,7 +33,7 @@ namespace CreatePipe.Form
         public Document Document { get; }
         public UIDocument UIDoc { get; }
         public View ActiveView { get; }
-        public BaseExternalHandler ExternalHandler { get; } = new BaseExternalHandler();
+        public BaseExternalHandler ExternalHandler => new BaseExternalHandler();
         public ObservableCollection<ViewEntity> Collection { get; set; } = new ObservableCollection<ViewEntity>();
         private List<View> _rawRevitViews = new List<View>();
         private HashSet<ElementId> _viewsOnSheets = new HashSet<ElementId>();

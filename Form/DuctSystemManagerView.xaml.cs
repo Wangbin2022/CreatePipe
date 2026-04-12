@@ -106,7 +106,7 @@ namespace CreatePipe.Form
                 TaskDialog.Show("错误", "初始化风管系统时出错: " + ex.Message);
             }
         }
-        public ICommand SelectSystemCommand => new Form.RelayCommand<IEnumerable<object>>(SelectSystems);
+        public ICommand SelectSystemCommand => new RelayCommand<IEnumerable<object>>(SelectSystems);
         private void SelectSystems(IEnumerable<object> selectedElements)
         {
             if (selectedElements.Count() == 0)
@@ -130,7 +130,7 @@ namespace CreatePipe.Form
             Selection select = UIDocument.Selection;
             select.SetElementIds(ids);
         }
-        public ICommand AddInsulationCommand => new Form.RelayCommand<DuctSystemEntity>(AddInsulation);
+        public ICommand AddInsulationCommand => new RelayCommand<DuctSystemEntity>(AddInsulation);
         public void AddInsulation(DuctSystemEntity ductSystem)
         {
             //DuctInsulationAddView ductInsulationAdd = new DuctInsulationAddView(ductSystem);
@@ -190,8 +190,8 @@ namespace CreatePipe.Form
             }
             return true;
         }
-        public ICommand DeleteELementCommand => new Form.RelayCommand<IEnumerable<object>>(DeleteElements);
-        public ICommand DeleteELementCommand2 => new Form.RelayCommand<DuctSystemEntity>(DeleteElement);
+        public ICommand DeleteELementCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
+        public ICommand DeleteELementCommand2 => new RelayCommand<DuctSystemEntity>(DeleteElement);
         //多选删除
         public void DeleteElements(IEnumerable<object> selectedElements)
         {
@@ -235,7 +235,7 @@ namespace CreatePipe.Form
                 td.Show();
             }
         }
-        public ICommand SetColorCommand => new Form.RelayCommand<MechanicalSystemType>(SetColor);
+        public ICommand SetColorCommand => new RelayCommand<MechanicalSystemType>(SetColor);
         private void SetColor(MechanicalSystemType ductSystemType)
         {
             if (ductSystemType == null) return;

@@ -9,11 +9,11 @@
         Height="450" Width="720"
                 xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
         xmlns:vm="clr-namespace:CreatePipe.models"
-        xmlns:converter ="clr-namespace:CreatePipe.Utils">
+        xmlns:conv ="clr-namespace:CreatePipe.Form.Converters">
     <Window.Resources>
-        <converter:ColorConvertHelper x:Key="colorConverter"/>
-        <vm:BackgroundToForegroundConverter  x:Key="BackgroundToForegroundConverter"/>
-        <vm:LastSystemTextColor x:Key="LastSystemText"/>
+        <conv:ColorConverter x:Key="colorConverter"/>
+        <conv:BackgroundToForegroundConverter  x:Key="BackgroundToForegroundConverter"/>
+        <conv:LastPipeSystemTextColor x:Key="LastSystemText"/>
     </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>

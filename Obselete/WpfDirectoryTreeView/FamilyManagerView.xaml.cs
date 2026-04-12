@@ -11,24 +11,24 @@ namespace CreatePipe.WpfDirectoryTreeView
         public FamilyManagerView(UIApplication uiApp)
         {
             InitializeComponent();
-            this.DataContext = new FamilyManagerViewModel(uiApp);
+            //this.DataContext = new FamilyManagerViewModel(uiApp);
         }
         private void btn_OK_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                if (directoryTreeView.SelectedItem != null)
-                {
-                    var selectedDirectory = directoryTreeView.SelectedItem as Dirs;
-                    string output = selectedDirectory.Info.FullName;
-                    // 将字符串复制到剪贴板
-                    Clipboard.SetText(output);
-                    Clipboard.Flush(); // 确保数据写入剪贴板
-                }
-            }
-            catch (System.Exception)
-            {
-            }
+            //try
+            //{
+            //    if (directoryTreeView.SelectedItem != null)
+            //    {
+            //        var selectedDirectory = directoryTreeView.SelectedItem as Dirs;
+            //        string output = selectedDirectory.Info.FullName;
+            //        // 将字符串复制到剪贴板
+            //        Clipboard.SetText(output);
+            //        Clipboard.Flush(); // 确保数据写入剪贴板
+            //    }
+            //}
+            //catch (System.Exception)
+            //{
+            //}
             this.Close();
         }
     }

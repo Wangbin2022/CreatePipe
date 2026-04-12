@@ -16,311 +16,272 @@ using System.Windows.Media;
 
 namespace CreatePipe.models
 {
-    public class PipeSystemViewModel : ObserverableObject
-    {
-        public Document Doc { get; set; }
-        public UIDocument UIDocument { get; set; }
-        public ObservableCollection<PipeSystemEntity> PipeSystemEntitys { get; set; } = new ObservableCollection<PipeSystemEntity>();
-        public PipeSystemViewModel(UIApplication uIApplication)
-        {
-            Doc = uIApplication.ActiveUIDocument.Document;
-            UIDocument = uIApplication.ActiveUIDocument as UIDocument;
-            LoadAndInitializePipeSystems();
-            QueryELements(null);
-        }
-        private void LoadAndInitializePipeSystems()
-        {
-            // --- 核心修改部分：使用 TransactionGroup ---
-            TransactionGroup tg = new TransactionGroup(Doc, "初始化管道系统设置");
-            try
-            {
-                tg.Start();
-                // 1. 查询所有管道系统类型
-                var elements = new FilteredElementCollector(Doc).OfClass(typeof(PipingSystemType));
-                List<PipingSystemType> pipingSystemTypes = elements.OfType<PipingSystemType>().ToList();
-                var defaultMaterialId = new FilteredElementCollector(Doc).OfCategory(BuiltInCategory.OST_Materials).FirstOrDefault().Id;
-                // 2. 在一个单独的事务中设置默认颜色
-                using (var trans = new Transaction(Doc, "设置默认系统颜色材质"))
-                {
-                    trans.Start();
-                    bool changesMade = false;
-                    Random rand = new Random();
-                    foreach (var pst in pipingSystemTypes)
-                    {
-                        // 检查颜色是否有效，如果无效，则设置一个随机的默认颜色
-                        if (!pst.LineColor.IsValid)
-                        {
-                            //byte r = (byte)rand.Next(50, 220);  
-                            //byte g = (byte)rand.Next(50, 220);
-                            //byte b = (byte)rand.Next(50, 220);
-                            //pst.LineColor = new Autodesk.Revit.DB.Color(r, g, b);
-                            pst.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0);
-                            changesMade = true;
-                        }
-                        if (pst.MaterialId.IntegerValue == -1)
-                        {
-                            pst.MaterialId = defaultMaterialId;
-                            changesMade = true;
-                        }
-                    }
-                    if (changesMade) trans.Commit();
-                    else trans.RollBack(); // 如果没有做任何修改，则回滚事务
-                }
-                // 3. 将处理后的数据加载到ViewModel中
-                //PipeSystemEntitys.Clear();
-                //var pipeSystems = pipingSystemTypes.Select(pst => new PipeSystemEntity(pst)).ToList();
-                //foreach (var item in pipeSystems)
-                //{
-                //    PipeSystemEntitys.Add(item);
-                //}
-                // 4. 同化事务组，将所有子事务合并成一个撤销操作
-                tg.Assimilate();
-            }
-            catch (Exception ex)
-            {
-                // 如果发生任何错误，回滚整个事务组
-                tg.RollBack();
-                TaskDialog.Show("错误", "初始化管道系统时出错: " + ex.Message);
-            }
-        }
-        public ICommand SelectSystemCommand => new Form.RelayCommand<IEnumerable<object>>(SelectSystems);
-        private void SelectSystems(IEnumerable<object> selectedElements)
-        {
-            if (selectedElements.Count() == 0)
-            {
-                TaskDialog.Show("tt", "未选择任何系统，请重试");
-                return;
-            }
-            List<PipeSystemEntity> selectedItems = selectedElements.Cast<PipeSystemEntity>().ToList();
-            if (selectedElements == null) return;
-            List<ElementId> ids = new List<ElementId>();
-            foreach (var system in selectedItems)
-            {
-                foreach (var item in system.selectedElements)
-                {
-                    if (item is ElementId id)
-                    {
-                        ids.Add(id);
-                    }
-                }
-            }
-            Selection select = UIDocument.Selection;
-            select.SetElementIds(ids);
-        }
-        //添加保温命令完结，关闭后需要关闭主窗体，否则窗口会失效
-        //还不能简单命令改从后台启动，command绑定属性也不对
-        public ICommand AddInsulationCommand => new Form.RelayCommand<PipeSystemEntity>(AddInsulation);
-        public void AddInsulation(PipeSystemEntity pipeSystem)
-        {
-            //PipeInsulationAddView pipeInsulationAdd = new PipeInsulationAddView(pipeSystem);
-            //pipeInsulationAdd.ShowDialog();
-        }
-        public ICommand WindowCommand => new BaseBindingCommand(Window);
-        //修改材质直接开系统的吧，怎么接收修改？
-        public void Window(object para)
-        {
-            MateriaManageForm materialManager = new MateriaManageForm(Doc);
-            //MaterialManagerView materialManager = new MaterialManagerView(Doc);
-            bool? result = materialManager.ShowDialog();
-            if (result == true) { QueryELements(null); }
-        }
-        public void AddElement(Document document)
-        {
-            //PipeSystemAddView pipeSystemAddView = new PipeSystemAddView(document);
-            //pipeSystemAddView.ShowDialog();
-        }
-        //检查系统是否为空
-        private bool isEmptySystem { get; set; }
-        public bool IsEmptySystem(PipeSystemEntity systemType)
-        {
-            ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), systemType.SystemName, false));
-            IList<Element> allpipes = new FilteredElementCollector(systemType.Document)
-                .WhereElementIsNotElementType()
-                .OfCategory(BuiltInCategory.OST_PipeCurves)
-                .WherePasses(filter)
-                .ToElements();
-            IList<Element> allfamily = new FilteredElementCollector(systemType.Document)
-                 .WhereElementIsNotElementType()
-                 .OfClass(typeof(FamilyInstance))
-                 .WherePasses(filter)
-                 .ToElements();
+    //public class PipeSystemViewModel : ObserverableObject
+    //{
+    //    public Document Doc { get; set; }
+    //    public UIDocument UIDocument { get; set; }
+    //    public ObservableCollection<PipeSystemEntity> PipeSystemEntitys { get; set; } = new ObservableCollection<PipeSystemEntity>();
+    //    public PipeSystemViewModel(UIApplication uIApplication)
+    //    {
+    //        Doc = uIApplication.ActiveUIDocument.Document;
+    //        UIDocument = uIApplication.ActiveUIDocument as UIDocument;
+    //        LoadAndInitializePipeSystems();
+    //        QueryELements(null);
+    //    }
+    //    private void LoadAndInitializePipeSystems()
+    //    {
+    //        // --- 核心修改部分：使用 TransactionGroup ---
+    //        TransactionGroup tg = new TransactionGroup(Doc, "初始化管道系统设置");
+    //        try
+    //        {
+    //            tg.Start();
+    //            // 1. 查询所有管道系统类型
+    //            var elements = new FilteredElementCollector(Doc).OfClass(typeof(PipingSystemType));
+    //            List<PipingSystemType> pipingSystemTypes = elements.OfType<PipingSystemType>().ToList();
+    //            var defaultMaterialId = new FilteredElementCollector(Doc).OfCategory(BuiltInCategory.OST_Materials).FirstOrDefault().Id;
+    //            // 2. 在一个单独的事务中设置默认颜色
+    //            using (var trans = new Transaction(Doc, "设置默认系统颜色材质"))
+    //            {
+    //                trans.Start();
+    //                bool changesMade = false;
+    //                Random rand = new Random();
+    //                foreach (var pst in pipingSystemTypes)
+    //                {
+    //                    // 检查颜色是否有效，如果无效，则设置一个随机的默认颜色
+    //                    if (!pst.LineColor.IsValid)
+    //                    {
+    //                        //byte r = (byte)rand.Next(50, 220);  
+    //                        //byte g = (byte)rand.Next(50, 220);
+    //                        //byte b = (byte)rand.Next(50, 220);
+    //                        //pst.LineColor = new Autodesk.Revit.DB.Color(r, g, b);
+    //                        pst.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0);
+    //                        changesMade = true;
+    //                    }
+    //                    if (pst.MaterialId.IntegerValue == -1)
+    //                    {
+    //                        pst.MaterialId = defaultMaterialId;
+    //                        changesMade = true;
+    //                    }
+    //                }
+    //                if (changesMade) trans.Commit();
+    //                else trans.RollBack(); // 如果没有做任何修改，则回滚事务
+    //            }
+    //            // 3. 将处理后的数据加载到ViewModel中
+    //            //PipeSystemEntitys.Clear();
+    //            //var pipeSystems = pipingSystemTypes.Select(pst => new PipeSystemEntity(pst)).ToList();
+    //            //foreach (var item in pipeSystems)
+    //            //{
+    //            //    PipeSystemEntitys.Add(item);
+    //            //}
+    //            // 4. 同化事务组，将所有子事务合并成一个撤销操作
+    //            tg.Assimilate();
+    //        }
+    //        catch (Exception ex)
+    //        {
+    //            // 如果发生任何错误，回滚整个事务组
+    //            tg.RollBack();
+    //            TaskDialog.Show("错误", "初始化管道系统时出错: " + ex.Message);
+    //        }
+    //    }
+    //    public ICommand SelectSystemCommand => new Form.RelayCommand<IEnumerable<object>>(SelectSystems);
+    //    private void SelectSystems(IEnumerable<object> selectedElements)
+    //    {
+    //        if (selectedElements.Count() == 0)
+    //        {
+    //            TaskDialog.Show("tt", "未选择任何系统，请重试");
+    //            return;
+    //        }
+    //        List<PipeSystemEntity> selectedItems = selectedElements.Cast<PipeSystemEntity>().ToList();
+    //        if (selectedElements == null) return;
+    //        List<ElementId> ids = new List<ElementId>();
+    //        foreach (var system in selectedItems)
+    //        {
+    //            foreach (var item in system.selectedElements)
+    //            {
+    //                if (item is ElementId id)
+    //                {
+    //                    ids.Add(id);
+    //                }
+    //            }
+    //        }
+    //        Selection select = UIDocument.Selection;
+    //        select.SetElementIds(ids);
+    //    }
+    //    //添加保温命令完结，关闭后需要关闭主窗体，否则窗口会失效
+    //    //还不能简单命令改从后台启动，command绑定属性也不对
+    //    public ICommand AddInsulationCommand => new Form.RelayCommand<PipeSystemEntity>(AddInsulation);
+    //    public void AddInsulation(PipeSystemEntity pipeSystem)
+    //    {
+    //        //PipeInsulationAddView pipeInsulationAdd = new PipeInsulationAddView(pipeSystem);
+    //        //pipeInsulationAdd.ShowDialog();
+    //    }
+    //    public ICommand WindowCommand => new BaseBindingCommand(Window);
+    //    //修改材质直接开系统的吧，怎么接收修改？
+    //    public void Window(object para)
+    //    {
+    //        MateriaManageForm materialManager = new MateriaManageForm(Doc);
+    //        //MaterialManagerView materialManager = new MaterialManagerView(Doc);
+    //        bool? result = materialManager.ShowDialog();
+    //        if (result == true) { QueryELements(null); }
+    //    }
+    //    public void AddElement(Document document)
+    //    {
+    //        //PipeSystemAddView pipeSystemAddView = new PipeSystemAddView(document);
+    //        //pipeSystemAddView.ShowDialog();
+    //    }
+    //    //检查系统是否为空
+    //    private bool isEmptySystem { get; set; }
+    //    public bool IsEmptySystem(PipeSystemEntity systemType)
+    //    {
+    //        ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM), systemType.SystemName, false));
+    //        IList<Element> allpipes = new FilteredElementCollector(systemType.Document)
+    //            .WhereElementIsNotElementType()
+    //            .OfCategory(BuiltInCategory.OST_PipeCurves)
+    //            .WherePasses(filter)
+    //            .ToElements();
+    //        IList<Element> allfamily = new FilteredElementCollector(systemType.Document)
+    //             .WhereElementIsNotElementType()
+    //             .OfClass(typeof(FamilyInstance))
+    //             .WherePasses(filter)
+    //             .ToElements();
 
-            int countEntity = allpipes.Count() + allfamily.Count();
-            if (countEntity == 0) { return true; }
-            else return false;
-        }
-        //检查系统唯一性
-        private bool isLastSystemEntity { get; set; }
-        public bool IsLastSystemEntity(PipeSystemEntity systemType)
-        {
-            FilteredElementCollector elems = new FilteredElementCollector(Doc).OfClass(typeof(MEPSystemType));
-            List<MEPSystemType> systemTypes = elems.OfType<MEPSystemType>().ToList();
-            int systemCount = 0;
-            foreach (MEPSystemType item in systemTypes)
-            {
-                if (systemType.MEPSystemClassOrigin == item.SystemClassification)
-                {
-                    systemCount++;
-                }
-            }
-            if (systemCount > 1)
-            {
-                return false;
-            }
-            return true;
-        }
-        public ICommand DeleteELementCommand => new Form.RelayCommand<IEnumerable<object>>(DeleteElements);
-        public ICommand DeleteELementCommand2 => new Form.RelayCommand<PipeSystemEntity>(DeleteElement);
-        //多选删除
-        public void DeleteElements(IEnumerable<object> selectedElements)
-        {
-            List<PipeSystemEntity> selectedItems = selectedElements.Cast<PipeSystemEntity>().ToList();
-            if (selectedElements == null) return;
-            foreach (var item in selectedItems)
-            {
-                DeleteElement(item);
-            }
-        }
-        //单选删除
-        public void DeleteElement(PipeSystemEntity pipingSystemSingle)
-        {
-            Document document = pipingSystemSingle.Document;
-            isLastSystemEntity = IsLastSystemEntity(pipingSystemSingle);
-            isEmptySystem = IsEmptySystem(pipingSystemSingle);
-            if (!isLastSystemEntity)
-            {
-                if (isEmptySystem)
-                {
-                    document.NewTransaction(() =>
-                    {
-                        document.Delete(pipingSystemSingle.pipingSystemType.Id);
-                        PipeSystemEntitys.Remove(pipingSystemSingle);
-                    }, "删除系统");
-                    OnPropertyChanged(nameof(PipingSystemCount));
-                }
-                else
-                {
-                    TaskDialog td = new TaskDialog("tt");
-                    td.MainInstruction = "选定的系统类型正在使用，因此不能删除";
-                    td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
-                    td.Show();
-                }
-            }
-            else
-            {
-                TaskDialog td = new TaskDialog("tt");
-                td.MainInstruction = "不可删除该类型最后一个系统实例";
-                td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
-                td.Show();
-            }
-        }
-        public ICommand SetColorCommand => new Form.RelayCommand<PipingSystemType>(SetColor);
-        private void SetColor(PipingSystemType pipingSystemType)
-        {
-            if (pipingSystemType == null) return;
-            System.Windows.Forms.ColorDialog dialog = new System.Windows.Forms.ColorDialog();
-            dialog.AllowFullOpen = true;
-            dialog.FullOpen = true;
-            dialog.ShowHelp = true;
-            Autodesk.Revit.DB.Color color = pipingSystemType.LineColor;
-            dialog.Color = System.Drawing.Color.FromArgb(color.Red, color.Green, color.Blue);
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                pipingSystemType.Document.NewTransaction(() => pipingSystemType.LineColor = dialog.Color.ConvertToRevitColor(), "修改线颜色");
-                QueryELements(null);
-            }
-            ;
-        }
-        public ICommand QueryELementCommand => new BaseBindingCommand(QueryELements);
-        public void QueryELements(object parameter)
-        {
-            PipeSystemEntitys.Clear();
-            FilteredElementCollector elements = new FilteredElementCollector(Doc).OfClass(typeof(PipingSystemType));
-            List<PipingSystemType> pipingSystemTypes = elements.OfType<PipingSystemType>().ToList();
-            List<PipeSystemEntity> pipeSystems = pipingSystemTypes
-                .Select(pipingSystemType => new PipeSystemEntity(pipingSystemType))
-                .Where(e => string.IsNullOrEmpty(Keyword)
-                || e.SystemName.Contains(Keyword)
-                || e.Abbreviation.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
-            foreach (var item in pipeSystems)
-            {
-                PipeSystemEntitys.Add(item);
-            }
-        }
-        public string PipingSystemCount => PipeSystemEntitys.Count.ToString();
-        private string _keyword;
-        public string Keyword
-        {
-            get => _keyword; set => _keyword = value;
-        }
-    }
-    public class LastSystemTextColor : IValueConverter
-    {
-        Document Document { get; set; }
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            PipingSystemType pipingSystem = value as PipingSystemType;
-            PipeSystemEntity pipeSystemEntity = new PipeSystemEntity(pipingSystem);
-            Document document = pipeSystemEntity.Document;
-            Document = document;
+    //        int countEntity = allpipes.Count() + allfamily.Count();
+    //        if (countEntity == 0) { return true; }
+    //        else return false;
+    //    }
+    //    //检查系统唯一性
+    //    private bool isLastSystemEntity { get; set; }
+    //    public bool IsLastSystemEntity(PipeSystemEntity systemType)
+    //    {
+    //        FilteredElementCollector elems = new FilteredElementCollector(Doc).OfClass(typeof(MEPSystemType));
+    //        List<MEPSystemType> systemTypes = elems.OfType<MEPSystemType>().ToList();
+    //        int systemCount = 0;
+    //        foreach (MEPSystemType item in systemTypes)
+    //        {
+    //            if (systemType.MEPSystemClassOrigin == item.SystemClassification)
+    //            {
+    //                systemCount++;
+    //            }
+    //        }
+    //        if (systemCount > 1)
+    //        {
+    //            return false;
+    //        }
+    //        return true;
+    //    }
+    //    public ICommand DeleteELementCommand => new Form.RelayCommand<IEnumerable<object>>(DeleteElements);
+    //    public ICommand DeleteELementCommand2 => new Form.RelayCommand<PipeSystemEntity>(DeleteElement);
+    //    //多选删除
+    //    public void DeleteElements(IEnumerable<object> selectedElements)
+    //    {
+    //        List<PipeSystemEntity> selectedItems = selectedElements.Cast<PipeSystemEntity>().ToList();
+    //        if (selectedElements == null) return;
+    //        foreach (var item in selectedItems)
+    //        {
+    //            DeleteElement(item);
+    //        }
+    //    }
+    //    //单选删除
+    //    public void DeleteElement(PipeSystemEntity pipingSystemSingle)
+    //    {
+    //        Document document = pipingSystemSingle.Document;
+    //        isLastSystemEntity = IsLastSystemEntity(pipingSystemSingle);
+    //        isEmptySystem = IsEmptySystem(pipingSystemSingle);
+    //        if (!isLastSystemEntity)
+    //        {
+    //            if (isEmptySystem)
+    //            {
+    //                document.NewTransaction(() =>
+    //                {
+    //                    document.Delete(pipingSystemSingle.pipingSystemType.Id);
+    //                    PipeSystemEntitys.Remove(pipingSystemSingle);
+    //                }, "删除系统");
+    //                OnPropertyChanged(nameof(PipingSystemCount));
+    //            }
+    //            else
+    //            {
+    //                TaskDialog td = new TaskDialog("tt");
+    //                td.MainInstruction = "选定的系统类型正在使用，因此不能删除";
+    //                td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
+    //                td.Show();
+    //            }
+    //        }
+    //        else
+    //        {
+    //            TaskDialog td = new TaskDialog("tt");
+    //            td.MainInstruction = "不可删除该类型最后一个系统实例";
+    //            td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
+    //            td.Show();
+    //        }
+    //    }
+    //    public ICommand SetColorCommand => new Form.RelayCommand<PipingSystemType>(SetColor);
+    //    private void SetColor(PipingSystemType pipingSystemType)
+    //    {
+    //        if (pipingSystemType == null) return;
+    //        System.Windows.Forms.ColorDialog dialog = new System.Windows.Forms.ColorDialog();
+    //        dialog.AllowFullOpen = true;
+    //        dialog.FullOpen = true;
+    //        dialog.ShowHelp = true;
+    //        Autodesk.Revit.DB.Color color = pipingSystemType.LineColor;
+    //        dialog.Color = System.Drawing.Color.FromArgb(color.Red, color.Green, color.Blue);
+    //        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+    //        {
+    //            pipingSystemType.Document.NewTransaction(() => pipingSystemType.LineColor = dialog.Color.ConvertToRevitColor(), "修改线颜色");
+    //            QueryELements(null);
+    //        }
+    //        ;
+    //    }
+    //    public ICommand QueryELementCommand => new BaseBindingCommand(QueryELements);
+    //    public void QueryELements(object parameter)
+    //    {
+    //        PipeSystemEntitys.Clear();
+    //        FilteredElementCollector elements = new FilteredElementCollector(Doc).OfClass(typeof(PipingSystemType));
+    //        List<PipingSystemType> pipingSystemTypes = elements.OfType<PipingSystemType>().ToList();
+    //        List<PipeSystemEntity> pipeSystems = pipingSystemTypes
+    //            .Select(pipingSystemType => new PipeSystemEntity(pipingSystemType))
+    //            .Where(e => string.IsNullOrEmpty(Keyword)
+    //            || e.SystemName.Contains(Keyword)
+    //            || e.Abbreviation.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+    //            .ToList();
+    //        foreach (var item in pipeSystems)
+    //        {
+    //            PipeSystemEntitys.Add(item);
+    //        }
+    //    }
+    //    public string PipingSystemCount => PipeSystemEntitys.Count.ToString();
+    //    private string _keyword;
+    //    public string Keyword
+    //    {
+    //        get => _keyword; set => _keyword = value;
+    //    }
+    //}
 
-            bool lastSystem = IsLastSystemEntity(pipeSystemEntity);
-            if (!lastSystem)
-            {
-                return new SolidColorBrush(Colors.Black);
-            }
-            return new SolidColorBrush(Colors.Red);
-        }
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-        public bool IsLastSystemEntity(PipeSystemEntity systemType)
-        {
-            FilteredElementCollector elems = new FilteredElementCollector(Document).OfClass(typeof(MEPSystemType));
-            List<MEPSystemType> systemTypes = elems.OfType<MEPSystemType>().ToList();
-            int systemCount = 0;
-            foreach (MEPSystemType item in systemTypes)
-            {
-                if (systemType.MEPSystemClassOrigin == item.SystemClassification)
-                {
-                    systemCount++;
-                }
-            }
-            if (systemCount > 1)
-            {
-                return false;
-            }
-            return true;
-        }
-    }
-    public class BackgroundToForegroundConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is Brush brush)                // 确保传入的是Brush类型
-            {
-                var solidColorBrush = brush as SolidColorBrush;                // 获取颜色的SolidColorBrush
-                if (solidColorBrush != null)
-                {
-                    System.Windows.Media.Color color = solidColorBrush.Color;
-                    double red = color.R / 255.0;
-                    double green = color.G / 255.0;
-                    double blue = color.B / 255.0;
-                    double luma = red * 0.2126 + green * 0.7152 + blue * 0.0722;
-                    // 如果亮度大于0.5，则返回黑色，否则返回白色
-                    return luma > 0.45 ? new SolidColorBrush(System.Windows.Media.Colors.Black) : new SolidColorBrush(System.Windows.Media.Colors.White);
-                }
-            }
-            return new SolidColorBrush(System.Windows.Media.Colors.White); // 默认返回黑色
-        }
+    //public class BackgroundToForegroundConverter : IValueConverter
+    //{
+    //    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    //    {
+    //        if (value is Brush brush)                // 确保传入的是Brush类型
+    //        {
+    //            var solidColorBrush = brush as SolidColorBrush;                // 获取颜色的SolidColorBrush
+    //            if (solidColorBrush != null)
+    //            {
+    //                System.Windows.Media.Color color = solidColorBrush.Color;
+    //                double red = color.R / 255.0;
+    //                double green = color.G / 255.0;
+    //                double blue = color.B / 255.0;
+    //                double luma = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+    //                // 如果亮度大于0.5，则返回黑色，否则返回白色
+    //                return luma > 0.45 ? new SolidColorBrush(System.Windows.Media.Colors.Black) : new SolidColorBrush(System.Windows.Media.Colors.White);
+    //            }
+    //        }
+    //        return new SolidColorBrush(System.Windows.Media.Colors.White); // 默认返回黑色
+    //    }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
+    //    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+    //}
     //public class PipeSystemViewModel : ObserverableObject
     //{
     //    private Document _doc;

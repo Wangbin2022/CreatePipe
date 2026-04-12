@@ -7,12 +7,18 @@
         mc:Ignorable="d" Topmost="True" WindowStartupLocation="CenterScreen"
         Title="族管理器" 
         xmlns:uc="clr-namespace:CreatePipe.Form.UserControls"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
+       xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
         Height="450" Width="720">
     <Grid Margin="10">
+        <Grid.Resources>
+            <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+            <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        </Grid.Resources>
         <Grid.RowDefinitions>
-            <RowDefinition Height="35"/>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -31,42 +37,42 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 </HierarchicalDataTemplate>
             </uc:EnhancedTreeView.ItemTemplate>
         </uc:EnhancedTreeView>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left">
-            <!--<TextBox Width="175" VerticalAlignment="Center" 
-                     Margin="5" Height="22"  
-                     Text="{Binding Keyword,UpdateSourceTrigger=PropertyChanged}">
-                <i:Interaction.Triggers>
-                    <i:EventTrigger EventName="TextChanged">
-                        <i:InvokeCommandAction Command="{Binding UpdateFilesViewCommand}"/>
-                    </i:EventTrigger>
-                </i:Interaction.Triggers>
-            </TextBox>-->
-            <TextBlock Width="25" Text="{Binding FileCount}" VerticalAlignment="Center"/>
+        <Grid Grid.Column="1" Margin="0,0,5,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBox Width="170"  Margin="5"
+  bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+            </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button Width="65"  Content="生成缩略图"  Height="22"
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" Width="25" VerticalAlignment="Center"/>
+                <Button Width="65"  Content="生成缩略图"   
                         Margin="2" Command="{Binding MakeThumbCommand}"
                         CommandParameter="{Binding SelectedDirectory}"
                         Click="btn_OK_Click"/>
-                <Button Width="65"  Content="清理族备份"  Height="22"
-                        Margin="2" Command="{Binding DelBackupCommand}"/>
-                <Button Width="65"  Content="升级族版本"  Height="22"
+                <Button Width="50"  Content="批量删除"   
+                        Margin="2" Command="{Binding DeleteElementsCommand}"
+                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
+                <Button Width="50"  Content="升级版本"   
                         Margin="2" Command="{Binding UpgradeFamilyCommand}"
-                        CommandParameter="{Binding SelectedDirectory}"
-                        Click="btn_OK_Click"/>
-                <Button Width="65"  Content="导出族清单"  Height="22"
-                    Margin="2" Command="{Binding SaveCsvCommand}"
-                        Click="btn_OK_Click"/>
+                        CommandParameter="{Binding SelectedDirectory}"/>
+                <Button Width="50"  Content="导出清单"   
+                    Margin="2" Command="{Binding SaveCsvCommand}"/>
             </StackPanel>
-        </StackPanel>
-        <DataGrid x:Name="fileInfo"   Height="320" Margin="5"
-                  Grid.Column="1" Grid.Row="1"
+        </Grid>
+        <DataGrid x:Name="dataGrid"   Height="320" Margin="5"
+                  Grid.Column="1" Grid.Row="1" RowHeight="30"
           VerticalAlignment="Top" HorizontalAlignment="Stretch"
           GridLinesVisibility="Vertical" VerticalGridLinesBrush="Gray" 
-            ItemsSource="{Binding FilesView}"  AutoGenerateColumns="False">
+                     AutoGenerateColumns="False" CanUserAddRows="False"
+            SelectionMode="Extended" ItemsSource="{Binding Collection}">
+            <DataGrid.Resources>
+                <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="族文件名称" Binding="{Binding name}" Width="135" IsReadOnly="True" SortMemberPath="name" />
-                <DataGridTextColumn Header="族大小" Binding="{Binding DisplaySize}" Width="70" IsReadOnly="True" SortMemberPath="DisplaySize"/>
-                <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="65" IsReadOnly="True" SortMemberPath="Version"/>
+                <DataGridTextColumn Header="族文件名称" Binding="{Binding name}" Width="135" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="name" />
+                <DataGridTextColumn Header="族大小" Binding="{Binding DisplaySize}" Width="60" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="DisplaySize"/>
+                <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="45" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="Version"/>
                 <DataGridTemplateColumn Header="缩略图" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -78,30 +84,86 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="编辑族" CanUserResize="False">
+                <DataGridTemplateColumn Header="" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="打开族" Width="50"
+                            <Button Content="编辑" Width="35"
                             Command="{Binding DataContext.OpenFamilyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                             CommandParameter="{Binding}" 
                             Height="auto" HorizontalAlignment="Stretch" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="载入族" CanUserResize="False">
+                <DataGridTemplateColumn Header="载入" Width="35"
+         SortMemberPath="HasLoaded" >
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="加载" Width="50"
+                            <TextBlock VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <!-- 1. 设置默认值：假设默认是有样板 -->
+                                        <Setter Property="Text" Value="否" />
+                                        <Setter Property="Foreground" Value="Red" />
+                                        <Style.Triggers>
+                                            <!-- 2. 只有当确实为 False 时，才切换到红色和“无” -->
+                                            <DataTrigger Binding="{Binding HasLoaded}" Value="True">
+                                                <Setter Property="Text" Value="是" />
+                                                <Setter Property="Foreground" Value="Green" />
+                                            </DataTrigger>
+                                            <!-- 3. 增加一个保险：显式处理 True -->
+                                            <DataTrigger Binding="{Binding HasLoaded}" Value="False">
+                                                <Setter Property="Text" Value="否" />
+                                                <Setter Property="Foreground" Value="Red" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="导入当前" Width="60"
                             Command="{Binding DataContext.LoadFamilyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                            CommandParameter="{Binding}" 
+                            CommandParameter="{Binding}" IsEnabled="{Binding IsBackup, Converter={StaticResource InverseBooleanConverter}}"
                             Height="auto" HorizontalAlignment="Stretch" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="备份" Width="35"
+                       SortMemberPath="IsBackup" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <!-- 1. 设置默认值：假设默认是有样板 -->
+                                        <Setter Property="Text" Value="否" />
+                                        <Setter Property="Foreground" Value="Green" />
+                                        <Style.Triggers>
+                                            <!-- 2. 只有当确实为 False 时，才切换到红色和“无” -->
+                                            <DataTrigger Binding="{Binding IsBackup}" Value="True">
+                                                <Setter Property="Text" Value="是" />
+                                                <Setter Property="Foreground" Value="Red" />
+                                            </DataTrigger>
+                                            <!-- 3. 增加一个保险：显式处理 True -->
+                                            <DataTrigger Binding="{Binding IsBackup}" Value="False">
+                                                <Setter Property="Text" Value="否" />
+                                                <Setter Property="Foreground" Value="Green" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
         <DockPanel Grid.Row="2" Grid.ColumnSpan="2">
-            <Button  Content="确定并退出" Height="20" x:Name="btn_OK"
+            <Button  Content="确定并退出" Height="auto" FontSize="16"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
         </DockPanel>
     </Grid>
