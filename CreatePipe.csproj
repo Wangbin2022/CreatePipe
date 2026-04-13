@@ -95,6 +95,9 @@
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
     <Compile Include="filter\RoofFilter.cs" />
     <Compile Include="filter\XReferenceSelectionFilter.cs" />
+    <Compile Include="Form\CableTraySystemManagerView.xaml.cs">
+      <DependentUpon>CableTraySystemManagerView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\CategoryVisibilityView.xaml.cs">
       <DependentUpon>CategoryVisibilityView.xaml</DependentUpon>
     </Compile>
@@ -123,11 +126,14 @@
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
     <Compile Include="Form\Converters\InverseBooleanConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
-    <Compile Include="Form\Converters\LastPipeSystemTextColor.cs" />
+    <Compile Include="Form\Converters\LastMEPSystemTextColor.cs" />
     <Compile Include="Form\Converters\RevitColorConverter.cs" />
     <Compile Include="Form\Converters\RevitColorToBrushConverter.cs" />
     <Compile Include="Form\Converters\TextColorConverter.cs" />
     <Compile Include="Form\Converters\TextTruncateConverter.cs" />
+    <Compile Include="Form\DuctSystemManagerSubView.xaml.cs">
+      <DependentUpon>DuctSystemManagerSubView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\DuctSystemManagerView.xaml.cs">
       <DependentUpon>DuctSystemManagerView.xaml</DependentUpon>
     </Compile>
@@ -524,6 +530,7 @@
     <Compile Include="Utils\ProgressBarDialog.xaml.cs">
       <DependentUpon>ProgressBarDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Utils\RevitNameHelper.cs" />
     <Compile Include="Utils\RevitProgressBar.cs" />
     <Compile Include="Utils\RevitWpfProgressBar.cs" />
     <Compile Include="Utils\RobustFailureProcessor.cs" />
@@ -604,6 +611,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\CableTraySystemManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\CategoryVisibilityView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -633,6 +644,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\CopyFamilySymbolsView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\DuctSystemManagerSubView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -12,7 +12,7 @@
     <Window.Resources>
         <conv:ColorConverter x:Key="colorConverter"/>
         <conv:BackgroundToForegroundConverter  x:Key="BackgroundToForegroundConverter"/>
-        <conv:LastPipeSystemTextColor x:Key="LastSystemText"/>
+        <conv:LastMEPSystemTextColor x:Key="LastSystemText"/>
         <conv:IntToStringConverter x:Key="IntToStringConverter"/>
     </Window.Resources>
     <Grid Margin="10">
@@ -102,16 +102,7 @@ CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
                                 <Button  Background="{Binding Color, UpdateSourceTrigger=PropertyChanged,Converter={StaticResource colorConverter}}" Command="{Binding  MaterialEditCommand}" CommandParameter="{Binding }" BorderBrush="Transparent">
                                     <TextBlock Text="{Binding ColorName,UpdateSourceTrigger=PropertyChanged}"
 Foreground="{Binding Background, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BackgroundToForegroundConverter}}" />
-                                </Button>
-                                <!--<Border Width="80"
-                                Height="25"
-                                Background="{Binding Color, UpdateSourceTrigger=PropertyChanged,Converter={StaticResource colorConverter}}"
-                                BorderBrush="Gray" MaterialEditCommand
-                                BorderThickness="1"
-                                CornerRadius="2">
-                                    <TextBlock Text="{Binding ColorName,UpdateSourceTrigger=PropertyChanged}"
-               Foreground="{Binding Background, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BackgroundToForegroundConverter}}" />
-                                </Border>-->
+                                </Button>     
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -122,18 +113,7 @@ Foreground="{Binding Background, RelativeSource={RelativeSource AncestorType=Bor
                                           RelativeSource={RelativeSource AncestorType=DataGrid}}"
                       SelectedItem="{Binding MaterialName, UpdateSourceTrigger=PropertyChanged}"
                       IsEditable="True" 
-                      IsReadOnly="True" />
-                                <!--<ComboBox ItemsSource="{Binding DataContext.AllMaterials, 
-                                          RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                              SelectedItem="{Binding Material, UpdateSourceTrigger=PropertyChanged}"
-                              DisplayMemberPath="Name">
-                                    <ComboBox.Style>
-                                        <Style TargetType="ComboBox">
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="Background" Value="Transparent"/>
-                                        </Style>
-                                    </ComboBox.Style>
-                                </ComboBox>-->
+                      IsReadOnly="True" />         
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -154,9 +134,7 @@ Foreground="{Binding Background, RelativeSource={RelativeSource AncestorType=Bor
                     <DataGridTemplateColumn Header="保温层" CanUserResize="False">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <!--<Button Content="删除系统" Width="auto" Command="{Binding DataContext.DeleteELementCommand2, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-     CommandParameter="{Binding}" Height="28" HorizontalAlignment="Stretch"/>-->
-                                <Button Content="添加保温" Width="auto"           Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.PipingAddCommand}"
+                                <Button Content="添加保温" Width="auto"           Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.PipingAddCommand}" IsEnabled="{Binding canClear}"
 CommandParameter="{Binding .}"  HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -164,7 +142,7 @@ CommandParameter="{Binding .}"  HorizontalAlignment="Stretch"/>
                     <DataGridTemplateColumn Header="删除" CanUserResize="False">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="清理实例" Width="auto"           Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.DeleteElementCommand}"
+                                <Button Content="清理实例" Width="auto"           Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.DeleteElementCommand}" IsEnabled="{Binding canClear}"
 CommandParameter="{Binding .}"  HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

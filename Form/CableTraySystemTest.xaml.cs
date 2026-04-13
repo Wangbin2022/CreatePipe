@@ -12,7 +12,7 @@ namespace CreatePipe.Form
         public CableTraySystemTest(Document document)
         {
             InitializeComponent();
-            this.DataContext = new CableTraySystemViewModel(document);
+            //this.DataContext = new CableTraySystemViewModel(document);
         }
 
         private void btn_OK_Click(object sender, RoutedEventArgs e)

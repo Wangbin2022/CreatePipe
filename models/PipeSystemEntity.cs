@@ -19,7 +19,7 @@ namespace CreatePipe.models
         public PipingSystemType pipingSystemType { get; set; }
         public Document Document;
         private readonly BaseExternalHandler _handler;
-        public List<ElementId> selectedElements { get; set; }
+        public List<ElementId> selectedElements { get; set; } = new List<ElementId>();
         public PipeSystemEntity(PipingSystemType pipingSystem, BaseExternalHandler handler)
         {
             Document = pipingSystem.Document;
@@ -29,18 +29,23 @@ namespace CreatePipe.models
                 pipingSystemType = pipingSystem;
                 systemName = pipingSystem.Name;
                 abbreviation = pipingSystem.Abbreviation;
+
                 _lineColor = pipingSystem.LineColor;
                 lineWeight = pipingSystem.LineWeight;
                 linePatternElementInfos = LinePatterns();
                 linePatternElem = linePatternElementInfos.Find(x => x.Id == pipingSystem.LinePatternId);
+
                 mEPSystemClass = pipingSystem.SystemClassification.ToString();
                 MEPSystemClassOrigin = pipingSystem.SystemClassification;
                 selectedElements = ElementCount(pipingSystem);
                 singleSystemElementCount = selectedElements.Count();
+                if (singleSystemElementCount > 0)
+                {
+                    canClear = true;
+                }
                 _material = Document.GetElement(pipingSystem.MaterialId) as Material;
-
                 _materialName=_material.Name;
-                //_colorValue = GetColorValue(Material.Color);
+
                 dNList = getDNList(pipingSystem);
                 UpdateColorName();
                 UpdateLineColorName();
@@ -79,6 +84,7 @@ namespace CreatePipe.models
             }
             return strings;
         }
+        public bool canClear { get; set; } = false;
         private List<LinePatternElement> LinePatterns()
         {
             FilteredElementCollector elements3 = new FilteredElementCollector(Document);
@@ -135,47 +141,9 @@ namespace CreatePipe.models
             {
                 _material = value;
                 OnPropertyChanged(nameof(Material));
-                //if (_material?.Id != value?.Id)
-                //{
-                //    try
-                //    {
-                //        // 切换到 Revit 线程执行更新
-                //        _handler.Run(app =>
-                //        {
-                //            NewTransaction.Execute(Document, "修改系统材质", () =>
-                //            {
-                //                Parameter p = pipingSystemType.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM);
-                //                if (p != null)
-                //                {
-                //                    p.Set(value.Id);
-                //                }
-                //            });
-                //            _material = value;
-                //            OnPropertyChanged(nameof(Material));
-                //        });
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        TaskDialog.Show("tt", ex.Message);
-                //    }
-                //}
             }
         }
-        //public string Name
-        //{
-        //    get => Material.Name;
-        //    set
-        //    {
-        //        _handler.Run(app =>
-        //        {
-        //            Document.NewTransaction(() => Material.Name = value, "修改名称");
-        //        });
-        //        OnPropertyChanged();
-        //    }
-        //}
-        //public Material Material { get; set; }
         public MEPSystemClassification MEPSystemClassOrigin { get; }
-
         private string mEPSystemClass;
         public string MEPSystemClass
         {
@@ -383,32 +351,6 @@ namespace CreatePipe.models
                 });
             }
         }
-        //public string GetColorValue(PipingSystemType systemType)
-        //{
-        //    Autodesk.Revit.DB.Color color = systemType.LineColor;
-        //    //if (color == null || !color.IsValid)//不少模板没有给管道系统线颜色预制值，只能提前赋值否则报错崩溃
-        //    //{
-        //    //    Document.NewTransaction(() => systemType.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0), "修改线颜色");
-        //    //    return null;
-        //    //}
-        //    //else
-        //    //{
-        //    try
-        //    {
-        //        string colorvalue = color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
-        //        //string colorvalue = Convert.ToString(color.Red) + "-" + Convert.ToString(color.Green) + "-" + Convert.ToString(color.Blue);
-        //        //string colorvalue = $"{color.Red}-{color.Green}-{color.Blue}";
-        //        //string colorvalue = String.Concat(color.Red.ToString(), "-", color.Green.ToString(), "-", color.Blue.ToString());
-        //        //string colorvalue = string.Format("{0}-{1}-{2}", color.Red, color.Green, color.Blue);
-        //        return colorvalue;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        TaskDialog.Show("tt", ex.ToString());
-        //    }
-        //    //}
-        //    return null;
-        //}
     }
     //public class PipeSystemEntity : ObserverableObject
     //{

@@ -1,69 +1,60 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Mechanical;
+using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
+using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Input;
+using Color = Autodesk.Revit.DB.Color;
+using Material = Autodesk.Revit.DB.Material;
 
 namespace CreatePipe.models
 {
     public class DuctSystemEntity : ObserverableObject
     {
-        public MechanicalSystemType ductSystemSingle { get; set; }
-        public Document Document { get => ductSystemSingle.Document; }
-        public IEnumerable<object> selectedElements { get; set; }
-        public DuctSystemEntity(MechanicalSystemType ductSystem)
+        public MechanicalSystemType ductSystemType { get; set; }
+        public Document Document;
+        private readonly BaseExternalHandler _handler;
+        public List<ElementId> selectedElements { get; set; } = new List<ElementId>();
+        public DuctSystemEntity(MechanicalSystemType ductSystem, BaseExternalHandler handler)
         {
-            Document document = ductSystem.Document;
-            FilteredElementCollector elements3 = new FilteredElementCollector(document);
-            List<LinePatternElement> LinePatternElements = elements3.OfClass(typeof(LinePatternElement)).Cast<LinePatternElement>().ToList();
-
+            Document = ductSystem.Document;
+            _handler = handler;
             if (ductSystem != null)
             {
-                ductSystemSingle = ductSystem;
+                ductSystemType = ductSystem;
                 systemName = ductSystem.Name;
                 abbreviation = ductSystem.Abbreviation;
-                colorName = GetColorValue(ductSystem);
-                lineColor = ductSystem.LineColor;
+
+                _lineColor = ductSystem.LineColor;
                 lineWeight = ductSystem.LineWeight;
-                linePatternElementInfos = LinePatternElements;
-                linePatternElem = LinePatternElements.Find(x => x.Id == ductSystem.LinePatternId);
+                linePatternElementInfos = LinePatterns();
+                linePatternElem = LinePatternElementInfos.Find(x => x.Id == ductSystem.LinePatternId);
+
                 mEPSystemClass = ductSystem.SystemClassification.ToString();
                 MEPSystemClassOrigin = ductSystem.SystemClassification;
-                //ElementId id = ductSystem.MaterialId;
-                //if (id.IntegerValue == -1)
-                //{
-                //    FilteredElementCollector collector = new FilteredElementCollector(ductSystem.Document).OfCategory(BuiltInCategory.OST_Materials);
-                //    List<Material> materials = collector.Cast<Material>().ToList();
-                //    ElementId materialId = materials.FirstOrDefault().Id;
-                //    Document.NewTransaction(() => ductSystem.MaterialId = materialId, "默认材质赋值");
-                //}
-                Material material = document.GetElement(ductSystem.MaterialId) as Material;
-                Material = material;
-                _colorValue = GetColorValue(material.Color);
-                //统计部分能否放进VM
-                //ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM), systemName, false));
-                //IList<Element> allpipes = new FilteredElementCollector(ductSystem.Document)
-                //    .WhereElementIsNotElementType()
-                //    .OfCategory(BuiltInCategory.OST_DuctCurves)
-                //    .WherePasses(filter)
-                //    .ToElements();
-                //IList<Element> allfamily = new FilteredElementCollector(ductSystem.Document)
-                //     .WhereElementIsNotElementType()
-                //     .OfClass(typeof(FamilyInstance))
-                //     .WherePasses(filter)
-                //     .ToElements();
-                //singleSystemElementCount = allpipes.Count() + allfamily.Count();
                 selectedElements = ElementCount(ductSystem);
                 singleSystemElementCount = selectedElements.Count();
+                if (singleSystemElementCount > 0)
+                {
+                    canClear = true;
+                }
+                _material = Document.GetElement(ductSystem.MaterialId) as Material;
+                _materialName = _material.Name;
+                UpdateColorName();
+                UpdateLineColorName();
             }
-            //List<Element> systems = new FilteredElementCollector(document)
-            //    .WhereElementIsElementType()
-            //    .OfCategory(BuiltInCategory.OST_DuctSystem)
-            //    .ToList<Element>();
-            //MechanicalSystemType ductSystemList;
+        }
+        public bool canClear { get; set; } = false;
+        private List<LinePatternElement> LinePatterns()
+        {
+            FilteredElementCollector elements3 = new FilteredElementCollector(Document);
+            List<LinePatternElement> LinePatternElements = elements3.OfClass(typeof(LinePatternElement)).Cast<LinePatternElement>().ToList();
+            return LinePatternElements;
         }
         private List<ElementId> ElementCount(MechanicalSystemType entity)
         {
@@ -80,53 +71,45 @@ namespace CreatePipe.models
         }
         //数量相关
         private int singleSystemElementCount;
-        public int SingleSystemElementCount
+        public int SingleSystemElementCount { get => singleSystemElementCount; set => singleSystemElementCount = value; }
+        private string _materialName;
+        public string MaterialName
         {
-            get => singleSystemElementCount;
+            get => _materialName;
             set
             {
-                singleSystemElementCount = value;
-                OnPropertyChanged();
+                if (_materialName != value)
+                {
+                    var AllMaterials = new FilteredElementCollector(Document).OfClass(typeof(Material)).Cast<Material>().ToList();
+                    Dictionary<string, Material> _nameToMaterialMap = AllMaterials.ToDictionary(m => m.Name, m => m);
+                    // 获取对应的材质对象以获取 ID
+                    var material = _nameToMaterialMap[value];
+                    _handler.Run(app =>
+                    {
+                        using (Transaction t = new Transaction(Document, "修改材质"))
+                        {
+                            t.Start();
+                            var p = ductSystemType.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM);
+                            p.Set(material.Id);
+                            t.Commit();
+                        }
+                        _materialName = value;
+                        OnPropertyChanged(nameof(Material));
+                    });
+                }
             }
         }
-        //材料相关
-        public string Name
+        private Material _material;
+        public Material Material
         {
-            get => Material.Name;
+            get => _material;
             set
             {
-                Document.NewTransaction(() => Material.Name = value, "修改名称");
-                OnPropertyChanged();
+                _material = value;
+                OnPropertyChanged(nameof(Material));
             }
         }
-        public Color Color
-        {
-            get => Material.Color;
-            set
-            {
-                Material.Color = value;
-                OnPropertyChanged();
-            }
-        }
-        private string _colorValue;
-        public string ColorValue
-        {
-            get => _colorValue;
-            set
-            {
-                _colorValue = value;
-            }
-        }
-        public Material Material { get; set; }
-        public string GetColorValue(Color color)
-        {
-            string colorvalue;
-            colorvalue = color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
-            return colorvalue;
-        }
-
         public MEPSystemClassification MEPSystemClassOrigin { get; }
-
         private string mEPSystemClass;
         public string MEPSystemClass
         {
@@ -146,26 +129,102 @@ namespace CreatePipe.models
                 }
             }
         }
-
-        private Autodesk.Revit.DB.Color lineColor;
-        public Autodesk.Revit.DB.Color LineColor
+        public Color Color
         {
-            get => lineColor;
+            get => Material.Color;
             set
             {
-                lineColor = value;
-                OnPropertyChanged("LineColor");
+                // 如果新值和旧值相同，则不执行任何操作，避免不必要的事务和UI更新
+                if (Material.Color != null && Material.Color.IsValid && value != null && value.IsValid &&
+                    Material.Color.Red == value.Red && Material.Color.Green == value.Green && Material.Color.Blue == value.Blue)
+                {
+                    return;
+                }
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改材质颜色", () => Material.Color = value);
+                    Material.Color = value;
+                    OnPropertyChanged();
+                    UpdateColorName();
+                });
             }
         }
-        private string colorName;
+        public ICommand MaterialEditCommand => new RelayCommand<DuctSystemEntity>(MaterialEdit);
+        private void MaterialEdit(DuctSystemEntity entity)
+        {
+            ////TaskDialog.Show("tt", entity.SystemName);
+            var initialRevitColor = Material.Color;
+            var initialMediaColor = System.Windows.Media.Color.FromRgb(initialRevitColor.Red, initialRevitColor.Green, initialRevitColor.Blue);
+            var dialog = new ColorPickerDialog(initialMediaColor);
+            if (dialog.ShowDialog() == true)
+            {
+                var newRevitColor = new Color(dialog.SelectedColor.R, dialog.SelectedColor.G, dialog.SelectedColor.B);
+                Color = newRevitColor;
+            }
+        }
+        private string _colorName;
         public string ColorName
         {
-            get => colorName;
+            get => _colorName;
             set
             {
-                colorName = value;
-                OnPropertyChanged("ColorName");
+                if (_colorName != value)
+                {
+                    _colorName = value;
+                    OnPropertyChanged(nameof(ColorName));
+                }
             }
+        }
+        private void UpdateColorName()
+        {
+            ColorName = Color != null ? $"{Color.Red}-{Color.Green}-{Color.Blue}" : "无";
+        }
+        private Autodesk.Revit.DB.Color _lineColor;
+        public Autodesk.Revit.DB.Color LineColor
+        {
+            get => _lineColor;
+            set
+            {
+                // 如果新值和旧值相同，则不执行任何操作，避免不必要的事务和UI更新
+                if (_lineColor != null && _lineColor.IsValid && value != null && value.IsValid &&
+                    _lineColor.Red == value.Red && _lineColor.Green == value.Green && _lineColor.Blue == value.Blue)
+                {
+                    return;
+                }
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改线颜色", () => ductSystemType.LineColor = value);
+                    _lineColor = value;
+                    OnPropertyChanged();
+                    UpdateLineColorName();
+                });
+            }
+        }
+        public ICommand SetLineColorCommand => new RelayCommand<DuctSystemEntity>(SetLineColor);
+        private void SetLineColor(DuctSystemEntity entity)
+        {
+            var initialRevitColor = entity.LineColor;
+            var initialMediaColor = System.Windows.Media.Color.FromRgb(initialRevitColor.Red, initialRevitColor.Green, initialRevitColor.Blue);
+            var dialog = new ColorPickerDialog(initialMediaColor);
+            if (dialog.ShowDialog() == true)
+            {
+                var newRevitColor = new Color(dialog.SelectedColor.R, dialog.SelectedColor.G, dialog.SelectedColor.B);
+                entity.LineColor = newRevitColor;
+            }
+        }
+        private string _lineColorName;
+        public string LineColorName
+        {
+            get => _lineColorName;
+            set
+            {
+                _lineColorName = value;
+                OnPropertyChanged(nameof(LineColorName));
+            }
+        }
+        private void UpdateLineColorName()
+        {
+            LineColorName = LineColor != null ? $"{LineColor.Red}-{LineColor.Green}-{LineColor.Blue}" : "无";
         }
         private LinePatternElement linePatternElem;
         public LinePatternElement LinePatternElem
@@ -173,8 +232,12 @@ namespace CreatePipe.models
             get => linePatternElem;
             set
             {
-                Document.NewTransaction(() => ductSystemSingle.LinePatternId = value.Id, "修改线型");
-                OnPropertyChanged("LinePatternElem");
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改线型", () => ductSystemType.LinePatternId = value.Id);
+                    linePatternElem = value;
+                    OnPropertyChanged();
+                });
             }
         }
         private List<LinePatternElement> linePatternElementInfos;
@@ -199,56 +262,44 @@ namespace CreatePipe.models
         private int lineWeight;
         public int LineWeight
         {
-            get { return lineWeight; }
+            get => lineWeight;
             set
             {
-                Document.NewTransaction(() => ductSystemSingle.LineWeight = value, "修改线宽");
-                OnPropertyChanged("LineWeight");
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改线宽", () => ductSystemType.LineWeight = value);
+                    lineWeight = value;
+                    OnPropertyChanged();
+                });
             }
         }
         private string systemName;
         public string SystemName
         {
-            get { return systemName; }
+            get => systemName;
             set
             {
-                Document.NewTransaction(() => ductSystemSingle.Name = value, "修改名称");
-                systemName = value;
-                OnPropertyChanged("SystemName");
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改名称", () => ductSystemType.Name = value);
+                    systemName = value;
+                    OnPropertyChanged();
+                });
             }
         }
         private string abbreviation;
         public string Abbreviation
         {
-            get { return abbreviation; }
+            get => abbreviation;
             set
             {
-                Document.NewTransaction(() => ductSystemSingle.Abbreviation = value, "修改缩写");
-                abbreviation = value;
-                OnPropertyChanged();
+                _handler.Run(app =>
+                {
+                    NewTransaction.Execute(Document, "修改缩写", () => ductSystemType.Abbreviation = value);
+                    abbreviation = value;
+                    OnPropertyChanged();
+                });
             }
-        }
-        public string GetColorValue(MechanicalSystemType systemType)
-        {
-            Autodesk.Revit.DB.Color color = systemType.LineColor;
-            //if (color == null || !color.IsValid)//不少模板没有给管道系统线颜色预制值，只能提前赋值否则报错崩溃
-            //{
-            //    Document.NewTransaction(() => systemType.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0), "修改线颜色");
-            //    return null;
-            //}
-            //else
-            //{
-            try
-            {
-                string colorvalue = color.Red.ToString() + "-" + color.Green.ToString() + "-" + color.Blue.ToString();
-                return colorvalue;
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("tt", ex.ToString());
-            }
-            //}
-            return null;
         }
     }
 }

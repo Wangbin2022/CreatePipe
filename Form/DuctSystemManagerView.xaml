@@ -6,91 +6,64 @@
         xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
         Title="风管系统管理" 
-        Height="450" Width="720"
-                xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
-        xmlns:vm="clr-namespace:CreatePipe.models"
-        xmlns:conv ="clr-namespace:CreatePipe.Form.Converters">
+        Height="450" Width="760"
+       xmlns:conv ="clr-namespace:CreatePipe.Form.Converters"
+       xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
     <Window.Resources>
         <conv:ColorConverter x:Key="colorConverter"/>
         <conv:BackgroundToForegroundConverter  x:Key="BackgroundToForegroundConverter"/>
-        <conv:LastPipeSystemTextColor x:Key="LastSystemText"/>
+        <conv:LastMEPSystemTextColor x:Key="LastSystemText"/>
+        <conv:IntToStringConverter x:Key="IntToStringConverter"/>
     </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-            <TextBox Width="200" VerticalAlignment="Center"  
-                     Text="{Binding Keyword,UpdateSourceTrigger=PropertyChanged}">
-                <i:Interaction.Triggers>
-                    <i:EventTrigger EventName="TextChanged">
-                        <i:InvokeCommandAction Command="{Binding QueryELementCommand}"/>
-                    </i:EventTrigger>
-                </i:Interaction.Triggers>
-            </TextBox>
-        </StackPanel>
-        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-            <TextBlock Text="{Binding DuctSystemCount,UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
-            <Button Width="66" Margin="2" Content="选系统全部" Command="{Binding SelectSystemCommand}" 
-                    CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"
-                    Click="btn_OK_Click"/>
-            <Button Width="66" Margin="2" Content="增加系统" x:Name="Btn_Add" Click="Btn_Add_Click"/>
-            <Button Width="66" Margin="2" Content="删除系统"  
-                    Command="{Binding DeleteELementCommand}"
+        <Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBox Width="230"  Margin="5"
+bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <Button Width="66" Margin="2" Content="选系统全部" Command="{Binding SelectSystemCommand}" 
+                    CommandParameter="{Binding SelectedItems, ElementName=dataGrid}" />
+                <Button Width="66" Margin="2" Content="增加系统" Command="{Binding DuctSystemAddCommand}" CommandParameter="NewTab"/>
+                <Button Width="66" Margin="2" Content="删除系统"  
+                    Command="{Binding DeleteElementsCommand}"
 CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
-        </StackPanel>
+            </StackPanel>
+        </Grid>
         <StackPanel  Grid.Row="1">
-            <DataGrid x:Name="dataGrid" RowHeight="35"  
+            <DataGrid x:Name="dataGrid" RowHeight="30"  
                       HorizontalAlignment="Stretch"
                       AutoGenerateColumns="False" CanUserAddRows="False"
                       SelectionUnit="FullRow" EnableColumnVirtualization="False"
                       GridLinesVisibility="None" Height="350"  Width="auto"
-                      SelectionMode="Extended" ItemsSource="{Binding DuctSystemEntitys}">
+                        SelectionMode="Extended" ItemsSource="{Binding Collection}">
                 <DataGrid.Resources>
-                    <Style TargetType="DataGridCell" x:Key="dataGridCellStyle">
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="LightGray"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="Lightblue"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                    <Style TargetType="DataGridCell">
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="DataGridCell">
-                                    <TextBlock TextAlignment="Center" >
-                           <ContentPresenter />
-                                    </TextBlock>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                    <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
-                        <Setter Property="VerticalAlignment" Value="Center"/>
-                    </Style>
+                    <ResourceDictionary>
+                        <ResourceDictionary.MergedDictionaries>
+                            <!-- 引用你的 CommonDataGridStyles.xaml -->
+                            <ResourceDictionary Source="/CreatePipe;component/Form/ResourceDictionary/CommonDataGridStyles.xaml"/>
+                        </ResourceDictionary.MergedDictionaries>
+                    </ResourceDictionary>
                 </DataGrid.Resources>
-                <DataGrid.CellStyle>
-                    <StaticResource ResourceKey="dataGridCellStyle"/>
-                </DataGrid.CellStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="名称" Width="80" SortMemberPath="SystemName" 
                       Binding="{Binding SystemName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="缩写" Width="35" SortMemberPath="Abbreviation" CanUserResize="False"
                       Binding="{Binding Abbreviation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
-                    <DataGridTextColumn Header="数量统计" Width="50" SortMemberPath="SingleSystemElementCount" 
+                    <DataGridTextColumn Header="数量统计" Width="40" SortMemberPath="SingleSystemElementCount" 
                       Binding="{Binding SingleSystemElementCount, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTemplateColumn Header="线颜色" Width="80"
-                                            SortMemberPath="ColorName">
+                          SortMemberPath="LineColorName">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button  BorderBrush="Transparent" Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.SetColorCommand}" CommandParameter="{Binding ductSystemSingle}" Background="Transparent">
-                                    <TextBlock Text="{Binding ColorName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"    Foreground="{Binding LineColor,Converter={StaticResource colorConverter}}" VerticalAlignment="Center"/>
+                                <Button  BorderBrush="Transparent" Command="{Binding  SetLineColorCommand}" CommandParameter="{Binding }" Background="Transparent">
+                                    <TextBlock Text="{Binding LineColorName,UpdateSourceTrigger=PropertyChanged}"    Foreground="{Binding LineColor,Converter={StaticResource colorConverter}}" VerticalAlignment="Center"/>
                                 </Button>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -126,37 +99,37 @@ CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
                                             SortMemberPath="Name" >
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Border Width="80"
-                                Height="20"
-                                Background="{Binding Color,Converter={StaticResource colorConverter}}"
-                                BorderBrush="Gray"
-                                BorderThickness="1"
-                                CornerRadius="5">
-                                    <TextBlock Text="{Binding ColorValue}"
-               Foreground="{Binding Background, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BackgroundToForegroundConverter}}" />
-                                </Border>
+                                <Button  Background="{Binding Color, UpdateSourceTrigger=PropertyChanged,Converter={StaticResource colorConverter}}" Command="{Binding  MaterialEditCommand}" CommandParameter="{Binding }" BorderBrush="Transparent">
+                                    <TextBlock Text="{Binding ColorName,UpdateSourceTrigger=PropertyChanged}"
+Foreground="{Binding Background, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BackgroundToForegroundConverter}}" />
+                                </Button>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="材质名称" Width="100"
-                             SortMemberPath="Name" >
+                    <DataGridTemplateColumn Header="材质" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Width="100"  
-                 Background="Transparent" BorderBrush="Transparent"
-                 Content="{Binding Name}" 
-                        Command="{Binding DataContext.WindowCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        />
+                                <ComboBox ItemsSource="{Binding DataContext.MaterialNames, 
+                                          RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                      SelectedItem="{Binding MaterialName, UpdateSourceTrigger=PropertyChanged}"
+                      IsEditable="True" 
+                      IsReadOnly="True" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="更改操作" CanUserResize="False">
+                    <DataGridTemplateColumn Header="保温层" CanUserResize="False">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <!--<Button Content="删除系统" Width="auto" Command="{Binding DataContext.DeleteELementCommand2, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-     CommandParameter="{Binding}" Height="28" HorizontalAlignment="Stretch"/>-->
-                                <Button Content="添加保温" Width="auto" Command="{Binding DataContext.AddInsulationCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-     CommandParameter="{Binding}" Height="28" HorizontalAlignment="Stretch"/>
+                                <Button Content="添加保温" Width="auto"           Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.DuctSystemAddCommand}" IsEnabled="{Binding canClear}"
+CommandParameter="{Binding .}"  HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="删除" CanUserResize="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="清理实例" Width="auto"           Command="{Binding RelativeSource={RelativeSource Mode=FindAncestor,AncestorType=Window},Path=DataContext.DeleteElementCommand}" IsEnabled="{Binding canClear}"
+CommandParameter="{Binding .}"  HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -164,7 +137,7 @@ CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
             </DataGrid>
         </StackPanel>
         <DockPanel Grid.Row="2">
-            <Button  Content="确定并退出" Height="20" x:Name="btn_OK"
+            <Button  Content="确定并退出" Height="auto" FontSize="16"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
         </DockPanel>
     </Grid>

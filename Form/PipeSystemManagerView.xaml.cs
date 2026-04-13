@@ -77,40 +77,15 @@ namespace CreatePipe.Form
                     }
                 }
             });
-            // 2. 加载管道系统实体
-            //var systems = new FilteredElementCollector(Doc).OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>();
-            //List<PipeSystemEntity>  allSystemTypes = new List<PipeSystemEntity>();
-            //foreach (var pst in systems)
-            //{
-            //    var entity = new PipeSystemEntity(pst,ExternalHandler);
-            //    // 3. 关键：从 AllMaterials 列表中匹配对象
-            //    ElementId mid = pst.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM).AsElementId();
-            //    // 这样做能确保 entity.Material 指向的内容就在 ComboBox 的 ItemsSource 里面
-            //    entity.Material = this.AllMaterials.FirstOrDefault(x => x.Id == mid);
-            //    allSystemTypes.Add(entity);
-            //}
             var allSystemTypes = new FilteredElementCollector(Doc).OfClass(typeof(PipingSystemType))
                 .OfType<PipingSystemType>().Select(pst => new PipeSystemEntity(pst, ExternalHandler)).ToList();
-            ////foreach (var item in allSystemTypes)
-            ////{
-            ////    Parameter materialParam =item.pipingSystemType.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM);
-            ////    if (materialParam != null && materialParam.HasValue)
-            ////    {
-            ////        ElementId materialId = materialParam.AsElementId();
-            ////        if (materialId != ElementId.InvalidElementId)
-            ////        {
-            ////            item.Material = Doc.GetElement(materialId) as Material;
-            ////        }
-            ////    }
-            ////    _cachedPipeSystems.Add(item);
-            ////}
             _cachedPipeSystems = allSystemTypes;
             QueryElement(null);
         }
         public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
         public void QueryElement(string text)
         {
-            List<PipeSystemEntity> filteredList;
+            List<PipeSystemEntity> filteredList = new List<PipeSystemEntity>();
             if (string.IsNullOrWhiteSpace(text))
             {
                 filteredList = _cachedPipeSystems;

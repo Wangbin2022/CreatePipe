@@ -1,10 +1,13 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Mechanical;
+using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
 using CreatePipe.models;
 using CreatePipe.Utils;
+using CreatePipe.Utils.Interfaces;
+using Microsoft.VisualBasic.Devices;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,12 +22,9 @@ namespace CreatePipe.Form
     /// </summary>
     public partial class DuctSystemManagerView : Window
     {
-        public Document Doc { get; set; }
         public UIApplication UIApplication { get; set; }
         public DuctSystemManagerView(UIApplication uIApplication)
         {
-            Doc = uIApplication.ActiveUIDocument.Document;
-            UIApplication = uIApplication;
             InitializeComponent();
             this.DataContext = new DuctSystemManagerViewModel(uIApplication);
         }
@@ -32,78 +32,122 @@ namespace CreatePipe.Form
         {
             this.Close();
         }
-        private void Btn_Add_Click(object sender, RoutedEventArgs e)
-        {
-            DuctSystemManagerViewModel viewModel = new DuctSystemManagerViewModel(UIApplication);
-            viewModel.AddElement(Doc);
-            this.Close();
-        }
     }
-    public class DuctSystemManagerViewModel : ObserverableObject
+    public class DuctSystemManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<DuctSystemEntity>
     {
         public Document Doc { get; set; }
         public UIDocument UIDocument { get; set; }
-        public ObservableCollection<DuctSystemEntity> DuctSystemEntitys { get; set; } = new ObservableCollection<DuctSystemEntity>();
+        public BaseExternalHandler ExternalHandler { get; } = new BaseExternalHandler();
+        private List<DuctSystemEntity> _cachedDuctSystems = new List<DuctSystemEntity>();
+        public ObservableCollection<DuctSystemEntity> Collection { get; set; } = new ObservableCollection<DuctSystemEntity>();
         public DuctSystemManagerViewModel(UIApplication uIApplication)
         {
             Doc = uIApplication.ActiveUIDocument.Document;
             UIDocument = uIApplication.ActiveUIDocument as UIDocument;
-            LoadAndInitializeDuctSystems();
-            QueryELements(null);
+            InitFunc();
         }
-        private void LoadAndInitializeDuctSystems()
+        public List<Material> AllMaterials { get; set; }
+        // 用于 ComboBox 显示的字符串列表
+        public List<string> MaterialNames { get; set; }
+        // 用于内部查询的字典（提升查找效率）
+        private Dictionary<string, Material> _nameToMaterialMap;
+        public void InitFunc()
         {
-            // --- 核心修改部分：使用 TransactionGroup ---
-            TransactionGroup tg = new TransactionGroup(Doc, "初始化风管系统设置");
-            try
+            AllMaterials = new FilteredElementCollector(Doc).OfClass(typeof(Material)).Cast<Material>().ToList();
+            // 1. 生成字符串列表
+            MaterialNames = AllMaterials.Select(m => m.Name).OrderBy(n => n).ToList();
+            // 2. 生成映射字典，方便后续根据名称找到 ElementId
+            _nameToMaterialMap = AllMaterials.ToDictionary(m => m.Name, m => m);
+            //要预先给系统赋颜色
+            NewTransaction.Execute(Doc, "初始化风管系统设置", () =>
             {
-                tg.Start();
-                // 1. 查询所有管道系统类型
                 var elements = new FilteredElementCollector(Doc).OfClass(typeof(MechanicalSystemType));
                 List<MechanicalSystemType> ductSystemTypes = elements.OfType<MechanicalSystemType>().ToList();
                 var defaultMaterialId = new FilteredElementCollector(Doc).OfCategory(BuiltInCategory.OST_Materials).FirstOrDefault().Id;
-                // 2. 在一个单独的事务中设置默认颜色
-                using (var trans = new Transaction(Doc, "设置默认系统颜色材质"))
+                foreach (var pst in ductSystemTypes)
                 {
-                    trans.Start();
-                    bool changesMade = false;
-                    Random rand = new Random();
-                    foreach (var pst in ductSystemTypes)
+                    if (!pst.LineColor.IsValid)
                     {
-                        // 检查颜色是否有效，如果无效，则设置一个随机的默认颜色
-                        if (!pst.LineColor.IsValid)
-                        {
-                            //byte r = (byte)rand.Next(50, 220);  
-                            //byte g = (byte)rand.Next(50, 220);
-                            //byte b = (byte)rand.Next(50, 220);
-                            //pst.LineColor = new Autodesk.Revit.DB.Color(r, g, b);
-                            pst.LineColor = new Autodesk.Revit.DB.Color(0, 0, 0);
-                            changesMade = true;
-                        }
-                        if (pst.MaterialId.IntegerValue == -1)
-                        {
-                            pst.MaterialId = defaultMaterialId;
-                            changesMade = true;
-                        }
+                        pst.LineColor = new Autodesk.Revit.DB.Color(127, 127, 127);
                     }
-                    if (changesMade) trans.Commit();
-                    else trans.RollBack(); // 如果没有做任何修改，则回滚事务
+                    if (pst.MaterialId.IntegerValue == -1)
+                    {
+                        pst.MaterialId = defaultMaterialId;
+                    }
                 }
-                // 3. 将处理后的数据加载到ViewModel中
-                //DuctSystemEntitys.Clear();
-                //var ductSystems = ductSystemTypes.Select(dst => new DuctSystemEntity(dst)).ToList();
-                //foreach (var item in ductSystems)
-                //{
-                //    DuctSystemEntitys.Add(item);
-                //}
-                // 4. 同化事务组，将所有子事务合并成一个撤销操作
-                tg.Assimilate();
+            });
+            var allSystemTypes = new FilteredElementCollector(Doc).OfClass(typeof(MechanicalSystemType))
+                .OfType<MechanicalSystemType>().Select(pst => new DuctSystemEntity(pst, ExternalHandler)).ToList();
+            _cachedDuctSystems = allSystemTypes;
+            QueryElement(null);
+        }
+        public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
+        public void QueryElement(string text)
+        {
+            List<DuctSystemEntity> filteredList = new List<DuctSystemEntity>();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                filteredList = _cachedDuctSystems;
+            }
+            else
+            {
+                filteredList = _cachedDuctSystems.Where(e =>
+                    e.SystemName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (e.Abbreviation != null && e.Abbreviation.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0))
+                .ToList();
+            }
+            // 简单高效地更新UI集合
+            Collection.Clear();
+            foreach (var item in filteredList)
+            {
+                Collection.Add(item);
+            }
+        }
+        public ICommand DuctSystemAddCommand => new RelayCommand<object>(param =>
+        {
+            if (param is string tabIndex)
+                DuctSystemAdd(tabIndex);
+            else if (param is DuctSystemEntity entity)
+                DuctSystemAdd(entity);
+            else
+                TaskDialog.Show("tt", "Unsupported parameter type");
+        });
+        private void DuctSystemAdd(object parameter)
+        {
+            // 根据参数类型创建不同的子窗口
+            try
+            {
+                ExternalHandler.Run(app =>
+                 {
+                     DuctSystemManagerSubView subView;
+                     if (parameter is DuctSystemEntity entity)
+                     {
+                         subView = new DuctSystemManagerSubView(entity, UIDocument);
+                         subView.SelectTab("EditTab"); // 修改材质默认打开编辑页
+                     }
+                     else if (parameter is string tabIndex)
+                     {
+                         subView = new DuctSystemManagerSubView(tabIndex, UIDocument);
+                         if (!string.IsNullOrEmpty(tabIndex))
+                         {
+                             subView.SelectTab(tabIndex);
+                         }
+                     }
+                     else
+                     {
+                         throw new ArgumentException("参数必须是MaterialEntityModel或string类型");
+                     }
+                     // 公共处理逻辑
+                     bool? result = subView.ShowDialog();
+                     if (result == true && subView.DataContext is DuctSystemManagerSubViewModel vm)
+                     {
+                         InitFunc();
+                     }
+                 });
             }
             catch (Exception ex)
             {
-                // 如果发生任何错误，回滚整个事务组
-                tg.RollBack();
-                TaskDialog.Show("错误", "初始化风管系统时出错: " + ex.Message);
+                TaskDialog.Show("tt", ex.Message.ToString());
             }
         }
         public ICommand SelectSystemCommand => new RelayCommand<IEnumerable<object>>(SelectSystems);
@@ -130,34 +174,14 @@ namespace CreatePipe.Form
             Selection select = UIDocument.Selection;
             select.SetElementIds(ids);
         }
-        public ICommand AddInsulationCommand => new RelayCommand<DuctSystemEntity>(AddInsulation);
-        public void AddInsulation(DuctSystemEntity ductSystem)
-        {
-            //DuctInsulationAddView ductInsulationAdd = new DuctInsulationAddView(ductSystem);
-            //ductInsulationAdd.ShowDialog();
-        }
-        public ICommand WindowCommand => new BaseBindingCommand(Window);
-        //修改材质直接开系统的吧，怎么接收修改？
-        public void Window(object para)
-        {
-            MateriaManageForm materialManager = new MateriaManageForm(Doc);
-            //MaterialManagerView materialManager = new MaterialManagerView(Doc);
-            bool? result = materialManager.ShowDialog();
-            if (result == true) { QueryELements(null); }
-        }
-        public void AddElement(Document document)
-        {
-            //DuctSystemAddView ductSystemAddView = new DuctSystemAddView(document);
-            //ductSystemAddView.ShowDialog();
-        }
-        //检查系统是否为空
+        //子窗口逻辑
         private bool isEmptySystem { get; set; }
         public bool IsEmptySystem(DuctSystemEntity systemType)
-        {//RBS_PIPING_SYSTEM_TYPE_PARAM
+        {
             ElementParameterFilter filter = new ElementParameterFilter(ParameterFilterRuleFactory.CreateEqualsRule(new ElementId(BuiltInParameter.RBS_DUCT_SYSTEM_TYPE_PARAM), systemType.SystemName, false));
             IList<Element> allpipes = new FilteredElementCollector(systemType.Document)
                 .WhereElementIsNotElementType()
-                .OfCategory(BuiltInCategory.OST_PipeCurves)
+                .OfCategory(BuiltInCategory.OST_DuctCurves)
                 .WherePasses(filter)
                 .ToElements();
             IList<Element> allfamily = new FilteredElementCollector(systemType.Document)
@@ -165,7 +189,6 @@ namespace CreatePipe.Form
                  .OfClass(typeof(FamilyInstance))
                  .WherePasses(filter)
                  .ToElements();
-
             int countEntity = allpipes.Count() + allfamily.Count();
             if (countEntity == 0) { return true; }
             else return false;
@@ -190,90 +213,65 @@ namespace CreatePipe.Form
             }
             return true;
         }
-        public ICommand DeleteELementCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
-        public ICommand DeleteELementCommand2 => new RelayCommand<DuctSystemEntity>(DeleteElement);
+        public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
         //多选删除
         public void DeleteElements(IEnumerable<object> selectedElements)
         {
             List<DuctSystemEntity> selectedItems = selectedElements.Cast<DuctSystemEntity>().ToList();
             if (selectedElements == null) return;
-            foreach (var item in selectedItems)
+            ExternalHandler.Run(app =>
             {
-                DeleteElement(item);
-            }
+                TransactionWithProgressBarHelper.Execute(Doc, "批量删除系统", (service) =>
+                {
+                    service.UpdateMax(selectedElements.Count());
+                    int index = 0;
+                    int successId = 0;
+                    foreach (var item in selectedItems)
+                    {
+                        isLastSystemEntity = IsLastSystemEntity(item);
+                        isEmptySystem = IsEmptySystem(item);
+                        if (!isLastSystemEntity)
+                        {
+                            if (isEmptySystem)
+                            {
+                                Doc.Delete(item.ductSystemType.Id);
+                                this.Collection.Remove(item);
+                                successId++;
+                            }
+                            else
+                            {
+                                TaskDialog td = new TaskDialog("tt");
+                                td.MainInstruction = "选定的系统类型正在使用，因此不能删除";
+                                td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
+                                td.Show();
+                            }
+                        }
+                        else
+                        {
+                            TaskDialog td = new TaskDialog("tt");
+                            td.MainInstruction = "不可删除该类型最后一个系统实例";
+                            td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
+                            td.Show();
+                        }
+                        service.Update(++index, item.SystemName);
+                    }
+                    TaskDialog.Show("tt", $"已删除{successId}个系统");
+                });
+            });
         }
         //单选删除
-        public void DeleteElement(DuctSystemEntity ductSystemSingle)
+        public ICommand DeleteElementCommand => new RelayCommand<DuctSystemEntity>(DeleteElement);
+        public void DeleteElement(DuctSystemEntity entity)
         {
-            Document document = ductSystemSingle.Document;
-            isLastSystemEntity = IsLastSystemEntity(ductSystemSingle);
-            isEmptySystem = IsEmptySystem(ductSystemSingle);
-            if (!isLastSystemEntity)
+            if (entity.selectedElements == null) return;
+            ExternalHandler.Run(app =>
             {
-                if (isEmptySystem)
+                NewTransaction.Execute(Doc, "删除实例", () =>
                 {
-                    document.NewTransaction(() =>
-                    {
-                        document.Delete(ductSystemSingle.ductSystemSingle.Id);
-                        DuctSystemEntitys.Remove(ductSystemSingle);
-                    }, "删除系统");
-                    OnPropertyChanged(nameof(DuctSystemCount));
-                }
-                else
-                {
-                    TaskDialog td = new TaskDialog("tt");
-                    td.MainInstruction = "选定的系统类型正在使用，因此不能删除";
-                    td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
-                    td.Show();
-                }
-            }
-            else
-            {
-                TaskDialog td = new TaskDialog("tt");
-                td.MainInstruction = "不可删除该类型最后一个系统实例";
-                td.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
-                td.Show();
-            }
-        }
-        public ICommand SetColorCommand => new RelayCommand<MechanicalSystemType>(SetColor);
-        private void SetColor(MechanicalSystemType ductSystemType)
-        {
-            if (ductSystemType == null) return;
-            System.Windows.Forms.ColorDialog dialog = new System.Windows.Forms.ColorDialog();
-            dialog.AllowFullOpen = true;
-            dialog.FullOpen = true;
-            dialog.ShowHelp = true;
-            Autodesk.Revit.DB.Color color = ductSystemType.LineColor;
-            dialog.Color = System.Drawing.Color.FromArgb(color.Red, color.Green, color.Blue);
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                ductSystemType.Document.NewTransaction(() => ductSystemType.LineColor = dialog.Color.ConvertToRevitColor(), "修改线颜色");
-                QueryELements(null);
-            }
-            ;
-        }
-        public ICommand QueryELementCommand => new BaseBindingCommand(QueryELements);
-        public void QueryELements(object parameter)
-        {
-            DuctSystemEntitys.Clear();
-            FilteredElementCollector elements = new FilteredElementCollector(Doc).OfClass(typeof(MechanicalSystemType));
-            List<MechanicalSystemType> ductSystemTypes = elements.OfType<MechanicalSystemType>().ToList(); //// 使用 OfType 直接过滤并转换类型转换为 List
-            List<DuctSystemEntity> ductSystems = ductSystemTypes
-                .Select(ductSystemType => new DuctSystemEntity(ductSystemType))
-                .Where(e => string.IsNullOrEmpty(Keyword)
-                || e.SystemName.Contains(Keyword)
-                || e.Abbreviation.IndexOf(Keyword, StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
-            foreach (var item in ductSystems)
-            {
-                DuctSystemEntitys.Add(item);
-            }
-        }
-        public string DuctSystemCount => DuctSystemEntitys.Count.ToString();
-        private string _keyword;
-        public string Keyword
-        {
-            get => _keyword; set => _keyword = value;
+                    Doc.Delete(entity.selectedElements);
+                });
+                InitFunc();
+            });
         }
     }
 }

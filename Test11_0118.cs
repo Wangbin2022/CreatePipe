@@ -731,9 +731,17 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
             //需补充验证批量删除进度条，改非模态，model导入handeler改名
 
+            ////0412 桥架系统管理
+            //CableTraySystemManagerView cableTraySystemManagerView = new CableTraySystemManagerView(uiApp);
+            //cableTraySystemManagerView.Show();
+
+            //////0412 风管系统管理
+            //DuctSystemManagerView ductSystemManagerView = new DuctSystemManagerView(uiApp);
+            //ductSystemManagerView.Show();
+
             ////0411 水系统管理
-            PipeSystemManagerView pipeSystemManagerView = new PipeSystemManagerView(uiApp);
-            pipeSystemManagerView.Show();
+            //PipeSystemManagerView pipeSystemManagerView = new PipeSystemManagerView(uiApp);
+            //pipeSystemManagerView.Show();
             ////PipeSystemManagerSubView pipeSystemManagerSubView = new PipeSystemManagerSubView("NewTab", uiDoc, _externalHandler);
             ////pipeSystemManagerSubView.ShowDialog();
 
