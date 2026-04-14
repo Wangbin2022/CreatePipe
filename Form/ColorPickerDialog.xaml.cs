@@ -1,4 +1,5 @@
 ﻿using CreatePipe.cmd;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -14,9 +15,9 @@ namespace CreatePipe.Form
         public ColorPickerDialog(Color? initialColor = null)
         {
             InitializeComponent();
-            DataContext = new ColorPickerViewModel(initialColor ?? Colors.White);
+            Color defaultColor = Color.FromRgb(127, 127, 127);
+            DataContext = new ColorPickerViewModel(initialColor ?? defaultColor);
         }
-
         private void OKButton_Click(object sender, RoutedEventArgs e)
         {
             if (DataContext is ColorPickerViewModel vm)
@@ -31,10 +32,10 @@ namespace CreatePipe.Form
     {
         public ColorPickerViewModel(Color initialColor)
         {
-            Red = initialColor.R;
-            Green = initialColor.G;
-            Blue = initialColor.B;
-            PreviewColorBrush = new SolidColorBrush(initialColor);
+            _red = initialColor.R;
+            _green = initialColor.G;
+            _blue = initialColor.B;
+            UpdatePreviewColor();
 
             SelectPresetColorCommand = new RelayCommand<Color>(color =>
             {
@@ -47,34 +48,59 @@ namespace CreatePipe.Form
         {
             PreviewColorBrush = new SolidColorBrush(CurrentColor);
         }
-        public ICommand ConfirmCommand { get; }
-        public ICommand CancelCommand { get; }
         public ICommand SelectPresetColorCommand { get; }
-        //    public ObservableCollection<Color> PresetColors { get; } = new()
-        //{
-        //    Colors.Red, Colors.Green, Colors.Blue,
-        //    Colors.Yellow, Colors.Cyan, Colors.Magenta,
-        //    Colors.White, Colors.Black, Colors.Gray,
-        //    Colors.Orange, Colors.Purple, Colors.Pink,
-        //    Colors.Brown, Colors.LightBlue, Colors.LightGreen
-        //};
+
+        // 恢复预设颜色集合，否则界面下半部分是空白的
+        public ObservableCollection<Color> PresetColors { get; } = new ObservableCollection<Color>
+        {
+            //Colors.Red, Colors.Green, Colors.Blue,
+            //Colors.Yellow, Colors.Cyan, Colors.Magenta,
+            //Colors.White, Colors.Black, Colors.Gray,
+            //Colors.Orange, Colors.Purple, Colors.Pink,
+            //Colors.Brown, Colors.LightBlue, Colors.LightGreen
+        };
         private byte _red;
         public byte Red
         {
             get => _red;
-            set { _red = value; OnPropertyChanged(); UpdatePreviewColor(); }
+            set
+            {
+                // 必须加判断，避免双向绑定导致无限循环和输入框光标跳动
+                if (_red != value)
+                {
+                    _red = value;
+                    OnPropertyChanged();
+                    UpdatePreviewColor();
+                }
+            }
         }
         private byte _green;
         public byte Green
         {
             get => _green;
-            set { _green = value; OnPropertyChanged(); UpdatePreviewColor(); }
+            set
+            {
+                if (_green != value)
+                {
+                    _green = value;
+                    OnPropertyChanged();
+                    UpdatePreviewColor();
+                }
+            }
         }
         private byte _blue;
         public byte Blue
         {
             get => _blue;
-            set { _blue = value; OnPropertyChanged(); UpdatePreviewColor(); }
+            set
+            {
+                if (_blue != value)
+                {
+                    _blue = value;
+                    OnPropertyChanged();
+                    UpdatePreviewColor();
+                }
+            }
         }
         public Color CurrentColor => Color.FromRgb(Red, Green, Blue);
 
@@ -84,6 +110,5 @@ namespace CreatePipe.Form
             get => _previewColorBrush;
             set { _previewColorBrush = value; OnPropertyChanged(); }
         }
-
     }
 }

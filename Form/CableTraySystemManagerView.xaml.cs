@@ -39,7 +39,6 @@ namespace CreatePipe.Form
             this.Close();
         }
     }
-
     public class CableTraySystemManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<CableTrayEntity>
     {
         public Document Doc { get; set; }

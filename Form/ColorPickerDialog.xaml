@@ -1,55 +1,76 @@
 ﻿<Window x:Class="CreatePipe.Form.ColorPickerDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="选择颜色" 
-        Width="240" 
+         Title="选择颜色" 
+        Width="260" 
         Height="360"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize" Topmost="True">
     <Grid Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="210"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
-
         <!-- 颜色预览 -->
-        <Border Grid.Row="0" 
-                CornerRadius="5" 
-                BorderBrush="Gray" 
-                BorderThickness="1"
-                Background="{Binding PreviewColorBrush}"
-                Height="60"/>
-
-        <!-- RGB 滑块 -->
-        <StackPanel Grid.Row="1" Margin="0,10">
-            <TextBlock Text="红色 (R):"/>
-            <Slider x:Name="RedSlider" 
-                    Minimum="0" 
-                    Maximum="255" 
-                    Value="{Binding Red}"/>
-            <TextBlock Text="{Binding Red, StringFormat='红色值: {0}'}"/>
-
-            <TextBlock Text="绿色 (G):" Margin="0,10,0,0"/>
-            <Slider x:Name="GreenSlider" 
-                    Minimum="0" 
-                    Maximum="255" 
-                    Value="{Binding Green}"/>
-            <TextBlock Text="{Binding Green, StringFormat='绿色值: {0}'}"/>
-
-            <TextBlock Text="蓝色 (B):" Margin="0,10,0,0"/>
-            <Slider x:Name="BlueSlider" 
-                    Minimum="0" 
-                    Maximum="255" 
-                    Value="{Binding Blue}"/>
-            <TextBlock Text="{Binding Blue, StringFormat='蓝色值: {0}'}"/>
+        <Border Grid.Row="0"  CornerRadius="5"  BorderBrush="Gray" 
+                BorderThickness="1"  Background="{Binding PreviewColorBrush}" Height="60"/>
+        <!-- RGB 滑块与输入框 -->
+        <StackPanel Grid.Row="1" Margin="0,5">
+            <!-- 红色 -->
+            <Grid >
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="25"/>
+                    <RowDefinition Height="40"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="红色 (R):" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Text="{Binding Red, UpdateSourceTrigger=PropertyChanged}" 
+                         VerticalAlignment="Center" TextAlignment="Center" MaxLength="3"/>
+                <Slider Grid.Column="1" Minimum="0" Maximum="255" SmallChange="1" LargeChange="10" Grid.Row="1"
+                        Value="{Binding Red, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="5,0"/>
+            </Grid>
+            <!-- 绿色 -->
+            <Grid >
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="25"/>
+                    <RowDefinition Height="40"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="绿色 (G):" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Text="{Binding Green, UpdateSourceTrigger=PropertyChanged}" 
+                         VerticalAlignment="Center" TextAlignment="Center" MaxLength="3"/>
+                <Slider Grid.Column="1" Minimum="0" Maximum="255" SmallChange="1" LargeChange="10" Grid.Row="1"
+                        Value="{Binding Green, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="5,0"/>
+            </Grid>
+            <!-- 蓝色 -->
+            <Grid >
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="25"/>
+                    <RowDefinition Height="40"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="蓝色 (B):" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Text="{Binding Blue, UpdateSourceTrigger=PropertyChanged}" 
+                         VerticalAlignment="Center" TextAlignment="Center" MaxLength="3"/>
+                <Slider Grid.Column="1" Minimum="0" Maximum="255" SmallChange="1" LargeChange="10" Grid.Row="1"
+                        Value="{Binding Blue, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" Margin="5,0"/>
+            </Grid>
         </StackPanel>
-
         <!-- 预设颜色 -->
-        <ItemsControl Grid.Row="2" 
+        <!--<ItemsControl Grid.Row="2" 
                       ItemsSource="{Binding PresetColors}"
-                      Margin="0,15,0,0">
+                      Margin="0,10,0,0">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <UniformGrid Columns="8" Rows="3"/>
@@ -68,9 +89,8 @@
                     </Button>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <Button Grid.Row="3"  Content="确定" 
-                    Click="OKButton_Click"
-                    IsDefault="True" Margin="5"/>
+        </ItemsControl>-->
+        <Button Grid.Row="3" Content="确定" FontSize="16" Height="auto" Margin="0,5"
+                Click="OKButton_Click" IsDefault="True" />
     </Grid>
 </Window>

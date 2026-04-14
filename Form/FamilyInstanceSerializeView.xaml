@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:CreatePipe.Form"
         mc:Ignorable="d"
         Title="FamilyInstanceSerializeView" 
-        Height="360" Width="250" Topmost="True">
+        Height="360" Width="240" Topmost="True">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>

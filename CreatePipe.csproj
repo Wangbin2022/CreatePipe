@@ -131,6 +131,9 @@
     <Compile Include="Form\Converters\RevitColorToBrushConverter.cs" />
     <Compile Include="Form\Converters\TextColorConverter.cs" />
     <Compile Include="Form\Converters\TextTruncateConverter.cs" />
+    <Compile Include="Form\DuctEditAssembleView.xaml.cs">
+      <DependentUpon>DuctEditAssembleView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\DuctSystemManagerSubView.xaml.cs">
       <DependentUpon>DuctSystemManagerSubView.xaml</DependentUpon>
     </Compile>
@@ -149,8 +152,8 @@
     <Compile Include="Form\GapWidthWindow.xaml.cs">
       <DependentUpon>GapWidthWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Form\MateriaManageView.xaml.cs">
-      <DependentUpon>MateriaManageView.xaml</DependentUpon>
+    <Compile Include="Form\MateriaManagerView.xaml.cs">
+      <DependentUpon>MateriaManagerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\MEPSlopeCheckView.xaml.cs">
       <DependentUpon>MEPSlopeCheckView.xaml</DependentUpon>
@@ -176,6 +179,9 @@
     <Compile Include="Form\PipeDiameterSelectView.xaml.cs">
       <DependentUpon>PipeDiameterSelectView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\PipeEditAssembleView.xaml.cs">
+      <DependentUpon>PipeEditAssembleView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Form\PipeSystemManagerSubView.xaml.cs">
       <DependentUpon>PipeSystemManagerSubView.xaml</DependentUpon>
     </Compile>
@@ -185,8 +191,8 @@
     <Compile Include="Form\ProjectInfoUpdater.xaml.cs">
       <DependentUpon>ProjectInfoUpdater.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Form\PropertiesWindow.xaml.cs">
-      <DependentUpon>PropertiesWindow.xaml</DependentUpon>
+    <Compile Include="Form\FindElementParameterView.xaml.cs">
+      <DependentUpon>FindElementParameterView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\SelectByWindowView.xaml.cs">
       <DependentUpon>SelectByWindowView.xaml</DependentUpon>
@@ -221,6 +227,7 @@
       <DependentUpon>ManualCropZaxisView.xaml</DependentUpon>
     </Compile>
     <Compile Include="models\DuctSystemEntity.cs" />
+    <Compile Include="models\ElementParameterEntity.cs" />
     <Compile Include="models\FamilyEntity.cs" />
     <Compile Include="models\FileSingle.cs" />
     <Compile Include="models\NodeWithColor.cs" />
@@ -400,9 +407,6 @@
     <Compile Include="filter\MEPCurveFilter.cs" />
     <Compile Include="filter\PlanarFaceFilter.cs" />
     <Compile Include="filter\ColumnFilter.cs" />
-    <Compile Include="Form\BatchFamilyExport_WPF.xaml.cs">
-      <DependentUpon>BatchFamilyExport_WPF.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Form\BreakMEPCurveForm.xaml.cs">
       <DependentUpon>BreakMEPCurveForm.xaml</DependentUpon>
     </Compile>
@@ -647,6 +651,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\DuctEditAssembleView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\DuctSystemManagerSubView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -687,7 +695,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Form\MateriaManageView.xaml">
+    <Page Include="Form\MateriaManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -731,6 +739,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\PipeEditAssembleView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\PipeSystemManagerSubView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -743,7 +755,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Form\PropertiesWindow.xaml">
+    <Page Include="Form\FindElementParameterView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -860,10 +872,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Obselete\CountParkingLot\NumberByPickWPF.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Form\BatchFamilyExport_WPF.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

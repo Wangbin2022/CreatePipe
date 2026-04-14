@@ -61,7 +61,7 @@ IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
                     <DataGridTextColumn Header="长度" Width="60" SortMemberPath="totalLength" 
   Binding="{Binding TotalLength}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
-                    <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
+                   <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Button Content="PickThis" Width="auto" Command="{Binding DataContext.PickRouteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
@@ -69,14 +69,14 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="穿房间" Width="45" SortMemberPath="IntersectRooms" 
-  Binding="{Binding IntersectRooms, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+                     <DataGridTextColumn Header="穿房间" Width="45" SortMemberPath="IntersectRooms" 
+  Binding="{Binding IntersectRooms}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
-                    <DataGridTextColumn Header="穿墙" Width="35" SortMemberPath="IntersectWalls" 
-  Binding="{Binding IntersectWalls, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+                 <DataGridTextColumn Header="穿墙" Width="35" SortMemberPath="IntersectWalls" 
+  Binding="{Binding IntersectWalls}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
-                    <DataGridTextColumn Header="最小门宽" Width="60" SortMemberPath="MinimalDoorWidth" 
-  Binding="{Binding MinimalDoorWidth, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" 
+                   <DataGridTextColumn Header="最小门宽" Width="60" SortMemberPath="MinimalDoorWidth" 
+   Binding="{Binding MinimalDoorWidth, StringFormat={}{0:F1}}" 
 IsReadOnly="True" ElementStyle="{StaticResource TextVerticalArea}"/>
                     <DataGridTemplateColumn Header="穿门距离" CanUserResize="False" Width="66">
                         <DataGridTemplateColumn.CellTemplate>

@@ -19,19 +19,19 @@ namespace CreatePipe.Form
     /// <summary>
     /// MateriaManageView.xaml 的交互逻辑
     /// </summary>
-    public partial class MateriaManageView : Window
+    public partial class MaterialManagerView : Window
     {
-        public MateriaManageView(Document document)
+        public MaterialManagerView(Document document)
         {
             InitializeComponent();
-            this.DataContext = new MateriaManagerViewModel(document);
+            this.DataContext = new MaterialManagerViewModel(document);
         }
         private void btn_OK_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
     }
-    public class MateriaManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<MaterialEntity>
+    public class MaterialManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<MaterialEntity>
     {
         private Document _document;
         public BaseExternalHandler ExternalHandler => new BaseExternalHandler();
@@ -41,7 +41,7 @@ namespace CreatePipe.Form
         // 缓存全量材质列表，用于内存级快速搜索
         private List<MaterialEntity> _cachedMaterials = new List<MaterialEntity>();
 
-        public MateriaManagerViewModel(Document document)
+        public MaterialManagerViewModel(Document document)
         {
             _document = document;
             InitFunc(); // 初始化数据
