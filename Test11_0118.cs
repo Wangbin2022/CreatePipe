@@ -323,14 +323,77 @@ namespace CreatePipe
             Document doc = uiDoc.Document;
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
+ 
 
-            DuctEditAssembleView ductEditAssembleView = new DuctEditAssembleView(uiApp);
-            ductEditAssembleView.Show(); 
+            //////////0329 关闭水暖系统的后台计算。OK
+            /////// 1. 查找当前【未关闭计算】的风管系统类型 (参数值不为 0)
+            //var ductsToChange = new FilteredElementCollector(doc).OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>()
+            //    .Where(dst =>
+            //    {
+            //        var p = dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM);
+            //        return p != null && !p.IsReadOnly && p.AsInteger() != 0;
+            //    }).ToList();
+            //// 2. 查找当前【未关闭计算】的管道系统类型 (参数值不为 0)
+            //var pipesToChange = new FilteredElementCollector(doc).OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>()
+            //    .Where(pst =>
+            //    {
+            //        var p = pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM);
+            //        return p != null && !p.IsReadOnly && p.AsInteger() != 0;
+            //    }).ToList();
+            //// 3. 检查是否有需要修改的系统，没有则直接退出后续逻辑
+            //if (ductsToChange.Count == 0 && pipesToChange.Count == 0)
+            //{
+            //    TaskDialog.Show("提示", "当前项目中所有机电系统的计算均已关闭，无需重复执行。");
+            //    return Result.Failed;
+            //}
+            //NewTransaction.Execute(doc, "关闭机电系统计算", () =>
+            //{
+            //    // 修改风管系统
+            //    foreach (var dst in ductsToChange)
+            //    {
+            //        dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM).Set(0);
+            //    }
+            //    // 修改管道系统
+            //    foreach (var pst in pipesToChange)
+            //    {
+            //        pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM).Set(0);
+            //    }
+            //    // 弹窗提示结果
+            //    TaskDialog.Show("优化完成",
+            //    $"成功关闭了计算：\n{ductsToChange.Count} 个风管系统类型\n{pipesToChange.Count} 个管道系统类型\n\n现在修改机电管线将不会触发后台卡顿。");
+            //});
+
+            //NewTransaction.Execute(doc, "关闭机电系统计算",()=>
+            //{
+            //    int ductChangedCount = 0;
+            //    int pipeChangedCount = 0;
+            //    // 1. 获取并修改所有【风管系统类型】
+            //    var ductSystemTypes = new FilteredElementCollector(doc)
+            //        .OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>();
+            //    foreach (MechanicalSystemType dst in ductSystemTypes)
+            //    {
+            //        var para = dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM);
+            //        para.Set(0);
+            //        ductChangedCount++;
+            //    }
+            //    //// 2. 获取并修改所有【管道系统类型】
+            //    var pipeSystemTypes = new FilteredElementCollector(doc)
+            //        .OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>();
+            //    foreach (var pst in pipeSystemTypes)
+            //    {
+            //        var para = pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM);
+            //        para.Set(0);
+            //        pipeChangedCount++;
+            //    }
+            //    //// 可选：弹窗提示结果
+            //    TaskDialog.Show("优化完成",
+            //    $"成功关闭了计算：\n{ductChangedCount} 个风管系统类型\n{pipeChangedCount} 个管道系统类型\n\n现在修改机电管线将不会触发后台卡顿。");
+            //});
 
 
             ////0413 风管编辑
-            //Universal369Buttons universal369Buttons = new Universal369Buttons();
-            //universal369Buttons.Show();
+            //DuctEditAssembleView ductEditAssembleView = new DuctEditAssembleView(uiApp);
+            //ductEditAssembleView.Show(); 
 
             ////0413 机电坡度检查
             //MEPSlopeCheckView mEPSlopeCheckView = new MEPSlopeCheckView(uiApp);
@@ -620,36 +683,6 @@ namespace CreatePipe
             ////////0323 房间管理过程版
             //RoomManagerView roomManagerView = new RoomManagerView(uiApp);
             //roomManagerView.ShowDialog();
-
-            //////0329 关闭水暖系统的后台计算。OK
-            //using (Transaction t = new Transaction(doc, "关闭机电系统计算"))
-            //{
-            //    t.Start();
-            //    int ductChangedCount = 0;
-            //    int pipeChangedCount = 0;
-            //    // 1. 获取并修改所有【风管系统类型】
-            //    var ductSystemTypes = new FilteredElementCollector(doc)
-            //        .OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>();
-            //    foreach (MechanicalSystemType dst in ductSystemTypes)
-            //    {
-            //        var para = dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM);
-            //        para.Set(0);
-            //        ductChangedCount++;
-            //    }
-            //    //// 2. 获取并修改所有【管道系统类型】
-            //    var pipeSystemTypes = new FilteredElementCollector(doc)
-            //        .OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>();
-            //    foreach (var pst in pipeSystemTypes)
-            //    {
-            //        var para = pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM);
-            //        para.Set(0);
-            //        pipeChangedCount++;
-            //    }
-            //    t.Commit();
-            //    //// 可选：弹窗提示结果
-            //    TaskDialog.Show("优化完成",
-            //    $"成功关闭了计算：\n{ductChangedCount} 个风管系统类型\n{pipeChangedCount} 个管道系统类型\n\n现在修改机电管线将不会触发后台卡顿。");
-            //}
 
             ////0329 选择偏移量（Offset）设置过大构件，逻辑还不够清晰，误差太大
             //// 1. 获取并排序所有标高
