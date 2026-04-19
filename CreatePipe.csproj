@@ -81,6 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConnectorService.cs" />
+    <Compile Include="ErrorHandling.cs" />
     <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\AirTerminalSelectionFilter.cs" />
     <Compile Include="filter\CadSelectionFilter.cs" />

@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Mechanical;
@@ -17,7 +18,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
+using System.Windows.Forms;
 //service.Update(++index, id.Value.ToString());
+//set => SetProperty(ref _maximum, value);
 
 namespace CreatePipe
 {
@@ -25,7 +29,6 @@ namespace CreatePipe
     public class Test11_0118 : IExternalCommand
     {
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        #region
         //0206 应与PipeJoinHorizon合并考虑
         ///// <summary>
         ///// 从风管管件的连接器出发，获取其“外部相邻”的两个端点连接器（不返回管件自身连接器）。
@@ -34,29 +37,21 @@ namespace CreatePipe
         //private List<Connector> GetTwoEndNeighborConnectors(FamilyInstance fitting)
         //{
         //    var result = new List<Connector>();
-
         //    if (fitting?.MEPModel?.ConnectorManager == null) return result;
-
         //    ConnectorSet fitConns = fitting.MEPModel.ConnectorManager.Connectors;
         //    if (fitConns == null) return result;
-
         //    // 用于去重：同一 owner + connector id
         //    var seen = new HashSet<string>();
-
         //    foreach (Connector fitConn in fitConns)
         //    {
         //        if (fitConn == null || !fitConn.IsConnected) continue;
-
         //        foreach (Connector refConn in fitConn.AllRefs)
         //        {
         //            if (refConn == null) continue;
-
         //            // 排除引用到自己（防御）
         //            if (refConn.Owner != null && refConn.Owner.Id == fitting.Id) continue;
-
         //            // 只接受 MEP 连接器（End/Curve 等；这里不过度限制 Domain，避免附件/设备遗漏）
         //            if (refConn.Owner == null || refConn.Owner.Category == null) continue;
-
         //            string key = $"{refConn.Owner.Id.IntegerValue}:{refConn.Id}";
         //            if (seen.Add(key))
         //                result.Add(refConn);
@@ -71,14 +66,11 @@ namespace CreatePipe
         //private bool TryConnectAndVerify(Connector cFrom, Connector cTo, Document doc)
         //{
         //    if (cFrom == null || cTo == null) return false;
-
         //    // 先短路：如果已经互相连接，则认为成功
         //    if (IsActuallyConnected(cFrom, cTo)) return true;
-
         //    // ConnectTo 可能抛异常（距离太远/系统不兼容/几何不满足等）
         //    cFrom.ConnectTo(cTo);
         //    doc.Regenerate();
-
         //    return IsActuallyConnected(cFrom, cTo);
         //}
         ///// <summary>
@@ -88,10 +80,8 @@ namespace CreatePipe
         //{
         //    if (c1 == null || c2 == null) return false;
         //    if (!c1.IsConnected || !c2.IsConnected) return false;
-
         //    int owner2 = c2.Owner?.Id.IntegerValue ?? -1;
         //    int cid2 = c2.Id;
-
         //    foreach (Connector r in c1.AllRefs)
         //    {
         //        if (r?.Owner == null) continue;
@@ -103,7 +93,6 @@ namespace CreatePipe
         //private bool IsPhysicallyConnected(Connector c1, Connector c2)
         //{
         //    if (!c1.IsConnected || !c2.IsConnected) return false;
-
         //    foreach (Connector r in c1.AllRefs)
         //    {
         //        if (r.Owner?.Category?.Id.IntegerValue ==
@@ -115,19 +104,15 @@ namespace CreatePipe
         //private bool TryCreateFitting(Connector c1, Connector c2, Document doc)
         //{
         //    if (c1 == null || c2 == null) return false;
-
         //    try
         //    {
         //        // 如果已经是物理连接，直接返回成功
         //        if (IsPhysicallyConnected(c1, c2))
         //            return true;
-
         //        // ✅ 强制创建风管管件（弯头/变径/直接头）
         //        FamilyInstance newFitting =
         //            MechanicalUtils.CreateDuctFitting(doc, c1, c2);
-
         //        doc.Regenerate();
-
         //        return newFitting != null;
         //    }
         //    catch
@@ -140,8 +125,7 @@ namespace CreatePipe
         //    try { return owner?.Category?.Name ?? owner?.GetType().Name ?? "<null>"; }
         //    catch { return "<unknown>"; }
         //}
-        #endregion
-        private void CheckPipeSlope(Document document, List<ElementId> ids, double angle)
+        private void CheckMEPCurveSlope(Document document, List<ElementId> ids, double angle)
         {
             foreach (ElementId id in ids)
             {
@@ -272,50 +256,83 @@ namespace CreatePipe
 
             TaskDialog.Show("批量修改完成", resultMessage);
         }
-        //找实例共同文字属性列表
-        public List<string> GetCommonStringParameterNames(Document doc)
+        //找实例共同文字属性列表     
+        public Dictionary<string, string> GetCommonStringParameterNames(Document doc)
         {
             // 1. 收集文档中所有的族实例
-            var allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance))
-                .WhereElementIsNotElementType().ToList();
-            // 如果文档中没有实例，直接返回空列表
-            if (allInstances.Count == 0)
+            var allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).WhereElementIsNotElementType()
+                .Where(e => e.HasPhases()).Cast<FamilyInstance>().ToList();
+            if (allInstances.Count == 0) return new Dictionary<string, string>();
+            // 分别追踪实例参数和类型参数的交集
+            HashSet<string> commonInstanceParams = null;
+            HashSet<string> commonSymbolParams = null;
+            // 2. 遍历所有实例，分别求交集
+            foreach (FamilyInstance instance in allInstances)
             {
-                return new List<string>();
-            }
-            HashSet<string> commonParams = null;
-            // 2. 遍历所有实例，求参数名称的交集
-            foreach (Element instance in allInstances)
-            {
-                HashSet<string> currentStringParams = new HashSet<string>();
-                // 遍历当前实例的所有参数
+                // 收集当前实例的实例参数
+                var currentInstanceParams = new HashSet<string>();
                 foreach (Parameter param in instance.Parameters)
                 {
-                    // 只收集"文字"（String）类型的参数
-                    // 可选：如果只需要可编辑的参数，可以加上 && !param.IsReadOnly
                     if (param.StorageType == StorageType.String && !param.IsReadOnly)
                     {
-                        currentStringParams.Add(param.Definition.Name);
+                        currentInstanceParams.Add(param.Definition.Name);
                     }
                 }
-                // 如果是第一个实例，直接将其参数集合作为初始的“共同参数”集合
-                if (commonParams == null)
+                // 收集当前实例的类型参数
+                var currentSymbolParams = new HashSet<string>();
+                FamilySymbol symbol = instance.Symbol;
+                if (symbol != null)
                 {
-                    commonParams = currentStringParams;
+                    foreach (Parameter param in symbol.Parameters)
+                    {
+                        if (param.StorageType == StorageType.String && !param.IsReadOnly)
+                        {
+                            currentSymbolParams.Add(param.Definition.Name);
+                        }
+                    }
+                }
+                // 求交集
+                if (commonInstanceParams == null)
+                {
+                    commonInstanceParams = new HashSet<string>(currentInstanceParams);
                 }
                 else
                 {
-                    // 与当前实例的参数集合求交集（保留两者都有的参数）
-                    commonParams.IntersectWith(currentStringParams);
+                    commonInstanceParams.IntersectWith(currentInstanceParams);
                 }
-                // 性能优化：如果在遍历中途交集已经为空，说明没有任何共同参数，直接提前结束
-                if (commonParams.Count == 0)
+                if (commonSymbolParams == null)
                 {
+                    commonSymbolParams = new HashSet<string>(currentSymbolParams);
+                }
+                else
+                {
+                    commonSymbolParams.IntersectWith(currentSymbolParams);
+                }
+                // 提前退出
+                if (commonInstanceParams.Count == 0 && commonSymbolParams.Count == 0)
                     break;
+            }
+            // 3. 组装字典结果，标记来源
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // 标记仅实例共有的参数
+            foreach (var name in commonInstanceParams ?? Enumerable.Empty<string>())
+            {
+                result[name] = "实例";
+            }
+            // 标记仅类型共有的参数，或两者共有
+            foreach (var name in commonSymbolParams ?? Enumerable.Empty<string>())
+            {
+                if (result.ContainsKey(name))
+                {
+                    // 实例和类型都有同名参数
+                    result[name] = "两者";
+                }
+                else
+                {
+                    result[name] = "类型";
                 }
             }
-            // 将 HashSet 转换为 List<string> 返回并按字母排序
-            return commonParams?.OrderBy(name => name).ToList() ?? new List<string>();
+            return result;
         }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -323,312 +340,78 @@ namespace CreatePipe
             Document doc = uiDoc.Document;
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
- 
 
-            //////////0329 关闭水暖系统的后台计算。OK
-            /////// 1. 查找当前【未关闭计算】的风管系统类型 (参数值不为 0)
-            //var ductsToChange = new FilteredElementCollector(doc).OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>()
-            //    .Where(dst =>
-            //    {
-            //        var p = dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM);
-            //        return p != null && !p.IsReadOnly && p.AsInteger() != 0;
-            //    }).ToList();
-            //// 2. 查找当前【未关闭计算】的管道系统类型 (参数值不为 0)
-            //var pipesToChange = new FilteredElementCollector(doc).OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>()
-            //    .Where(pst =>
-            //    {
-            //        var p = pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM);
-            //        return p != null && !p.IsReadOnly && p.AsInteger() != 0;
-            //    }).ToList();
-            //// 3. 检查是否有需要修改的系统，没有则直接退出后续逻辑
-            //if (ductsToChange.Count == 0 && pipesToChange.Count == 0)
+            //////0417 线形图案清理.OK
+            //FilteredElementCollector elements3 = new FilteredElementCollector(doc);
+            //List<LinePatternElement> linePatternElements = elements3.OfClass(typeof(LinePatternElement)).Cast<LinePatternElement>().ToList();
+            //// 准备显示用的字符串列表（显示线型图案名称）
+            //List<string> linePatternNames = linePatternElements.Select(lpe => lpe.Name).ToList();
+            //// 创建多选窗体
+            //UniversalComboBoxMultiSelection selectionDialog = new UniversalComboBoxMultiSelection(
+            //    linePatternNames, "请选择要删除的线型图案（支持多选）");
+            //// 显示窗体并等待用户确认
+            //bool? result = selectionDialog.ShowDialog();
+            //// 处理选择结果
+            //if (result == true && selectionDialog.SelectedResult.Any())
             //{
-            //    TaskDialog.Show("提示", "当前项目中所有机电系统的计算均已关闭，无需重复执行。");
-            //    return Result.Failed;
+            //    // 根据用户选择的名称，获取对应的 LinePatternElement 对象
+            //    List<LinePatternElement> selectedLinePatterns = linePatternElements
+            //        .Where(lpe => selectionDialog.SelectedResult.Contains(lpe.Name)).ToList();
+            //    TransactionWithProgressBarHelper.Execute(doc, "删除线型", (service) =>
+            //    {
+            //        service.UpdateMax(selectedLinePatterns.Count());
+            //        int index = 0;
+            //        foreach (var item in selectedLinePatterns)
+            //        {
+            //            service.Update(++index, item.Name);
+            //            doc.Delete(item.Id);
+            //        }
+            //    });
+            //    //// 输出选择结果
+            //    TaskDialog.Show("选择结果", $"已删除 {selectedLinePatterns.Count} 个线型图案。");
             //}
-            //NewTransaction.Execute(doc, "关闭机电系统计算", () =>
+            //else
             //{
-            //    // 修改风管系统
-            //    foreach (var dst in ductsToChange)
-            //    {
-            //        dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM).Set(0);
-            //    }
-            //    // 修改管道系统
-            //    foreach (var pst in pipesToChange)
-            //    {
-            //        pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM).Set(0);
-            //    }
-            //    // 弹窗提示结果
-            //    TaskDialog.Show("优化完成",
-            //    $"成功关闭了计算：\n{ductsToChange.Count} 个风管系统类型\n{pipesToChange.Count} 个管道系统类型\n\n现在修改机电管线将不会触发后台卡顿。");
-            //});
+            //    TaskDialog.Show("提示", "未选择任何线型图案或已取消");
+            //}
 
-            //NewTransaction.Execute(doc, "关闭机电系统计算",()=>
+            //////找出所有有几何instance并分类
+            //List<Element> allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).WhereElementIsNotElementType().Cast<Element>().ToList();
+            //List<ElementId> ids = new List<ElementId>();
+            //foreach (var item in allInstances)
             //{
-            //    int ductChangedCount = 0;
-            //    int pipeChangedCount = 0;
-            //    // 1. 获取并修改所有【风管系统类型】
-            //    var ductSystemTypes = new FilteredElementCollector(doc)
-            //        .OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>();
-            //    foreach (MechanicalSystemType dst in ductSystemTypes)
+            //    if (item.HasPhases())
             //    {
-            //        var para = dst.get_Parameter(BuiltInParameter.RBS_DUCT_SYSTEM_CALCULATION_PARAM);
-            //        para.Set(0);
-            //        ductChangedCount++;
+            //        ids.Add(item.Id);
             //    }
-            //    //// 2. 获取并修改所有【管道系统类型】
-            //    var pipeSystemTypes = new FilteredElementCollector(doc)
-            //        .OfClass(typeof(PipingSystemType)).Cast<PipingSystemType>();
-            //    foreach (var pst in pipeSystemTypes)
-            //    {
-            //        var para = pst.get_Parameter(BuiltInParameter.RBS_PIPE_SYSTEM_CALCULATION_PARAM);
-            //        para.Set(0);
-            //        pipeChangedCount++;
-            //    }
-            //    //// 可选：弹窗提示结果
-            //    TaskDialog.Show("优化完成",
-            //    $"成功关闭了计算：\n{ductChangedCount} 个风管系统类型\n{pipeChangedCount} 个管道系统类型\n\n现在修改机电管线将不会触发后台卡顿。");
-            //});
+            //}
+            //uiDoc.Selection.SetElementIds(ids);
 
-
-            ////0413 风管编辑
-            //DuctEditAssembleView ductEditAssembleView = new DuctEditAssembleView(uiApp);
-            //ductEditAssembleView.Show(); 
-
-            ////0413 机电坡度检查
-            //MEPSlopeCheckView mEPSlopeCheckView = new MEPSlopeCheckView(uiApp);
-            //mEPSlopeCheckView.Show();       
-
-            //查找全部实例共同文字属性
+            //////0417查找全部实例共同文字属性.OK
             //var list = GetCommonStringParameterNames(doc);
-            //StringBuilder stringBuilder = new StringBuilder();
-            //foreach (var item in list)
+            //// 筛选仅实例参数
+            //var instanceOnly = list.Where(x => x.Value == "实例").Select(x => x.Key);
+            //// 筛选仅类型参数
+            //var symbolOnly = list.Where(x => x.Value == "类型").Select(x => x.Key);
+            //var symbolBoth = list.Where(x => x.Value == "两者").Select(x => x.Key);
+            //StringBuilder stringBuilderInstance = new StringBuilder();
+            //StringBuilder stringBuilderSymbol = new StringBuilder();
+            //StringBuilder stringBuilderBoth = new StringBuilder();
+            //foreach (var item in instanceOnly)
             //{
-            //    stringBuilder.AppendLine(item);
+            //    stringBuilderInstance.AppendLine(item);
             //}
-            //TaskDialog.Show("tt", stringBuilder.ToString());
+            //foreach (var item in symbolOnly)
+            //{
+            //    stringBuilderSymbol.AppendLine(item);
+            //}
+            //foreach (var item in symbolBoth)
+            //{
+            //    stringBuilderBoth.AppendLine(item);
+            //}
+            //TaskDialog.Show("tt", "实例属性：" + stringBuilderInstance.ToString() + "\n" + "类型属性：" + stringBuilderSymbol.ToString() + "\n" + "（待复核）共同属性：" + stringBuilderBoth.ToString());
 
-            ////0331 集成错误处理测试报告.OK
-            //try
-            //{
-            //    // 1. 实例化所有警告服务
-            //    var roomWarningService = new RoomWarningService(doc);
-            ////var duplicateMarkService = new DuplicateMarkWarningService(doc); // [新增]
-            //    var genericWarningService = new GenericWarningService(doc);
-            //    // 2. 定义哪些警告由特定服务处理，以便通用服务可以忽略它们
-            //    var handledBySpecializedServices = new List<FailureDefinitionId>
-            //    {
-            //        BuiltInFailures.RoomFailures.RoomNotEnclosed,
-            //        BuiltInFailures.RoomFailures.RoomsInSameRegionRooms
-            ////BuiltInFailures.GeneralFailures.DuplicateValue // [新增] 告诉通用服务：这个我处理过了，你别管了
-            //        // 未来可以添加更多，例如: BuiltInFailures.OverlapFailures.WallsOverlap
-            //    };
-            //    // 3. 运行分析
-            //    RoomWarningAnalysisResult roomResult = roomWarningService.AnalyzeRoomWarnings();
-            ////DuplicateMarkAnalysisResult duplicateResult = duplicateMarkService.AnalyzeWarnings(); // [新增]
-            //    GenericWarningAnalysisResult genericResult = genericWarningService.AnalyzeGenericWarnings(handledBySpecializedServices);
-            //    // 4. 汇总结果
-            //    var allProblemElementIds = new HashSet<ElementId>();
-            //    allProblemElementIds.UnionWith(roomResult.AllProblemRoomIds);
-            ////allProblemElementIds.UnionWith(duplicateResult.DuplicateElementIds); // [新增]
-            //    allProblemElementIds.UnionWith(genericResult.AllProblemElementIds);
-            //    // 5. 构建并显示报告
-            //    if (!roomResult.HasAnyWarnings && !genericResult.HasAnyWarnings)
-            //    {
-            //        TaskDialog.Show("模型健康检查", "恭喜！模型中未检测到任何已知类型的警告。");
-            //        return Result.Succeeded;
-            //    }
-            //    var reportBuilder = new StringBuilder();
-            //    reportBuilder.AppendLine("模型健康检查报告：\n");
-            //    // 添加房间警告信息
-            //    if (roomResult.HasAnyWarnings)
-            //    {
-            //        reportBuilder.AppendLine("--- 房间相关警告 ---");
-            //        if (roomResult.UnenclosedRoomIds.Any())
-            //            reportBuilder.AppendLine($"  - 房间不在闭合区域: {roomResult.UnenclosedRoomIds.Count} 个");
-            //        if (roomResult.RoomsInSameRegionIds.Any())
-            //            reportBuilder.AppendLine($"  - 多个房间位于同一区域: {roomResult.RoomsInSameRegionIds.Count} 个");
-            //        reportBuilder.AppendLine();
-            //    }
-            ////// --- 报告：重复标记警告 [新增] ---
-            ////if (duplicateResult.HasAnyWarnings)
-            ////{
-            ////    reportBuilder.AppendLine("--- 标识数据警告 ---");
-            ////    reportBuilder.AppendLine($"  - 图元具有重复的标记/类型标记: {duplicateResult.DuplicateElementIds.Count} 个图元");
-            ////    reportBuilder.AppendLine();
-            ////}
-            //    // 添加通用警告信息
-            //    if (genericResult.HasAnyWarnings)
-            //    {
-            //        reportBuilder.AppendLine("--- 其他警告 ---");
-            //        foreach (var kvp in genericResult.WarningsByDescription)
-            //        {
-            //            reportBuilder.AppendLine($"  - {kvp.Key}: 涉及 {kvp.Value.Count} 个元素");
-            //        }
-            //        reportBuilder.AppendLine();
-            //    }
-            //    reportBuilder.AppendLine($"总共发现 {allProblemElementIds.Count} 个有问题的元素。");
-            //    reportBuilder.AppendLine("\n是否在视图中选中所有这些元素？");
-            //    TaskDialogResult userResponse = TaskDialog.Show("模型健康检查", reportBuilder.ToString(),
-            //                                                    TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-            //    // 6. 根据用户响应执行操作
-            //    if (userResponse == TaskDialogResult.Yes)
-            //    {
-            //        if (allProblemElementIds.Any())
-            //        {
-            //            uiDoc.Selection.SetElementIds(allProblemElementIds);
-            //            TaskDialog.Show("操作完成", $"已成功选中 {allProblemElementIds.Count} 个有问题的元素。");
-            //        }
-            //        else
-            //        {
-            //            TaskDialog.Show("操作提示", "没有可供选择的问题元素。");
-            //        }
-            //    }
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = "执行错误检查时发生意外：" + ex.Message;
-            //    return Result.Failed;
-            //}       
-
-            ////0331 检测多个房间位于同一闭合区域中警告。OK
-            //try
-            //{
-            //    // 1. 定义我们要查找的警告类型 ID
-            //    FailureDefinitionId roomsInSameRegionId = BuiltInFailures.RoomFailures.RoomsInSameRegionRooms;
-            //    // 2. 获取文档中所有未解决的警告
-            //    IList<FailureMessage> allWarnings = doc.GetWarnings();
-            //    // 3. 过滤出“多个房间位于同一闭合区域中”警告
-            //    IEnumerable<FailureMessage> roomsInSameRegionWarnings = allWarnings
-            //        .Where(w => w.GetFailureDefinitionId() == roomsInSameRegionId);
-            //    // 4. 收集所有受影响的房间 ID
-            //    HashSet<ElementId> roomsToSelect = new HashSet<ElementId>();
-            //    foreach (FailureMessage warning in roomsInSameRegionWarnings)
-            //    {
-            //        // GetFailingElements() 会返回与此警告相关的所有元素。
-            //        // 对于 RoomsInTheSameRegion 警告，它返回的就是导致冲突的所有房间的 ID。
-            //        foreach (ElementId failingElementId in warning.GetFailingElements())
-            //        {
-            //            // 确保这个 ID 确实代表一个房间 (可选但推荐的验证)
-            //            Element elem = doc.GetElement(failingElementId);
-            //            if (elem != null && elem is Room) // 使用我们定义的 Room 别名
-            //            {
-            //                roomsToSelect.Add(failingElementId);
-            //            }
-            //        }
-            //    }
-            //    // 5. 将这些房间在 UI 中选中
-            //    if (roomsToSelect.Any())
-            //    {
-            //        uiDoc.Selection.SetElementIds(roomsToSelect);
-            //        TaskDialog.Show("警告处理",
-            //                        $"已发现并选中 {roomsToSelect.Count} 个房间，它们存在“多个房间位于同一闭合区域”的警告。\n" +
-            //                        "这些房间分布在不同的警告组中，请在视图中查看并修正它们（通常需要添加房间分隔符）。");
-            //    }
-            //    else
-            //    {
-            //        TaskDialog.Show("警告处理", "模型中没有发现“多个房间位于同一闭合区域”的警告。");
-            //    }
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = "操作失败：" + ex.Message;
-            //    return Result.Failed;
-            //}
-
-            ////0331 检测房间不闭合区域警告.OK
-            //try
-            //{
-            //    // 1. 定义我们要查找的警告类型 ID
-            //    FailureDefinitionId roomNotEnclosedId = BuiltInFailures.RoomFailures.RoomNotEnclosed;
-            //    // 2. 获取文档中所有未解决的警告
-            //    IList<FailureMessage> allWarnings = doc.GetWarnings();
-            //    // 3. 过滤出“房间不在完全闭合的区域”警告
-            //    IEnumerable<FailureMessage> unenclosedRoomWarnings = allWarnings
-            //        .Where(w => w.GetFailureDefinitionId() == roomNotEnclosedId);
-            //    // 4. 收集所有受影响的房间 ID
-            //    HashSet<ElementId> unenclosedRoomIds = new HashSet<ElementId>();
-            //    foreach (FailureMessage warning in unenclosedRoomWarnings)
-            //    {
-            //        // GetFailingElements() 会返回与此警告相关的所有元素。
-            //        // 对于 RoomNotEnclosed 警告，它返回的就是房间的 ID。
-            //        foreach (ElementId failingElementId in warning.GetFailingElements())
-            //        {
-            //            // 确保这个 ID 确实代表一个房间 (可选但推荐的验证)
-            //            Element elem = doc.GetElement(failingElementId);
-            //            if (elem != null && elem is Autodesk.Revit.DB.Architecture.Room)
-            //            {
-            //                unenclosedRoomIds.Add(failingElementId);
-            //            }
-            //        }
-            //    }
-            //    // 5. 将这些房间在 UI 中选中
-            //    if (unenclosedRoomIds.Any())
-            //    {
-            //        uiDoc.Selection.SetElementIds(unenclosedRoomIds);
-            //        TaskDialog.Show("警告处理",
-            //                        $"已发现并选中 {unenclosedRoomIds.Count} 个房间，它们存在“不在完全闭合区域”的警告。\n" +
-            //                        "请在视图中查看并修复它们。");
-            //    }
-            //    else
-            //    {
-            //        TaskDialog.Show("警告处理", "模型中没有发现“房间不在完全闭合区域”的警告。");
-            //    }
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = "操作失败：" + ex.Message;
-            //    return Result.Failed;
-            //}
-            ////0331 删除重叠构件方法.OK
-            //try
-            //{
-            //    // 1. 实例化服务
-            //    var warningService = new WarningManagerService(doc);
-            //    // 2. 收集目标警告 (这里以“完全相同的重复实例”为例)
-            //    var targetWarningId = BuiltInFailures.OverlapFailures.DuplicateInstances;
-            //    var duplicateWarnings = warningService.GetWarningsByType(targetWarningId);
-            //    if (duplicateWarnings.Count == 0)
-            //    {
-            //        TaskDialog.Show("检查结果", "模型很干净，没有发现重复实例的警告。");
-            //        return Result.Succeeded;
-            //    }
-            //    // 3. 交给 Service 进行分析，找出该删的 ID
-            //    OverlapAnalysisResult analysisResult = warningService.AnalyzeOverlaps(duplicateWarnings);
-            //    if (!analysisResult.HasOverlaps)
-            //    {
-            //        TaskDialog.Show("检查结果", "虽然存在警告，但无需删除任何构件。");
-            //        return Result.Succeeded;
-            //    }
-            //    // 4. UI 交互：请求用户确认
-            //    string prompt = $"发现 {analysisResult.TotalWarningsAnalyzed} 个重复实例警告。\n\n" +
-            //                    $"分析结果：\n" +
-            //                    $"- 保留构件数: {analysisResult.ElementsToKeep.Count}\n" +
-            //                    $"- 待删除多余构件: {analysisResult.ElementsToDelete.Count}\n\n" +
-            //                    $"是否立即清理？";
-            //    TaskDialogResult userResponse = TaskDialog.Show("确认清理", prompt, TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-            //    if (userResponse == TaskDialogResult.Yes)
-            //    {
-            //        // 5. 执行清理
-            //        int deletedCount = warningService.ExecuteCleanup(analysisResult.ElementsToDelete);
-            //        //TaskDialog.Show("清理完成", $"成功删除了 {deletedCount} 个多余构件！");
-            //        TaskDialog.Show("清理完成", $"成功删除了 {analysisResult.ElementsToDelete.Count} 个多余构件！");
-            //    }
-            //    else
-            //    {
-            //        TaskDialog.Show("已取消", "清理操作已取消。");
-            //    }
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
-            ////0331 批量改族类型方法，考虑封装一个类型转化方法
+            //////0331 批量改族类型方法，考虑封装一个类型转化方法
             //try
             //{
             //    // 选择文件
@@ -680,9 +463,15 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
 
+            //////0413 机电坡度检查.OK
+            //MEPSlopeCheckView mEPSlopeCheckView = new MEPSlopeCheckView(uiApp);
+            //mEPSlopeCheckView.Show();
             ////////0323 房间管理过程版
             //RoomManagerView roomManagerView = new RoomManagerView(uiApp);
             //roomManagerView.ShowDialog();
+            /////剪贴文本暂存器。OK 注意需要非模态运行
+            //ClipboardCatcher clipboard = new ClipboardCatcher();
+            //clipboard.Show();
 
             ////0329 选择偏移量（Offset）设置过大构件，逻辑还不够清晰，误差太大
             //// 1. 获取并排序所有标高
@@ -736,128 +525,52 @@ namespace CreatePipe
             //    TaskDialog.Show("检测结果", "未发现明显的标高偏移异常构件。");
             //}
 
-            //////0315 窗口及控件测试模板
-            //TestWindow testWindow = new TestWindow(uiApp);
-            //testWindow.ShowDialog();
-            //////369测试窗口。OK
-            //Universal369Buttons universal369Buttons = new Universal369Buttons();
-            //universal369Buttons.ShowDialog();
-            /////剪贴文本暂存器。OK 注意需要非模态运行
-            //ClipboardCatcher clipboard = new ClipboardCatcher();
-            //clipboard.Show();
-            //////双联按钮 圆形按钮。OK
-            ////0313//////0131 测试窗口。OK
-            //string tt = "测试定时消隐窗口";
-            //string myMessage = "使用。。。已完成";
-            //ToastManager.ShowToast(tt, myMessage);
-            ////var toast = new ToastWindow(tt, myMessage);
-            ////toast.Show();
-
-
-            //0323 进度条调用模板，无需单独声明ProgressBar
-            //    TransactionWithProgressBarHelper.Execute(doc, "提取构件信息", (service) =>
-            //    {
-            //        service.UpdateMax(sortedIds.Count());
-            //        int index = 0;
-            //        foreach (var id in sortedIds)
-            //        {
-            //            service.Update(++index, id.Value.ToString());
-            //        }
-            //    });
-
-            ////0319 风管高宽互换。OK，是否考虑批量处理
-            //Duct targetDuct = null;
-            //ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-            //if (selectedIds != null && selectedIds.Count > 0)
+            ////0222 批量改标高1500.OK 待深化
+            //var selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds.Count > 1)
             //{
-            //    foreach (ElementId id in selectedIds)
+            //    return Result.Cancelled;
+            //}
+            //try
+            //{
+            //    if (selectedIds.Count == 0)
             //    {
-            //        Element elem = doc.GetElement(id);
-            //        if (elem is Duct d) // 判断是否为风管
+            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
+            //        Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //        Parameter sysParam = pipe1.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //        if (sysParam == null || !sysParam.HasValue)
             //        {
-            //            targetDuct = d;
-            //            break; // 挑出第一根后直接跳出循环
+            //            TaskDialog.Show("提示", "未获取到系统参数");
+            //            return Result.Cancelled;
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "更改标高"))
+            //        {
+            //            tx.Start();
+            //            sysParam.Set(1500 / 304.8);
+            //            tx.Commit();
+            //        }
+            //    }
+            //    else
+            //    {
+            //        Pipe pipe = doc.GetElement(selectedIds.FirstOrDefault()) as Pipe;
+            //        Parameter sysParam = pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //        if (sysParam == null || !sysParam.HasValue)
+            //        {
+            //            TaskDialog.Show("提示", "未获取到系统参数");
+            //            return Result.Cancelled;
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "更改标高"))
+            //        {
+            //            tx.Start();
+            //            sysParam.Set(1500 / 304.8);
+            //            tx.Commit();
             //        }
             //    }
             //}
-            //if (targetDuct == null)
+            //catch (Exception)
             //{
-            //    try
-            //    {
-            //        // filterDuct 是你自定义的 ISelectionFilter
-            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterDuct(), "请选择一根矩形风管");
-            //        targetDuct = doc.GetElement(ref1) as Duct;
-            //    }
-            //    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //    {
-            //        return Result.Cancelled;
-            //    }
+            //    throw;
             //}
-            //if (targetDuct == null)
-            //{
-            //    return Result.Failed;
-            //}
-            //// 2. 获取宽高参数（需判断是否为矩形风管，圆形风管没有宽高）
-            //Parameter widthParameter = targetDuct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM);
-            //Parameter heightParameter = targetDuct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM);
-            //if (widthParameter == null || heightParameter == null)
-            //{
-            //    TaskDialog.Show("错误", "所选风管不是矩形风管！");
-            //    return Result.Failed;
-            //}
-            //double originalWidth = widthParameter.AsDouble();
-            //double originalHeight = heightParameter.AsDouble();
-            //// 准备一个列表，用来临时保存风管两端连接的其他构件的连接器
-            //List<Tuple<Connector, Connector>> connectionsToRestore = new List<Tuple<Connector, Connector>>();
-            //using (Transaction ts = new Transaction(doc, "风管宽高转换及重连"))
-            //{
-            //    ts.Start();
-            //    // 【关键点2：寻找连接并断开】
-            //    ConnectorManager cm = targetDuct.ConnectorManager;
-            //    if (cm != null)
-            //    {
-            //        // 遍历风管自身的每一个连接器
-            //        foreach (Connector ductConn in cm.Connectors)
-            //        {
-            //            if (ductConn.IsConnected)
-            //            {
-            //                // AllRefs 包含了与当前连接器相连的所有连接器（包括自身）
-            //                foreach (Connector refConn in ductConn.AllRefs)
-            //                {
-            //                    // 排除自身，且排除逻辑连接，只找物理相连的外部构件
-            //                    if (refConn.Owner.Id != targetDuct.Id && refConn.ConnectorType != ConnectorType.Logical)
-            //                    {
-            //                        // 1. 记录这对连接关系 (风管连接器, 外部构件连接器)再断开
-            //                        connectionsToRestore.Add(new Tuple<Connector, Connector>(ductConn, refConn));
-            //                        ductConn.DisconnectFrom(refConn);
-            //                    }
-            //                }
-            //            }
-            //        }
-            //    }
-            //    widthParameter.Set(originalHeight);
-            //    heightParameter.Set(originalWidth);
-            //    doc.Regenerate();
-            //    // 【关键点4：恢复连接】
-            //    foreach (var pair in connectionsToRestore)
-            //    {
-            //        Connector dConn = pair.Item1;
-            //        Connector rConn = pair.Item2;
-            //        try
-            //        {
-            //            // 重新连接
-            //            dConn.ConnectTo(rConn);
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            // 极端情况下（如尺寸相差过大且没有开启自动管件功能），重连可能会失败
-            //            // 这里可以记录日志，防止整个事务崩溃
-            //            System.Diagnostics.Debug.WriteLine($"重连失败: {ex.Message}");
-            //        }
-            //    }
-            //    ts.Commit();
-            //}
-            //TaskDialog.Show("tt", $"已互换选中风管宽高值，其ID为{targetDuct.Id}");
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
             //var selIds = uiDoc.Selection.GetElementIds();
@@ -926,131 +639,8 @@ namespace CreatePipe
             //    }
             //    tx.Commit();
             //}
-            //TaskDialog.Show("结果",$"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
+            //TaskDialog.Show("结果",$"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));     
 
-            ////0204 复制文字属性？直接用导出导入属性试试
-            ////需要简单界面，选择要复制到的类型
-            ////查找当前族实例所有实例文字属性，复制到已选择的对象
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FamilyInstanceFilterClass(), "请选择第一根水平管道");
-            //FamilyInstance instance = doc.GetElement(ref1) as FamilyInstance;
-            //TaskDialog.Show("tt", instance.Name);
-
-            ////////1122 生成交叉中间立管OK
-            //// 1. 拾取第一根管道
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
-            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //// 2. 拾取第二根管道
-            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
-            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
-            //// 校验：确保是水平管道 (Z轴方向分量接近0)
-            //if (!IsHorizontal(pipe1) || !IsHorizontal(pipe2))
-            //{
-            //    TaskDialog.Show("错误", "请选择水平管道。");
-            //    return Result.Failed;
-            //}
-            //using (Transaction trans = new Transaction(doc, "生成垂直立管"))
-            //{
-            //    trans.Start();
-            //    // 3. 获取管道的几何中心线
-            //    Line line1 = (pipe1.Location as LocationCurve).Curve as Line;
-            //    Line line2 = (pipe2.Location as LocationCurve).Curve as Line;
-            //    // 4. 计算XY平面上的投影交点 (无限延伸)
-            //    XYZ intersectionPoint2D = GetIntersectionPoint2D(line1, line2);
-            //    if (intersectionPoint2D == null)
-            //    {
-            //        TaskDialog.Show("错误", "两根管道在XY平面平行，无法生成垂直连接管。");
-            //        return Result.Failed;
-            //    }
-            //    // 5. 准备创建立管的坐标,获取两根管各自在交点处的Z高度
-            //    double z1 = line1.Origin.Z;
-            //    double z2 = line2.Origin.Z;
-            //    // 容差处理，如果高度极度接近则不需要立管
-            //    if (Math.Abs(z1 - z2) < 0.01) // 0.01 feet
-            //    {
-            //        TaskDialog.Show("提示", "两根管道高度几乎一致，无需立管。");
-            //        return Result.Cancelled;
-            //    }
-            //    // 确定立管的底点和顶点
-            //    XYZ bottomPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Min(z1, z2));
-            //    XYZ topPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Max(z1, z2));
-            //    // 6. 创建垂直立管
-            //    // 使用第一根管的系统类型和管材类型，以及标高
-            //    ElementId systemTypeId = pipe1.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
-            //    ElementId pipeTypeId = pipe1.PipeType.Id;
-            //    ElementId levelId = pipe1.ReferenceLevel.Id;
-            //    Pipe riserInfo = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, bottomPoint, topPoint);
-            //    // 设置立管直径（这里取较小管径或第一根管径，可视需求调整）
-            //    // 注意：Diameter是只读属性，需通过参数设置
-            //    double diameter = pipe1.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
-            //    riserInfo.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(diameter);
-            //    // 7. 连接管件 (生成三通/机械三通)
-            //    // 需要找到立管的上下连接器
-            //    Connector topConnector = GetConnectorAtPoint(riserInfo, topPoint);
-            //    Connector bottomConnector = GetConnectorAtPoint(riserInfo, bottomPoint);
-            //    // 判断哪个现有管道在上方，哪个在下方
-            //    Pipe topPipe = z1 > z2 ? pipe1 : pipe2;
-            //    Pipe bottomPipe = z1 > z2 ? pipe2 : pipe1;
-            //    // 核心API: NewTakeoffFitting
-            //    // 这个方法会在现有管道(pipe)上打断并插入三通，或者插入接头，并连接到指定的connector
-            //    //try
-            //    //{
-            //    //    doc.Create.NewTakeoffFitting(topConnector, topPipe);
-            //    //    doc.Create.NewTakeoffFitting(bottomConnector, bottomPipe);
-            //    //}
-            //    //catch (Exception ex)
-            //    //{
-            //    //    //TaskDialog.Show("警告", "生成管件失败，可能是没有配置路由首选项或空间不足。" + ex.Message);
-            //    //    // 即便管件失败，立管可能已生成，视情况决定是否回滚
-            //    //}
-            //    trans.Commit();
-            //}
-
-            ////0222 批量改标高1500.OK 待深化
-            //var selectedIds = uiDoc.Selection.GetElementIds();
-            //if (selectedIds.Count > 1)
-            //{
-            //    return Result.Cancelled;
-            //}
-            //try
-            //{
-            //    if (selectedIds.Count == 0)
-            //    {
-            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
-            //        Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //        Parameter sysParam = pipe1.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
-            //        if (sysParam == null || !sysParam.HasValue)
-            //        {
-            //            TaskDialog.Show("提示", "未获取到系统参数");
-            //            return Result.Cancelled;
-            //        }
-            //        using (Transaction tx = new Transaction(doc, "更改标高"))
-            //        {
-            //            tx.Start();
-            //            sysParam.Set(1500 / 304.8);
-            //            tx.Commit();
-            //        }
-            //    }
-            //    else
-            //    {
-            //        Pipe pipe = doc.GetElement(selectedIds.FirstOrDefault()) as Pipe;
-            //        Parameter sysParam = pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
-            //        if (sysParam == null || !sysParam.HasValue)
-            //        {
-            //            TaskDialog.Show("提示", "未获取到系统参数");
-            //            return Result.Cancelled;
-            //        }
-            //        using (Transaction tx = new Transaction(doc, "更改标高"))
-            //        {
-            //            tx.Start();
-            //            sysParam.Set(1500 / 304.8);
-            //            tx.Commit();
-            //        }
-            //    }
-            //}
-            //catch (Exception)
-            //{
-            //    throw;
-            //}
             ////0205 查找特定属性风口构建
             //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
             //List<FamilyInstance> terminalNames = new List<FamilyInstance>();
@@ -1093,5 +683,15 @@ namespace CreatePipe
         }
         //private int _maximum;
         //public int Maximum { get => _maximum; set => SetProperty(ref _maximum, value); }
+        //0323 进度条调用模板，无需单独声明ProgressBar
+        //    TransactionWithProgressBarHelper.Execute(doc, "提取构件信息", (service) =>
+        //    {
+        //        service.UpdateMax(sortedIds.Count());
+        //        int index = 0;
+        //        foreach (var id in sortedIds)
+        //        {
+        //            service.Update(++index, id.Value.ToString());
+        //        }
+        //    });     
     }
 }
