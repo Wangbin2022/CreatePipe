@@ -1,0 +1,91 @@
+﻿<Window x:Class="CreatePipe.Form.StructuralElementManagerView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="结构构件系统管理" 
+        Height="450" Width="760"
+       xmlns:conv ="clr-namespace:CreatePipe.Form.Converters"
+       xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
+    <Window.Resources>
+        <conv:ColorConverter x:Key="colorConverter"/>
+        <conv:IntToStringConverter x:Key="IntToStringConverter"/>
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <TextBox Width="230"  Margin="0,5"
+bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=PropertyChanged,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
+                <Button Width="66" Margin="2" Content="统计报告" Command="{Binding TotalSystemCommand}" 
+                    CommandParameter="{Binding SelectedItems, ElementName=dataGrid}" />
+                <Button Width="66" Margin="2" Content="删空类型"  
+                    Command="{Binding DeleteElementsCommand}"
+CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
+            </StackPanel>
+        </Grid>
+        <StackPanel  Grid.Row="1">
+            <DataGrid x:Name="dataGrid" RowHeight="30"  
+                     HorizontalAlignment="Stretch"
+                     AutoGenerateColumns="False" CanUserAddRows="False"
+                     SelectionUnit="FullRow" EnableColumnVirtualization="False"
+                     GridLinesVisibility="None" Height="320"  Width="auto"
+                       SelectionMode="Extended" ItemsSource="{Binding Collection}">
+                <DataGrid.Resources>
+                    <ResourceDictionary>
+                        <ResourceDictionary.MergedDictionaries>
+                            <!-- 引用你的 CommonDataGridStyles.xaml -->
+                            <ResourceDictionary Source="/CreatePipe;component/Form/ResourceDictionary/CommonDataGridStyles.xaml"/>
+                        </ResourceDictionary.MergedDictionaries>
+                    </ResourceDictionary>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="名称" Width="120" SortMemberPath="SymbolName" 
+                   Binding="{Binding SymbolName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="类型" Width="50" SortMemberPath="StructuralCategory" 
+              Binding="{Binding StructuralCategory}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="实例数" Width="55" SortMemberPath="InstanceCount" 
+              Binding="{Binding InstanceCount}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTemplateColumn Header="统计" CanUserResize="False" Width="40">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="按层" Width="auto" Command="{Binding DataContext.SubViewCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" IsEnabled="{Binding HaveInstance}"
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="选择对象" CanUserResize="False" Width="66">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Pick" Width="auto" Command="{Binding DataContext.PickItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="族名称" Width="150" SortMemberPath="FamilyName" 
+              Binding="{Binding FamilyName}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="总长M" Width="60" SortMemberPath="TotalLength" 
+   Binding="{Binding TotalLength, StringFormat={}{0:F1}}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="总体积" Width="60" SortMemberPath="TotalVolume" 
+   Binding="{Binding TotalVolume, StringFormat={}{0:F1}}" 
+IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                    <DataGridTextColumn Header="材质名称" Width="90" SortMemberPath="StructuralMaterialName" 
+              Binding="{Binding StructuralMaterialName}" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+        <DockPanel Grid.Row="2">
+            <Button  Content="确定并退出" Height="auto" FontSize="16"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

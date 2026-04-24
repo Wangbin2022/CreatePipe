@@ -19,14 +19,26 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Windows.Controls;
 using System.Windows.Forms;
+using static System.Net.Mime.MediaTypeNames;
 //service.Update(++index, id.Value.ToString());
 //set => SetProperty(ref _maximum, value);
 
 namespace CreatePipe
 {
+    public class StrucEntity
+    {
+        Document Document;
+        public StrucEntity(Family family)
+        {
+
+        }
+        public int Count { get; set; }
+
+    }
     [Transaction(TransactionMode.Manual)]
-    public class Test11_0118 : IExternalCommand
+    public class Test11_0118 : Decorator, IExternalCommand
     {
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
         //0206 应与PipeJoinHorizon合并考虑
@@ -334,12 +346,231 @@ namespace CreatePipe
             }
             return result;
         }
+        //族再生测试方法
+        /// <summary>
+        /// 写入结果摘要到日志
+        /// </summary>
+        private static void WriteResultSummary(StringBuilder logBuilder, IReadOnlyCollection<string> failedTypes, string logPath)
+        {
+            logBuilder.AppendLine();
+            if (failedTypes.Any())
+            {
+                logBuilder.AppendLine($"结果: {failedTypes.Count} 个族类型再生失败！");
+                logBuilder.AppendLine("失败类型列表:");
+                foreach (var type in failedTypes)
+                {
+                    logBuilder.AppendLine($"  - {type}");
+                }
+            }
+            else
+            {
+                logBuilder.AppendLine("结果: 所有族类型再生成功！");
+            }
+            logBuilder.AppendLine($"日志文件位置: {logPath}");
+            // 使用 using 确保资源释放
+            File.WriteAllText(logPath, logBuilder.ToString());
+        }
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
             Document doc = uiDoc.Document;
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
+
+
+            //////0423 组实例测试.OK
+            ////using (Transaction tx = new Transaction(doc, "组编辑"))
+            ////{
+            ////    tx.Start();
+            ////    var gpInstance = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new GroupFilter(), "pick group")) as Group;
+            ////    var ids = gpInstance.GetMemberIds();
+            ////    TaskDialog.Show("tt", ids.Count.ToString());
+            ////    ////分解组。OK
+            ////    //var ids = gpInstance.UngroupMembers();
+            ////    //uiDoc.Selection.SetElementIds(ids);
+            ////    tx.Commit();
+            ////}
+
+            //// GroupType 是组的定义/模板，类似于族的类型
+            //FilteredElementCollector typeCollector = new FilteredElementCollector(doc);
+            //ICollection<Element> groupTypes = typeCollector.OfClass(typeof(GroupType)).ToList();
+            //int groupInstanceCount = new FilteredElementCollector(doc).OfClass(typeof(Group)).GetElementCount();
+            //int groupTypeCount = new FilteredElementCollector(doc).OfClass(typeof(GroupType)).GetElementCount();
+            //string returnMessage = $"当前项目中存在:\n" +
+            //                 $"• 组实例（Group）数量: {groupInstanceCount}\n" +
+            //                 $"• 组类型（GroupType）数量: {groupTypeCount}";
+            //TaskDialog.Show("组统计", returnMessage);
+            //ICollection<Element> groupInstances = new FilteredElementCollector(doc).OfClass(typeof(Group)).ToList();
+            //var groupTypeStats = groupInstances.Cast<Group>().GroupBy(g => g.GroupType.Id)
+            //    .Select(g => new
+            //    {
+            //        GroupTypeId = g.Key,
+            //        GroupTypeName = g.First().GroupType.Name,
+            //        InstanceCount = g.Count(),
+            //        Instances = g.ToList()
+            //    }).OrderByDescending(g => g.InstanceCount);
+            //StringBuilder report2 = new StringBuilder();
+            //if (groupInstances.Any())
+            //{
+            //    foreach (var stat in groupTypeStats)
+            //    {
+            //        report2.AppendLine($"组名称: {stat.GroupTypeName}");
+            //        report2.AppendLine($"组ID: {stat.GroupTypeId.IntegerValue}");
+            //        report2.AppendLine($"组实例数: {stat.InstanceCount}");
+            //        // 获取第一个实例进行分析
+            //        var firstInstance = stat.Instances.FirstOrDefault();
+            //        if (firstInstance != null)
+            //        {
+            //            var memberIds = firstInstance.GetMemberIds();
+            //            report2.AppendLine($"实例内元素数量: {memberIds.Count}");
+            //            // ========== 补充：检查是否有嵌套组 ==========
+            //            bool hasNestedGroup = false;
+            //            int nestedGroupCount = 0;
+            //            List<string> nestedGroupNames = new List<string>();
+            //            foreach (ElementId id in memberIds)
+            //            {
+            //                Element member = doc.GetElement(id);
+            //                // 检查成员是否为 Group 类型（嵌套组）
+            //                if (member is Group nestedGroup)
+            //                {
+            //                    hasNestedGroup = true;
+            //                    nestedGroupCount++;
+            //                    string nestedName = nestedGroup.GroupType?.Name ?? "未命名组";
+            //                    if (!nestedGroupNames.Contains(nestedName))
+            //                    {
+            //                        nestedGroupNames.Add(nestedName);
+            //                    }
+            //                }
+            //            }
+            //            // 输出嵌套组信息
+            //            if (hasNestedGroup)
+            //            {
+            //                report2.AppendLine($" ⚠️ 包含嵌套组: 是");
+            //                report2.AppendLine($"嵌套组数量: {nestedGroupCount} 个");
+            //                report2.AppendLine($"嵌套组类型: {string.Join(", ", nestedGroupNames)}");
+            //                report2.AppendLine();
+            //            }
+            //            else
+            //            {
+            //                report2.AppendLine($"✓ 包含嵌套组: 否");
+            //                report2.AppendLine();
+            //            }
+            //        }
+            //    }
+            //    TaskDialog.Show("组ID统计", report2.ToString());
+            //}
+            //var unusedGroupTypes = groupTypes.Cast<GroupType>().Where(gt => gt.Groups.Size == 0).ToList();
+            //StringBuilder report = new StringBuilder();
+            //if (unusedGroupTypes.Any())
+            //{
+            //    report.AppendLine("--- 未使用的组类型（无实例） ---");
+            //    foreach (GroupType gt in unusedGroupTypes)
+            //    {
+            //        report.AppendLine($"  - {gt.Name} (ID: {gt.Id.IntegerValue})");
+            //    }
+            //    report.AppendLine();
+            //    TaskDialog.Show("组统计", report.ToString());
+            //}
+
+            ////0423 批量验证Revit族文档中所有族类型的有效性 官方程序 意义不明
+            //// 验证是否为族文档
+            //if (!doc.IsFamilyDocument)
+            //{
+            //    message = "请在族文档中运行此命令！";
+            //    return Result.Failed;
+            //}
+            //string LogFileName = "RegenerationLog.txt";
+            //var familyManager = doc.FamilyManager;
+            //var assemblyPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            //var logPath = Path.Combine(assemblyPath ?? Environment.CurrentDirectory, LogFileName);
+            //// 使用 StringBuilder 批量写入日志，提高效率
+            //var logBuilder = new StringBuilder();
+            //logBuilder.AppendLine("Family Type     Result");
+            //logBuilder.AppendLine("-------------------------");
+            //var failedTypes = new List<string>();
+            //// 遍历所有族类型
+            //foreach (FamilyType type in familyManager.Types)
+            //{
+            //    var typeName = type.Name?.Trim();
+            //    // 跳过空名称的类型
+            //    if (string.IsNullOrEmpty(typeName)) continue;
+            //    try
+            //    {
+            //        // 切换当前类型，触发再生
+            //        familyManager.CurrentType = type;
+            //        logBuilder.AppendLine($"{typeName,-14} Successful");
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        failedTypes.Add(typeName);
+            //        logBuilder.AppendLine($"{typeName,-14} Failed - {ex.Message}");
+            //    }
+            //}
+            //// 写入最终结果
+            //WriteResultSummary(logBuilder, failedTypes, logPath);
+            //////显示结果（无阻塞对话框，可查看日志）
+            //////ShowResult(failedTypes, logPath);
+            //var returnMessage = failedTypes.Any() ? $"❌ {failedTypes.Count} 个类型再生失败！\n\n详情请查看日志:\n{logPath}" : $"✅ 所有 {failedTypes.Count} 个类型再生成功！";
+            //TaskDialog.Show("族类型验证结果", returnMessage);
+
+
+            //////0422 结构测试.OK
+            //StructuralElementManagerView structuralElementManagerView = new StructuralElementManagerView(uiApp);
+            //structuralElementManagerView.Show();
+
+            //var column = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new ColumnFilter(), "选个柱子")) as FamilyInstance;
+            ////TaskDialog.Show("tt", column.Id.IntegerValue.ToString());
+            ////TaskDialog.Show("tt", (column.get_Parameter(BuiltInParameter.INSTANCE_LENGTH_PARAM).AsDouble() * 304.8 / 1000).ToString());
+            ////TaskDialog.Show("tt", (column.get_Parameter(BuiltInParameter.HOST_VOLUME_COMPUTED).AsDouble() * 304.8 * 304.8 * 304.8 / (1000 * 1000 * 1000)).ToString());
+
+            ////0421 明细表逗号检查替换测试，ds版本
+            //Autodesk.Revit.DB.View schedule = doc.ActiveView;
+            //// 确保当前视图是明细表
+            //if (!(schedule is ViewSchedule))
+            //{
+            //    TaskDialog.Show("错误", "请在明细表视图中运行此命令。");
+            //    return Result.Cancelled;
+            //}
+            //// 获取明细表数据
+            //TableData tableData = (schedule as ViewSchedule).GetTableData();
+            //TableSectionData sectionData = tableData.GetSectionData(SectionType.Body);
+            //int nRows = sectionData.NumberOfRows;
+            //int nCols = sectionData.NumberOfColumns;
+            //var errorCells = new List<string>();
+            //for (int row = 0; row < nRows; row++)
+            //{
+            //    for (int col = 0; col < nCols; col++)
+            //    {
+            //        string cellValue = sectionData.GetCellText(row, col);
+            //        if (!string.IsNullOrEmpty(cellValue) && cellValue.Contains(","))
+            //        {
+            //            errorCells.Add($"行{row + 1},列{col + 1}: {cellValue}");
+            //        }
+            //    }
+            //}
+            //if (errorCells.Any())
+            //{
+            //    string msg = $"发现 {errorCells.Count} 个单元格包含半角逗号：\n{string.Join("\n", errorCells.Take(20))}";
+            //    TaskDialog.Show("检查结果", msg);
+            //}
+            //else
+            //{
+            //    TaskDialog.Show("检查结果", "未发现半角逗号。");
+            //}
+
+            ////0421 构件分析测试 要排除固定的MEP相关配置项和系统材质、视图等，只管理手动添加的元素
+            //var analyzer = new ModelProfessionAnalyzer(doc);
+            //string report = analyzer.GetDetailedReport();
+            //TaskDialog.Show("分析结果", report);
+
+            ////var fitting = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_DuctFitting).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().FirstOrDefault();
+            ////Autodesk.Revit.ApplicationServices.Application app = uiApp.Application;
+            //Document familyDoc;
+            //if (uiApp.ActiveUIDocument?.Document.IsFamilyDocument != true) return Result.Cancelled;
+            //familyDoc = doc;
+            //var type =familyDoc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE).AsValueString();
+            //TaskDialog.Show("tt", type.ToString());
 
             //////0417 线形图案清理.OK
             //FilteredElementCollector elements3 = new FilteredElementCollector(doc);
@@ -693,5 +924,252 @@ namespace CreatePipe
         //            service.Update(++index, id.Value.ToString());
         //        }
         //    });     
+    }
+    /// <summary>
+    /// 专业统计结果类
+    /// </summary>
+    public class ProfessionStatistic
+    {
+        public int Count { get; set; }
+        public double Percentage { get; set; }
+    }
+    /// <summary>
+    /// 分析结果类
+    /// </summary>
+    public class ProfessionAnalysisResult
+    {
+        public int TotalElementCount { get; set; }
+        public string PrimaryProfession { get; set; }
+        public bool IsMultiDiscipline { get; set; }
+        public Dictionary<BuiltInCategory, int> CategoryStatistics { get; set; }
+        public Dictionary<string, ProfessionStatistic> ProfessionStatistics { get; set; }
+
+        public ProfessionAnalysisResult()
+        {
+            CategoryStatistics = new Dictionary<BuiltInCategory, int>();
+            ProfessionStatistics = new Dictionary<string, ProfessionStatistic>();
+        }
+    }
+    /// <summary>
+    /// 统计模型中各类别构件的数量，并分析模型的专业归属
+    /// </summary>
+    public class ModelProfessionAnalyzer
+    {
+        private readonly Document _doc;
+
+        // 专业类别映射字典
+        private readonly Dictionary<BuiltInCategory, string> _categoryToProfession;
+
+        public ModelProfessionAnalyzer(Document doc)
+        {
+            _doc = doc;
+            _categoryToProfession = InitializeCategoryMapping();
+        }
+
+        /// <summary>
+        /// 初始化 BuiltInCategory 到专业的映射关系
+        /// </summary>
+        private Dictionary<BuiltInCategory, string> InitializeCategoryMapping()
+        {
+            return new Dictionary<BuiltInCategory, string>
+        {
+            // 建筑专业
+            { BuiltInCategory.OST_Walls, "建筑" },
+            { BuiltInCategory.OST_Doors, "建筑" },
+            { BuiltInCategory.OST_Windows, "建筑" },
+            { BuiltInCategory.OST_Rooms, "建筑" },
+            { BuiltInCategory.OST_Floors, "建筑" },
+            { BuiltInCategory.OST_Ceilings, "建筑" },
+            { BuiltInCategory.OST_Stairs, "建筑" },
+            { BuiltInCategory.OST_Ramps, "建筑" },
+            { BuiltInCategory.OST_Railings, "建筑" },
+            { BuiltInCategory.OST_CurtainWallMullions, "建筑" },
+            { BuiltInCategory.OST_CurtainWallPanels, "建筑" },
+            
+            // 结构专业
+            { BuiltInCategory.OST_StructuralColumns, "结构" },
+            { BuiltInCategory.OST_StructuralFraming, "结构" },
+            { BuiltInCategory.OST_StructuralFoundation, "结构" },
+            { BuiltInCategory.OST_Rebar, "结构" },
+            { BuiltInCategory.OST_Truss, "结构" },
+            { BuiltInCategory.OST_StructuralBracePlanReps, "结构" },
+            
+            // 给排水专业
+            { BuiltInCategory.OST_PipeCurves, "给排水" },
+            { BuiltInCategory.OST_PipeFitting, "给排水" },
+            { BuiltInCategory.OST_PipeAccessory, "给排水" },
+            { BuiltInCategory.OST_PlumbingFixtures, "给排水" },
+            { BuiltInCategory.OST_Sprinklers, "给排水" },
+            
+            // 暖通专业
+            { BuiltInCategory.OST_DuctCurves, "暖通" },
+            { BuiltInCategory.OST_DuctFitting, "暖通" },
+            { BuiltInCategory.OST_DuctAccessory, "暖通" },
+            { BuiltInCategory.OST_MechanicalEquipment, "暖通" },
+            { BuiltInCategory.OST_DuctTerminal, "暖通" },
+            { BuiltInCategory.OST_FlexDuctCurves, "暖通" },
+            
+            // 电气专业
+            { BuiltInCategory.OST_Conduit, "电气" },
+            { BuiltInCategory.OST_ConduitFitting, "电气" },
+            { BuiltInCategory.OST_CableTray, "电气" },
+            { BuiltInCategory.OST_CableTrayFitting, "电气" },
+            { BuiltInCategory.OST_LightingFixtures, "电气" },
+            { BuiltInCategory.OST_ElectricalEquipment, "电气" },
+            { BuiltInCategory.OST_ElectricalFixtures, "电气" },
+            { BuiltInCategory.OST_DataDevices, "电气" },
+            { BuiltInCategory.OST_FireAlarmDevices, "电气" },
+            { BuiltInCategory.OST_SecurityDevices, "电气" },
+            { BuiltInCategory.OST_TelephoneDevices, "电气" },
+            { BuiltInCategory.OST_Wire, "电气" },
+            
+            // 工艺专业
+            { BuiltInCategory.OST_SpecialityEquipment, "工艺" },
+            { BuiltInCategory.OST_GenericModel, "工艺" },
+            { BuiltInCategory.OST_Entourage, "工艺" },
+            
+            // 其他通用类别（归入"其他"）
+            { BuiltInCategory.OST_Levels, "其他" },
+            { BuiltInCategory.OST_Grids, "其他" },
+            { BuiltInCategory.OST_Views, "其他" },
+            { BuiltInCategory.OST_Sheets, "其他" },
+            { BuiltInCategory.OST_Materials, "其他" },
+            { BuiltInCategory.OST_ElectricalLoadClassifications, "其他" },
+            { BuiltInCategory.OST_ParamElemElectricalLoadClassification, "其他" },
+            { BuiltInCategory.OST_HVAC_Load_Space_Types, "其他" },
+            { BuiltInCategory.OST_PreviewLegendComponents, "其他" }
+        };
+        }
+
+        /// <summary>
+        /// 执行分析，返回各专业构件数量及占比
+        /// </summary>
+        public ProfessionAnalysisResult Analyze()
+        {
+            var result = new ProfessionAnalysisResult();
+
+            // 获取所有实体元素（排除视图、图纸等非实体类别）
+            var allElements = new FilteredElementCollector(_doc)
+                .WhereElementIsNotElementType()  // 排除类型元素，只取实例
+                .WhereElementIsViewIndependent() // 排除视图相关元素
+                .ToElements();
+
+            int totalCount = 0;
+            var categoryCountMap = new Dictionary<BuiltInCategory, int>();
+            var professionCountMap = new Dictionary<string, int>();
+
+            // 初始化专业计数字典
+            foreach (var profession in new[] { "建筑", "结构", "给排水", "暖通", "电气", "工艺", "其他" })
+            {
+                professionCountMap[profession] = 0;
+            }
+
+            foreach (var element in allElements)
+            {
+                // 获取元素的类别
+                Category category = element.Category;
+                if (category == null) continue;
+
+                // 获取 BuiltInCategory 值
+                BuiltInCategory bic = (BuiltInCategory)category.Id.IntegerValue;
+
+                // 统计类别计数
+                if (!categoryCountMap.ContainsKey(bic))
+                    categoryCountMap[bic] = 0;
+                categoryCountMap[bic]++;
+
+                // 统计专业计数
+                if (_categoryToProfession.TryGetValue(bic, out string profession))
+                {
+                    professionCountMap[profession]++;
+                }
+                else
+                {
+                    // 未映射的类别归入"其他"
+                    professionCountMap["其他"]++;
+                }
+
+                totalCount++;
+            }
+
+            result.TotalElementCount = totalCount;
+            result.CategoryStatistics = categoryCountMap;
+
+            // 计算各专业占比
+            foreach (var kvp in professionCountMap)
+            {
+                double percentage = totalCount > 0 ? (kvp.Value * 100.0 / totalCount) : 0;
+                result.ProfessionStatistics.Add(kvp.Key, new ProfessionStatistic
+                {
+                    Count = kvp.Value,
+                    Percentage = percentage
+                });
+            }
+
+            // 确定模型的主要专业（占比最高的专业）
+            result.PrimaryProfession = result.ProfessionStatistics
+                .OrderByDescending(x => x.Value.Percentage)
+                .First().Key;
+
+            // 判断是否为综合模型（非主导专业占比超过15%）
+            double topPercentage = result.ProfessionStatistics.Max(x => x.Value.Percentage);
+            result.IsMultiDiscipline = topPercentage < 60;
+
+            return result;
+        }
+
+        /// <summary>
+        /// 获取详细的类别统计信息
+        /// </summary>
+        public string GetDetailedReport()
+        {
+            var result = Analyze();
+            var report = new System.Text.StringBuilder();
+
+            report.AppendLine("========== Revit 模型专业分析报告 ==========");
+            report.AppendLine($"模型总构件数: {result.TotalElementCount}");
+            report.AppendLine($"主要专业: {result.PrimaryProfession}");
+            report.AppendLine($"是否综合模型: {(result.IsMultiDiscipline ? "是" : "否")}");
+            report.AppendLine();
+            report.AppendLine("各专业统计:");
+            report.AppendLine("----------------------------------------");
+
+            foreach (var stat in result.ProfessionStatistics.OrderByDescending(x => x.Value.Percentage))
+            {
+                report.AppendLine($"{stat.Key}: {stat.Value.Count} 个构件 ({stat.Value.Percentage:F2}%)");
+            }
+
+            report.AppendLine();
+            report.AppendLine("主要类别明细 (Top 10):");
+            report.AppendLine("----------------------------------------");
+
+            var topCategories = result.CategoryStatistics
+                .OrderByDescending(x => x.Value)
+                .Take(10);
+
+            foreach (var kvp in topCategories)
+            {
+                string categoryName = GetCategoryName(kvp.Key);
+                report.AppendLine($"{categoryName}: {kvp.Value} 个");
+            }
+
+            return report.ToString();
+        }
+
+        /// <summary>
+        /// 获取类别的显示名称
+        /// </summary>
+        private string GetCategoryName(BuiltInCategory bic)
+        {
+            try
+            {
+                Category category = Category.GetCategory(_doc, bic);
+                return category?.Name ?? bic.ToString();
+            }
+            catch
+            {
+                return bic.ToString();
+            }
+        }
     }
 }

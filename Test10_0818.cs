@@ -17,40 +17,46 @@ namespace CreatePipe
         /// <summary>
         /// 处理板类元素（楼板、屋顶等），通过创建洞口实现
         /// </summary>
-        //private void ProcessSlabElement(Document doc, Element slab, Plane plane1, Plane plane2, XYZ normal, double gapWidth)
-        //{
-        //    using (Transaction tx = new Transaction(doc, $"为 {slab.Category.Name} {slab.Id} 创建洞口"))
-        //    {
-        //        tx.Start();
-        //        // 创建一个足够大的矩形轮廓来切割整个板
-        //        BoundingBoxXYZ bbox = slab.get_BoundingBox(null);
-        //        double size = bbox.Max.DistanceTo(bbox.Min) * 2; // 确保尺寸足够大
-        //        XYZ p1 = plane1.Origin - plane1.XVec * size - plane1.YVec * size;
-        //        XYZ p2 = p1 + plane1.XVec * (2 * size);
-        //        XYZ p3 = p2 + plane1.YVec * (2 * size);
-        //        XYZ p4 = p1 + plane1.YVec * (2 * size);
-        //        Curve c1 = Line.CreateBound(p1, p2);
-        //        Curve c2 = Line.CreateBound(p2, p3);
-        //        Curve c3 = Line.CreateBound(p3, p4);
-        //        Curve c4 = Line.CreateBound(p4, p1);
-        //        CurveLoop profile = new CurveLoop();
-        //        profile.Append(c1);
-        //        profile.Append(c2);
-        //        profile.Append(c3);
-        //        profile.Append(c4);
-        //        // 从中心向一个方向移动轮廓，然后用它创建贯通挤压
-        //        Transform extrudeTransform = Transform.CreateTranslation(normal * gapWidth);
-        //        CurveLoop extrudeProfile = CurveLoop.CreateViaTransform(profile, extrudeTransform);
-        //        Solid openingSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { profile }, -normal, gapWidth);
-        //        // 检查板的几何体是否与我们创建的洞口实体相交
-        //        if (DoesElementIntersectSolid(slab, openingSolid))
-        //        {
-        //            // 创建洞口
-        //            doc.Create.NewOpening(slab, new List<CurveLoop> { profile }, true);
-        //        }
-        //        tx.Commit();
-        //    }
-        //}
+        private void ProcessSlabElement(Document doc, Element slab, Plane plane1, Plane plane2, XYZ normal, double gapWidth)
+        {
+            using (Transaction tx = new Transaction(doc, $"为 {slab.Category.Name} {slab.Id} 创建洞口"))
+            {
+                tx.Start();
+                // 创建一个足够大的矩形轮廓来切割整个板
+                BoundingBoxXYZ bbox = slab.get_BoundingBox(null);
+                double size = bbox.Max.DistanceTo(bbox.Min) * 2; // 确保尺寸足够大
+                XYZ p1 = plane1.Origin - plane1.XVec * size - plane1.YVec * size;
+                XYZ p2 = p1 + plane1.XVec * (2 * size);
+                XYZ p3 = p2 + plane1.YVec * (2 * size);
+                XYZ p4 = p1 + plane1.YVec * (2 * size);
+                Curve c1 = Line.CreateBound(p1, p2);
+                Curve c2 = Line.CreateBound(p2, p3);
+                Curve c3 = Line.CreateBound(p3, p4);
+                Curve c4 = Line.CreateBound(p4, p1);
+                CurveLoop profile = new CurveLoop();
+                profile.Append(c1);
+                profile.Append(c2);
+                profile.Append(c3);
+                profile.Append(c4);
+                // 从中心向一个方向移动轮廓，然后用它创建贯通挤压
+                Transform extrudeTransform = Transform.CreateTranslation(normal * gapWidth);
+                CurveLoop extrudeProfile = CurveLoop.CreateViaTransform(profile, extrudeTransform);
+                Solid openingSolid = GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop> { profile }, -normal, gapWidth);
+                // 检查板的几何体是否与我们创建的洞口实体相交
+                if (DoesElementIntersectSolid(slab, openingSolid))
+                {
+                    //// 创建洞口
+                    //doc.Create.NewOpening(slab, new List<CurveLoop> { profile }, true);
+                    CurveArray curveArray = new CurveArray();
+                    curveArray.Append(c1 as Curve);
+                    curveArray.Append(c2 as Curve);
+                    curveArray.Append(c3 as Curve);
+                    curveArray.Append(c4 as Curve);
+                    doc.Create.NewOpening(slab, curveArray, true);
+                }
+                tx.Commit();
+            }
+        }
         ///// <summary>
         ///// 处理结构框架（梁等），通过分割并删除中间段实现
         ///// </summary>
@@ -83,390 +89,377 @@ namespace CreatePipe
         //        tx.Commit();
         //    }
         //}
-        //#region Helper Methods
-        //private bool DoesElementIntersectSolid(Element elem, Solid solid)
+        private bool DoesElementIntersectSolid(Element elem, Solid solid)
+        {
+            var opt = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, DetailLevel = ViewDetailLevel.Fine };
+            var geom = elem.get_Geometry(opt);
+            if (geom == null) return false;
+            foreach (var geomObj in geom)
+            {
+                if (geomObj is Solid elemSolid && elemSolid.Volume > 1e-9)
+                {
+                    var intersectSolid = BooleanOperationsUtils.ExecuteBooleanOperation(solid, elemSolid, BooleanOperationsType.Intersect);
+                    if (intersectSolid != null && intersectSolid.Volume > 1e-9)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        ////private XYZ FindIntersection(Curve curve, Plane plane)
+        ////{
+        ////    IntersectionResultArray results;
+        ////    SetComparisonResult result = curve.Intersect(plane, out results);
+        ////    if (result == SetComparisonResult.Overlap && results != null && !results.IsEmpty)
+        ////    {
+        ////        return results.get_Item(0).XYZPoint;
+        ////    }
+        ////    return null;
+        ////}
+        ////private bool IsPointOnCurve(Curve curve, XYZ point)
+        ////{
+        ////    return curve.Distance(point) < 1e-6; // 使用容差判断点是否在曲线上
+        ////}
+        ////private bool DoesBoundingBoxIntersectPlane(BoundingBoxXYZ bbox, Plane plane)
+        ////{
+        ////    if (bbox == null) return false;
+        ////    // 检查包围盒的8个角点是否在平面的两侧
+        ////    bool hasPointOnPositiveSide = false;
+        ////    bool hasPointOnNegativeSide = false;
+        ////    for (int i = 0; i < 2; i++)
+        ////    {
+        ////        for (int j = 0; j < 2; j++)
+        ////        {
+        ////            for (int k = 0; k < 2; k++)
+        ////            {
+        ////                XYZ corner = new XYZ(
+        ////                    i == 0 ? bbox.Min.X : bbox.Max.X,
+        ////                    j == 0 ? bbox.Min.Y : bbox.Max.Y,
+        ////                    k == 0 ? bbox.Min.Z : bbox.Max.Z);
+        ////                double signedDistance = plane.Normal.DotProduct(corner - plane.Origin);
+        ////                if (signedDistance > 1e-9) hasPointOnPositiveSide = true;
+        ////                if (signedDistance < -1e-9) hasPointOnNegativeSide = true;
+        ////            }
+        ////        }
+        ////    }
+        ////    return hasPointOnPositiveSide && hasPointOnNegativeSide;
+        ////}
+        ///// <summary>
+        ///// 在视图中绘制可见性分析的结果
+        ///// </summary>
+        //private void DrawVisibilityResults(Document doc, View view, XYZ observerPoint, List<XYZ> visiblePoints)
         //{
-        //    var opt = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, DetailLevel = ViewDetailLevel.Fine };
-        //    var geom = elem.get_Geometry(opt);
-        //    if (geom == null) return false;
-        //    foreach (var geomObj in geom)
+        //    // 创建新的图形样式以便区分
+        //    GraphicsStyle gs = GetOrCreateGraphicsStyle(doc, "可见性分析线");
+        //    if (visiblePoints.Count <= 1) return;
+        //    // 找到可见区域的边界点（一个简化的方法是找到凸包）
+        //    List<XYZ> boundaryPoints = FindConvexHull(visiblePoints);
+        //    // 1. 绘制可见区域在标记牌上的轮廓线 (最大最小范围)
+        //    for (int i = 0; i < boundaryPoints.Count; i++)
         //    {
-        //        if (geomObj is Solid elemSolid && elemSolid.Volume > 1e-9)
+        //        XYZ p1 = boundaryPoints[i];
+        //        XYZ p2 = boundaryPoints[(i + 1) % boundaryPoints.Count]; // 连接到下一个点，最后一个点连回第一个
+        //        Line line = Line.CreateBound(p1, p2);
+        //        doc.Create.NewModelCurve(line, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
+        //    }
+        //    // 2. 绘制从观察点到可见区域边界的“视锥”
+        //    foreach (XYZ boundaryPoint in boundaryPoints)
+        //    {
+        //        Line coneLine = Line.CreateBound(observerPoint, boundaryPoint);
+        //        ModelCurve mc = doc.Create.NewModelCurve(coneLine, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
+        //        mc.LineStyle = gs; // 应用自定义图形样式
+        //    }
+        //}
+        ///// <summary>
+        ///// 找到一组点的2D凸包 (投影到XY平面)
+        ///// 这是一个简化的凸包算法 (Gift wrapping algorithm)
+        ///// </summary>
+        //public List<XYZ> FindConvexHull(List<XYZ> points)
+        //{
+        //    if (points.Count <= 2) return points;
+        //    List<XYZ> hull = new List<XYZ>();
+        //    // 找到最左边的点作为起点
+        //    XYZ startPoint = points.OrderBy(p => p.X).ThenBy(p => p.Y).First();
+        //    XYZ currentPoint = startPoint;
+        //    do
+        //    {
+        //        hull.Add(currentPoint);
+        //        XYZ nextPoint = points[0];
+        //        foreach (XYZ p in points)
         //        {
-        //            var intersectSolid = BooleanOperationsUtils.ExecuteBooleanOperation(solid, elemSolid, BooleanOperationsType.Intersect);
-        //            if (intersectSolid != null && intersectSolid.Volume > 1e-9)
+        //            if (nextPoint == currentPoint || IsLeft(currentPoint, nextPoint, p) > 0)
         //            {
-        //                return true;
+        //                nextPoint = p;
+        //            }
+        //        }
+        //        currentPoint = nextPoint;
+        //    } while (currentPoint != startPoint);
+        //    return hull;
+        //}
+        //private double IsLeft(XYZ p1, XYZ p2, XYZ p3)
+        //{
+        //    return (p2.X - p1.X) * (p3.Y - p1.Y) - (p2.Y - p1.Y) * (p3.X - p1.X);
+        //}
+        ///// <summary>
+        ///// 获取或创建用于可视化的图形样式
+        ///// </summary>
+        //private GraphicsStyle GetOrCreateGraphicsStyle(Document doc, string styleName)
+        //{
+        //    var cat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
+        //    var subCat = cat.SubCategories.get_Item(styleName);
+        //    if (subCat == null)
+        //    {
+        //        subCat = doc.Settings.Categories.NewSubcategory(cat, styleName);
+        //        subCat.LineColor = new Color(255, 0, 0); // 红色
+        //        subCat.SetLineWeight(5, GraphicsStyleType.Projection);
+        //    }
+        //    return subCat.GetGraphicsStyle(GraphicsStyleType.Projection);
+        //}
+        ///// <summary>
+        ///// 查找最适合进行射线检测的3D视图
+        ///// </summary>
+        //private View3D FindBest3DView(Document doc)
+        //{
+        //    var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
+        //    View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
+        //    return default3DView ?? collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+        //}
+        ///// <summary>
+        ///// 从楼板的实体几何体中提取其底面的所有轮廓环路。
+        ///// </summary>
+        ///// <param name="floor">要分析的楼板</param>
+        ///// <returns>包含所有轮廓的CurveArray列表</returns>
+        //private List<CurveArray> GetFloorLoopsFromGeometry(Floor floor)
+        //{
+        //    var loops = new List<CurveArray>();
+        //    Options geomOptions = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, View = floor.Document.ActiveView };
+        //    GeometryElement geoElem = floor.get_Geometry(geomOptions);
+        //    if (geoElem == null) return null;
+        //    Solid solid = geoElem.OfType<Solid>().FirstOrDefault(s => s.Volume > 0);
+        //    if (solid == null) return null;
+        //    PlanarFace bottomFace = null;
+        //    foreach (Face face in solid.Faces)
+        //    {
+        //        PlanarFace pFace = face as PlanarFace;
+        //        if (pFace != null && pFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
+        //        {
+        //            bottomFace = pFace;
+        //            break;
+        //        }
+        //    }
+        //    if (bottomFace == null) return null;
+        //    // *** 这是修正的核心部分 ***
+        //    // bottomFace.EdgeLoops 返回 IList<EdgeArray>
+        //    var edgeLoopList = bottomFace.EdgeLoops;
+        //    // 遍历每个 EdgeArray (每个代表一个闭合环路)
+        //    foreach (EdgeArray edgeArray in edgeLoopList)
+        //    {
+        //        // 为每个环路创建一个新的 CurveArray 来存放曲线
+        //        CurveArray curveArray = new CurveArray();
+        //        // 遍历环路中的每一条边 (Edge)
+        //        foreach (Edge edge in edgeArray)
+        //        {
+        //            // 从边中提取几何曲线 (Curve) 并添加到 CurveArray 中
+        //            curveArray.Append(edge.AsCurve());
+        //        }
+        //        // 将转换好的 CurveArray 添加到结果列表中
+        //        loops.Add(curveArray);
+        //    }
+        //    return loops;
+        //}
+        ///// <summary>
+        ///// 确保两个元素被连接，并且第一个元素切割第二个元素。
+        ///// </summary>
+        //private void EnsureJoinOrder(Document doc, Element cutter, Element cuttee)
+        //{
+        //    if (!JoinGeometryUtils.AreElementsJoined(doc, cutter, cuttee))
+        //    {
+        //        try
+        //        {
+        //            JoinGeometryUtils.JoinGeometry(doc, cutter, cuttee);
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // 记录连接失败的日志，对于调试很重要
+        //            System.Diagnostics.Debug.WriteLine($"无法连接元素 {cutter.Id} 和 {cuttee.Id}: {ex.Message}");
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // 如果已经连接，检查顺序是否正确
+        //        if (!JoinGeometryUtils.IsCuttingElementInJoin(doc, cutter, cuttee))
+        //        {
+        //            try
+        //            {
+        //                JoinGeometryUtils.SwitchJoinOrder(doc, cutter, cuttee);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                System.Diagnostics.Debug.WriteLine($"无法切换元素 {cutter.Id} 和 {cuttee.Id} 的连接顺序: {ex.Message}");
         //            }
         //        }
         //    }
-        //    return false;
         //}
-        //private XYZ FindIntersection(Curve curve, Plane plane)
+        ///// <summary>
+        ///// 获取与给定元素包围盒相交的元素（梁和楼板）。
+        ///// </summary>
+        //private List<Element> GetIntersectingElements(Document doc, Element element, double expansionAmount)
         //{
-        //    IntersectionResultArray results;
-        //    SetComparisonResult result = curve.Intersect(plane, out results);
-        //    if (result == SetComparisonResult.Overlap && results != null && !results.IsEmpty)
+        //    // 使用 get_BoundingBox(null) 获取模型空间的完整3D包围盒
+        //    BoundingBoxXYZ bbox = element.get_BoundingBox(null);
+        //    if (bbox == null) return new List<Element>();
+        //    // 扩大包围盒以确保捕捉到所有接触的元素
+        //    Outline outline = new Outline(bbox.Min - new XYZ(expansionAmount, expansionAmount, expansionAmount),
+        //                                  bbox.Max + new XYZ(expansionAmount, expansionAmount, expansionAmount));
+        //    // 使用 BoundingBoxIntersectsFilter 时，公差应非常小
+        //    BoundingBoxIntersectsFilter bbFilter = new BoundingBoxIntersectsFilter(outline, 1e-9);
+        //    // 定义要查找的元素类别
+        //    var categoryFilters = new List<ElementFilter>
         //    {
-        //        return results.get_Item(0).XYZPoint;
+        //        new ElementCategoryFilter(BuiltInCategory.OST_StructuralFraming),
+        //        new ElementCategoryFilter(BuiltInCategory.OST_Floors)
+        //    };
+        //    var logicalOrFilter = new LogicalOrFilter(categoryFilters);
+        //    var finalFilter = new LogicalAndFilter(bbFilter, logicalOrFilter);
+        //    return new FilteredElementCollector(doc).WherePasses(finalFilter)
+        //        .Where(e => e.Id != element.Id).ToList();
+        //}
+        ////1003 
+        ///// <summary>
+        ///// 查找一个最适合进行射线检测的3D视图。
+        ///// 优先选择默认的 {3D} 视图，因为它通常包含所有模型元素。
+        ///// </summary>
+        ///// 重复方法回头看一下是否去重？
+        ////private static View3D FindBest3DView(Document doc)
+        ////{
+        ////    var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
+        ////    // 优先寻找默认的 {3D} 视图
+        ////    View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
+        ////    if (default3DView != null)
+        ////    {
+        ////        return default3DView;
+        ////    }
+        ////    // 如果找不到，再寻找任何一个非模板的3D视图作为备用
+        ////    return collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+        ////}
+        /////代码解析
+        ////输入：通过 PickPoint 和 PickObject(ObjectType.Face)，我们精确地获取了观察点和用户想要分析的那个面。这是最可靠的方式。
+        ////采样：
+        ////targetFace.GetBoundingBox() 获取了面的 UV 参数范围。
+        ////通过双重 for 循环，我们在 UV 空间中均匀地创建了一个网格。
+        ////targetFace.Evaluate(new UV(u, v)) 将二维的 UV 参数转换为了三维世界坐标 XYZ。
+        ////可见性检测：
+        ////ReferenceIntersector 的构造函数传入了 targetElement.Id，这是一个优化，它会忽略目标本身，防止射线总是命中自己。但为了逻辑的严谨性，我们还是通过比较距离来判断，这样更通用。
+        ////distanceToFace 是原始距离，hitDistance 是碰撞距离。Math.Abs(hitDistance - distanceToFace) < tolerance 是判断是否命中了目标本身的关键。
+        ////可视化：
+        ////"最大最小可见范围" 的最佳数学表达是可见区域的轮廓。
+        ////我提供了一个简化的 凸包（Convex Hull） 算法 FindConvexHull 来找到包围所有可见点的最小多边形。这个多边形就是可见区域的边界。
+        ////DrawVisibilityResults 方法做了两件事：
+        ////用模型线在标记牌上绘制出这个凸包轮廓。
+        ////从观察点向凸包的每个顶点发射连线，形成一个视锥（Viewing Frustum），直观地展示了可见范围。
+        ////为了让绘制的线更醒目，我写了一个 GetOrCreateGraphicsStyle 方法来创建一个红色的、较粗的线样式。
+        ///// <summary>
+        ///// 执行射线检测并返回最近的碰撞图元ID
+        ///// </summary>
+        ///// <param name="doc">Revit文档</param>
+        ///// <param name="origin">射线起点</param>
+        ///// <param name="direction">射线方向</param>
+        ///// <param name="view">用于检测的视图（可选）</param>
+        ///// <returns>碰撞到的第一个图元的ElementId，如果没有碰撞则返回ElementId.InvalidElementId</returns>
+        //public static ElementId RaycastNearest(Document doc, XYZ origin, XYZ direction, double deltaHeight, Autodesk.Revit.DB.View view = null)
+        //{
+        //    // 规范化方向向量
+        //    direction = direction.Normalize();
+        //    // 创建ReferenceIntersector
+        //    ReferenceIntersector intersector;
+        //    if (view != null)
+        //    {
+        //        intersector = new ReferenceIntersector((View3D)view);
+        //    }
+        //    else
+        //    {
+        //        // 使用3D视图设置进行检测
+        //        intersector = new ReferenceIntersector(Find3DView(doc) ?? throw new System.Exception("找不到可用的3D视图"));
+        //    }
+        //    // 设置查找最近的交点
+        //    intersector.TargetType = FindReferenceTarget.Face;
+        //    intersector.FindReferencesInRevitLinks = true;
+        //    XYZ originptWithHeight = new XYZ(origin.X, origin.Y, deltaHeight / 304.8);
+        //    // 执行射线检测
+        //    ReferenceWithContext referenceWithContext = intersector.FindNearest(originptWithHeight, direction);
+        //    //ReferenceWithContext referenceWithContext = intersector.FindNearest(origin, direction);
+        //    if (referenceWithContext == null) return ElementId.InvalidElementId;
+        //    // 获取碰撞图元的ElementId
+        //    Reference reference = referenceWithContext.GetReference();
+        //    return reference?.ElementId ?? ElementId.InvalidElementId;
+        //}
+        //private static View3D Find3DView(Document doc)
+        //{
+        //    FilteredElementCollector collector = new FilteredElementCollector(doc);
+        //    collector.OfClass(typeof(View3D));
+        //    foreach (View3D view in collector)
+        //    {
+        //        if (!view.IsTemplate && view.Name != "{3D}") return view;
         //    }
         //    return null;
         //}
-        //private bool IsPointOnCurve(Curve curve, XYZ point)
+        //Action<string> onSelected = selectedName =>
         //{
-        //    return curve.Distance(point) < 1e-6; // 使用容差判断点是否在曲线上
+        //    Autodesk.Revit.UI.TaskDialog.Show("tt", selectedName);
+        //};
+        //public bool IsBoundingBoxContained(BoundingBoxXYZ container, BoundingBoxXYZ contained)
+        //{
+        //    // 检查 contained 的最小点是否在 container 内
+        //    bool minContained = container.Min.X <= contained.Min.X &&
+        //                        container.Min.Y <= contained.Min.Y &&
+        //                        container.Min.Z <= contained.Min.Z;
+
+        //    // 检查 contained 的最大点是否在 container 内
+        //    bool maxContained = container.Max.X >= contained.Max.X &&
+        //                        container.Max.Y >= contained.Max.Y &&
+        //                        container.Max.Z >= contained.Max.Z;
+
+        //    return minContained && maxContained;
         //}
-        //private bool DoesBoundingBoxIntersectPlane(BoundingBoxXYZ bbox, Plane plane)
+        ///// <returns>如果在房间内则返回true，否则返回false</returns>
+        //public bool IsAnyPartOfStairInRoom(Stairs stair, Room room, Document doc)
         //{
-        //    if (bbox == null) return false;
-        //    // 检查包围盒的8个角点是否在平面的两侧
-        //    bool hasPointOnPositiveSide = false;
-        //    bool hasPointOnNegativeSide = false;
-        //    for (int i = 0; i < 2; i++)
+        //    // 1. 检查所有梯段 (StairsRun)
+        //    foreach (ElementId runId in stair.GetStairsRuns())
         //    {
-        //        for (int j = 0; j < 2; j++)
+        //        Element runElem = doc.GetElement(runId);
+        //        if (IsElementCenterInRoom(runElem, room))
         //        {
-        //            for (int k = 0; k < 2; k++)
-        //            {
-        //                XYZ corner = new XYZ(
-        //                    i == 0 ? bbox.Min.X : bbox.Max.X,
-        //                    j == 0 ? bbox.Min.Y : bbox.Max.Y,
-        //                    k == 0 ? bbox.Min.Z : bbox.Max.Z);
-        //                double signedDistance = plane.Normal.DotProduct(corner - plane.Origin);
-        //                if (signedDistance > 1e-9) hasPointOnPositiveSide = true;
-        //                if (signedDistance < -1e-9) hasPointOnNegativeSide = true;
-        //            }
+        //            // TaskDialog.Show("Debug", $"梯段 {runId} 在房间内。"); // 用于调试
+        //            return true; // 只要有一个梯段在，就返回true
         //        }
         //    }
-        //    return hasPointOnPositiveSide && hasPointOnNegativeSide;
-        //}
-        //#endregion
-
-        /// <summary>
-        /// 在视图中绘制可见性分析的结果
-        /// </summary>
-        private void DrawVisibilityResults(Document doc, View view, XYZ observerPoint, List<XYZ> visiblePoints)
-        {
-            // 创建新的图形样式以便区分
-            GraphicsStyle gs = GetOrCreateGraphicsStyle(doc, "可见性分析线");
-
-            if (visiblePoints.Count <= 1) return;
-
-            // 找到可见区域的边界点（一个简化的方法是找到凸包）
-            List<XYZ> boundaryPoints = FindConvexHull(visiblePoints);
-
-            // 1. 绘制可见区域在标记牌上的轮廓线 (最大最小范围)
-            for (int i = 0; i < boundaryPoints.Count; i++)
-            {
-                XYZ p1 = boundaryPoints[i];
-                XYZ p2 = boundaryPoints[(i + 1) % boundaryPoints.Count]; // 连接到下一个点，最后一个点连回第一个
-                Line line = Line.CreateBound(p1, p2);
-                doc.Create.NewModelCurve(line, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
-            }
-
-            // 2. 绘制从观察点到可见区域边界的“视锥”
-            foreach (XYZ boundaryPoint in boundaryPoints)
-            {
-                Line coneLine = Line.CreateBound(observerPoint, boundaryPoint);
-                ModelCurve mc = doc.Create.NewModelCurve(coneLine, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
-                mc.LineStyle = gs; // 应用自定义图形样式
-            }
-        }
-        /// <summary>
-        /// 找到一组点的2D凸包 (投影到XY平面)
-        /// 这是一个简化的凸包算法 (Gift wrapping algorithm)
-        /// </summary>
-        public List<XYZ> FindConvexHull(List<XYZ> points)
-        {
-            if (points.Count <= 2) return points;
-
-            List<XYZ> hull = new List<XYZ>();
-
-            // 找到最左边的点作为起点
-            XYZ startPoint = points.OrderBy(p => p.X).ThenBy(p => p.Y).First();
-
-            XYZ currentPoint = startPoint;
-            do
-            {
-                hull.Add(currentPoint);
-                XYZ nextPoint = points[0];
-
-                foreach (XYZ p in points)
-                {
-                    if (nextPoint == currentPoint || IsLeft(currentPoint, nextPoint, p) > 0)
-                    {
-                        nextPoint = p;
-                    }
-                }
-                currentPoint = nextPoint;
-
-            } while (currentPoint != startPoint);
-
-            return hull;
-        }
-        private double IsLeft(XYZ p1, XYZ p2, XYZ p3)
-        {
-            return (p2.X - p1.X) * (p3.Y - p1.Y) - (p2.Y - p1.Y) * (p3.X - p1.X);
-        }
-        /// <summary>
-        /// 获取或创建用于可视化的图形样式
-        /// </summary>
-        private GraphicsStyle GetOrCreateGraphicsStyle(Document doc, string styleName)
-        {
-            var cat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
-            var subCat = cat.SubCategories.get_Item(styleName);
-            if (subCat == null)
-            {
-                subCat = doc.Settings.Categories.NewSubcategory(cat, styleName);
-                subCat.LineColor = new Color(255, 0, 0); // 红色
-                subCat.SetLineWeight(5, GraphicsStyleType.Projection);
-            }
-            return subCat.GetGraphicsStyle(GraphicsStyleType.Projection);
-        }
-
-        /// <summary>
-        /// 查找最适合进行射线检测的3D视图
-        /// </summary>
-        private View3D FindBest3DView(Document doc)
-        {
-            var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
-            View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
-            return default3DView ?? collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-        }
-        /// <summary>
-        /// 从楼板的实体几何体中提取其底面的所有轮廓环路。
-        /// </summary>
-        /// <param name="floor">要分析的楼板</param>
-        /// <returns>包含所有轮廓的CurveArray列表</returns>
-        private List<CurveArray> GetFloorLoopsFromGeometry(Floor floor)
-        {
-            var loops = new List<CurveArray>();
-            Options geomOptions = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, View = floor.Document.ActiveView };
-            GeometryElement geoElem = floor.get_Geometry(geomOptions);
-            if (geoElem == null) return null;
-            Solid solid = geoElem.OfType<Solid>().FirstOrDefault(s => s.Volume > 0);
-            if (solid == null) return null;
-            PlanarFace bottomFace = null;
-            foreach (Face face in solid.Faces)
-            {
-                PlanarFace pFace = face as PlanarFace;
-                if (pFace != null && pFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
-                {
-                    bottomFace = pFace;
-                    break;
-                }
-            }
-            if (bottomFace == null) return null;
-            // *** 这是修正的核心部分 ***
-            // bottomFace.EdgeLoops 返回 IList<EdgeArray>
-            var edgeLoopList = bottomFace.EdgeLoops;
-            // 遍历每个 EdgeArray (每个代表一个闭合环路)
-            foreach (EdgeArray edgeArray in edgeLoopList)
-            {
-                // 为每个环路创建一个新的 CurveArray 来存放曲线
-                CurveArray curveArray = new CurveArray();
-                // 遍历环路中的每一条边 (Edge)
-                foreach (Edge edge in edgeArray)
-                {
-                    // 从边中提取几何曲线 (Curve) 并添加到 CurveArray 中
-                    curveArray.Append(edge.AsCurve());
-                }
-                // 将转换好的 CurveArray 添加到结果列表中
-                loops.Add(curveArray);
-            }
-            return loops;
-        }
-        /// <summary>
-        /// 确保两个元素被连接，并且第一个元素切割第二个元素。
-        /// </summary>
-        private void EnsureJoinOrder(Document doc, Element cutter, Element cuttee)
-        {
-            if (!JoinGeometryUtils.AreElementsJoined(doc, cutter, cuttee))
-            {
-                try
-                {
-                    JoinGeometryUtils.JoinGeometry(doc, cutter, cuttee);
-                }
-                catch (Exception ex)
-                {
-                    // 记录连接失败的日志，对于调试很重要
-                    System.Diagnostics.Debug.WriteLine($"无法连接元素 {cutter.Id} 和 {cuttee.Id}: {ex.Message}");
-                }
-            }
-            else
-            {
-                // 如果已经连接，检查顺序是否正确
-                if (!JoinGeometryUtils.IsCuttingElementInJoin(doc, cutter, cuttee))
-                {
-                    try
-                    {
-                        JoinGeometryUtils.SwitchJoinOrder(doc, cutter, cuttee);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"无法切换元素 {cutter.Id} 和 {cuttee.Id} 的连接顺序: {ex.Message}");
-                    }
-                }
-            }
-        }
-        /// <summary>
-        /// 获取与给定元素包围盒相交的元素（梁和楼板）。
-        /// </summary>
-        private List<Element> GetIntersectingElements(Document doc, Element element, double expansionAmount)
-        {
-            // 使用 get_BoundingBox(null) 获取模型空间的完整3D包围盒
-            BoundingBoxXYZ bbox = element.get_BoundingBox(null);
-            if (bbox == null) return new List<Element>();
-            // 扩大包围盒以确保捕捉到所有接触的元素
-            Outline outline = new Outline(bbox.Min - new XYZ(expansionAmount, expansionAmount, expansionAmount),
-                                          bbox.Max + new XYZ(expansionAmount, expansionAmount, expansionAmount));
-            // 使用 BoundingBoxIntersectsFilter 时，公差应非常小
-            BoundingBoxIntersectsFilter bbFilter = new BoundingBoxIntersectsFilter(outline, 1e-9);
-            // 定义要查找的元素类别
-            var categoryFilters = new List<ElementFilter>
-            {
-                new ElementCategoryFilter(BuiltInCategory.OST_StructuralFraming),
-                new ElementCategoryFilter(BuiltInCategory.OST_Floors)
-            };
-            var logicalOrFilter = new LogicalOrFilter(categoryFilters);
-            var finalFilter = new LogicalAndFilter(bbFilter, logicalOrFilter);
-            return new FilteredElementCollector(doc).WherePasses(finalFilter)
-                .Where(e => e.Id != element.Id).ToList();
-        }
-        //1003 
-        /// <summary>
-        /// 查找一个最适合进行射线检测的3D视图。
-        /// 优先选择默认的 {3D} 视图，因为它通常包含所有模型元素。
-        /// </summary>
-        /// 重复方法回头看一下是否去重？
-        //private static View3D FindBest3DView(Document doc)
-        //{
-        //    var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
-        //    // 优先寻找默认的 {3D} 视图
-        //    View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
-        //    if (default3DView != null)
+        //    // 2. 检查所有平台 (StairsLanding)
+        //    foreach (ElementId landingId in stair.GetStairsLandings())
         //    {
-        //        return default3DView;
+        //        Element landingElem = doc.GetElement(landingId);
+        //        if (IsElementCenterInRoom(landingElem, room))
+        //        {
+        //            // TaskDialog.Show("Debug", $"平台 {landingId} 在房间内。"); // 用于调试
+        //            return true; // 只要有一个平台在，就返回true
+        //        }
         //    }
-        //    // 如果找不到，再寻找任何一个非模板的3D视图作为备用
-        //    return collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+        //    // 如果所有子构件都不在房间内，则认为整个楼梯不在
+        //    return false;
         //}
-        ///代码解析
-        //输入：通过 PickPoint 和 PickObject(ObjectType.Face)，我们精确地获取了观察点和用户想要分析的那个面。这是最可靠的方式。
-        //采样：
-        //targetFace.GetBoundingBox() 获取了面的 UV 参数范围。
-        //通过双重 for 循环，我们在 UV 空间中均匀地创建了一个网格。
-        //targetFace.Evaluate(new UV(u, v)) 将二维的 UV 参数转换为了三维世界坐标 XYZ。
-        //可见性检测：
-        //ReferenceIntersector 的构造函数传入了 targetElement.Id，这是一个优化，它会忽略目标本身，防止射线总是命中自己。但为了逻辑的严谨性，我们还是通过比较距离来判断，这样更通用。
-        //distanceToFace 是原始距离，hitDistance 是碰撞距离。Math.Abs(hitDistance - distanceToFace) < tolerance 是判断是否命中了目标本身的关键。
-        //可视化：
-        //"最大最小可见范围" 的最佳数学表达是可见区域的轮廓。
-        //我提供了一个简化的 凸包（Convex Hull） 算法 FindConvexHull 来找到包围所有可见点的最小多边形。这个多边形就是可见区域的边界。
-        //DrawVisibilityResults 方法做了两件事：
-        //用模型线在标记牌上绘制出这个凸包轮廓。
-        //从观察点向凸包的每个顶点发射连线，形成一个视锥（Viewing Frustum），直观地展示了可见范围。
-        //为了让绘制的线更醒目，我写了一个 GetOrCreateGraphicsStyle 方法来创建一个红色的、较粗的线样式。
-        /// <summary>
-        /// 执行射线检测并返回最近的碰撞图元ID
-        /// </summary>
-        /// <param name="doc">Revit文档</param>
-        /// <param name="origin">射线起点</param>
-        /// <param name="direction">射线方向</param>
-        /// <param name="view">用于检测的视图（可选）</param>
-        /// <returns>碰撞到的第一个图元的ElementId，如果没有碰撞则返回ElementId.InvalidElementId</returns>
-        public static ElementId RaycastNearest(Document doc, XYZ origin, XYZ direction, double deltaHeight, Autodesk.Revit.DB.View view = null)
-        {
-            // 规范化方向向量
-            direction = direction.Normalize();
-            // 创建ReferenceIntersector
-            ReferenceIntersector intersector;
-            if (view != null)
-            {
-                intersector = new ReferenceIntersector((View3D)view);
-            }
-            else
-            {
-                // 使用3D视图设置进行检测
-                intersector = new ReferenceIntersector(Find3DView(doc) ?? throw new System.Exception("找不到可用的3D视图"));
-            }
-            // 设置查找最近的交点
-            intersector.TargetType = FindReferenceTarget.Face;
-            intersector.FindReferencesInRevitLinks = true;
-            XYZ originptWithHeight = new XYZ(origin.X, origin.Y, deltaHeight / 304.8);
-            // 执行射线检测
-            ReferenceWithContext referenceWithContext = intersector.FindNearest(originptWithHeight, direction);
-            //ReferenceWithContext referenceWithContext = intersector.FindNearest(origin, direction);
-            if (referenceWithContext == null) return ElementId.InvalidElementId;
-            // 获取碰撞图元的ElementId
-            Reference reference = referenceWithContext.GetReference();
-            return reference?.ElementId ?? ElementId.InvalidElementId;
-        }
-        private static View3D Find3DView(Document doc)
-        {
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
-            collector.OfClass(typeof(View3D));
-            foreach (View3D view in collector)
-            {
-                if (!view.IsTemplate && view.Name != "{3D}") return view;
-            }
-            return null;
-        }
-        Action<string> onSelected = selectedName =>
-        {
-            Autodesk.Revit.UI.TaskDialog.Show("tt", selectedName);
-        };
-        public bool IsBoundingBoxContained(BoundingBoxXYZ container, BoundingBoxXYZ contained)
-        {
-            // 检查 contained 的最小点是否在 container 内
-            bool minContained = container.Min.X <= contained.Min.X &&
-                                container.Min.Y <= contained.Min.Y &&
-                                container.Min.Z <= contained.Min.Z;
+        ///// <summary>
+        ///// 辅助方法：检查一个元素的包围盒中心点是否在房间内。物体与房间关系
+        ///// </summary>
+        //private bool IsElementCenterInRoom(Element elem, Room room)
+        //{
+        //    if (elem == null || room == null) return false;
+        //    BoundingBoxXYZ bbox = elem.get_BoundingBox(null); // 使用全局坐标，不依赖视图
+        //    if (bbox == null || !bbox.Enabled) return false;
+        //    XYZ centerPoint = (bbox.Min + bbox.Max) / 2.0;
+        //    return room.IsPointInRoom(centerPoint);
+        //}
 
-            // 检查 contained 的最大点是否在 container 内
-            bool maxContained = container.Max.X >= contained.Max.X &&
-                                container.Max.Y >= contained.Max.Y &&
-                                container.Max.Z >= contained.Max.Z;
-
-            return minContained && maxContained;
-        }
-        /// <returns>如果在房间内则返回true，否则返回false</returns>
-        public bool IsAnyPartOfStairInRoom(Stairs stair, Room room, Document doc)
-        {
-            // 1. 检查所有梯段 (StairsRun)
-            foreach (ElementId runId in stair.GetStairsRuns())
-            {
-                Element runElem = doc.GetElement(runId);
-                if (IsElementCenterInRoom(runElem, room))
-                {
-                    // TaskDialog.Show("Debug", $"梯段 {runId} 在房间内。"); // 用于调试
-                    return true; // 只要有一个梯段在，就返回true
-                }
-            }
-            // 2. 检查所有平台 (StairsLanding)
-            foreach (ElementId landingId in stair.GetStairsLandings())
-            {
-                Element landingElem = doc.GetElement(landingId);
-                if (IsElementCenterInRoom(landingElem, room))
-                {
-                    // TaskDialog.Show("Debug", $"平台 {landingId} 在房间内。"); // 用于调试
-                    return true; // 只要有一个平台在，就返回true
-                }
-            }
-            // 如果所有子构件都不在房间内，则认为整个楼梯不在
-            return false;
-        }
-        /// <summary>
-        /// 辅助方法：检查一个元素的包围盒中心点是否在房间内。物体与房间关系
-        /// </summary>
-        private bool IsElementCenterInRoom(Element elem, Room room)
-        {
-            if (elem == null || room == null) return false;
-            BoundingBoxXYZ bbox = elem.get_BoundingBox(null); // 使用全局坐标，不依赖视图
-            if (bbox == null || !bbox.Enabled) return false;
-            XYZ centerPoint = (bbox.Min + bbox.Max) / 2.0;
-            return room.IsPointInRoom(centerPoint);
-        }
         //生成柱子
         // 截断小数位数的方法
         private double CutDecimalWithN(double value, int decimalPlaces)

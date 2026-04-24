@@ -91,6 +91,7 @@
     <Compile Include="filter\filterCableTray.cs" />
     <Compile Include="filter\filterDuct.cs" />
     <Compile Include="filter\FloorSelectionFilter.cs" />
+    <Compile Include="filter\GroupFilter.cs" />
     <Compile Include="filter\LinkedPipeAndDuctSelectionFilter.cs" />
     <Compile Include="filter\LinkedPipeDuctSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
@@ -203,6 +204,9 @@
     </Compile>
     <Compile Include="Form\SequentialSelectorTest.xaml.cs">
       <DependentUpon>SequentialSelectorTest.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\StructuralElementManagerView.xaml.cs">
+      <DependentUpon>StructuralElementManagerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\ToggleVisibilityView.xaml.cs">
       <DependentUpon>ToggleVisibilityView.xaml</DependentUpon>
@@ -797,6 +801,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\SprinklerReplaceView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\StructuralElementManagerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
