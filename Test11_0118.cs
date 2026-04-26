@@ -27,16 +27,6 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace CreatePipe
 {
-    public class StrucEntity
-    {
-        Document Document;
-        public StrucEntity(Family family)
-        {
-
-        }
-        public int Count { get; set; }
-
-    }
     [Transaction(TransactionMode.Manual)]
     public class Test11_0118 : Decorator, IExternalCommand
     {
@@ -346,31 +336,6 @@ namespace CreatePipe
             }
             return result;
         }
-        //族再生测试方法
-        /// <summary>
-        /// 写入结果摘要到日志
-        /// </summary>
-        private static void WriteResultSummary(StringBuilder logBuilder, IReadOnlyCollection<string> failedTypes, string logPath)
-        {
-            logBuilder.AppendLine();
-            if (failedTypes.Any())
-            {
-                logBuilder.AppendLine($"结果: {failedTypes.Count} 个族类型再生失败！");
-                logBuilder.AppendLine("失败类型列表:");
-                foreach (var type in failedTypes)
-                {
-                    logBuilder.AppendLine($"  - {type}");
-                }
-            }
-            else
-            {
-                logBuilder.AppendLine("结果: 所有族类型再生成功！");
-            }
-            logBuilder.AppendLine($"日志文件位置: {logPath}");
-            // 使用 using 确保资源释放
-            File.WriteAllText(logPath, logBuilder.ToString());
-        }
-
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -473,49 +438,7 @@ namespace CreatePipe
             //    TaskDialog.Show("组统计", report.ToString());
             //}
 
-            ////0423 批量验证Revit族文档中所有族类型的有效性 官方程序 意义不明
-            //// 验证是否为族文档
-            //if (!doc.IsFamilyDocument)
-            //{
-            //    message = "请在族文档中运行此命令！";
-            //    return Result.Failed;
-            //}
-            //string LogFileName = "RegenerationLog.txt";
-            //var familyManager = doc.FamilyManager;
-            //var assemblyPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            //var logPath = Path.Combine(assemblyPath ?? Environment.CurrentDirectory, LogFileName);
-            //// 使用 StringBuilder 批量写入日志，提高效率
-            //var logBuilder = new StringBuilder();
-            //logBuilder.AppendLine("Family Type     Result");
-            //logBuilder.AppendLine("-------------------------");
-            //var failedTypes = new List<string>();
-            //// 遍历所有族类型
-            //foreach (FamilyType type in familyManager.Types)
-            //{
-            //    var typeName = type.Name?.Trim();
-            //    // 跳过空名称的类型
-            //    if (string.IsNullOrEmpty(typeName)) continue;
-            //    try
-            //    {
-            //        // 切换当前类型，触发再生
-            //        familyManager.CurrentType = type;
-            //        logBuilder.AppendLine($"{typeName,-14} Successful");
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        failedTypes.Add(typeName);
-            //        logBuilder.AppendLine($"{typeName,-14} Failed - {ex.Message}");
-            //    }
-            //}
-            //// 写入最终结果
-            //WriteResultSummary(logBuilder, failedTypes, logPath);
-            //////显示结果（无阻塞对话框，可查看日志）
-            //////ShowResult(failedTypes, logPath);
-            //var returnMessage = failedTypes.Any() ? $"❌ {failedTypes.Count} 个类型再生失败！\n\n详情请查看日志:\n{logPath}" : $"✅ 所有 {failedTypes.Count} 个类型再生成功！";
-            //TaskDialog.Show("族类型验证结果", returnMessage);
-
-
-            //////0422 结构测试.OK
+            ////////0422 结构测试.OK
             //StructuralElementManagerView structuralElementManagerView = new StructuralElementManagerView(uiApp);
             //structuralElementManagerView.Show();
 

@@ -9,6 +9,7 @@ using CreatePipe.filter;
 using CreatePipe.Form;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using View = Autodesk.Revit.DB.View;
@@ -18,6 +19,1129 @@ namespace CreatePipe
     [Transaction(TransactionMode.Manual)]
     public class Test10_0818 : IExternalCommand
     {
+        //0425 检查相交
+        /// <summary>
+        /// 检查边界框是否与平面相交
+        /// </summary>
+        private bool CheckBoundingBoxIntersectsPlane(BoundingBoxXYZ bbox, Plane plane)
+        {
+            if (bbox == null || plane == null) return false;
+            XYZ min = bbox.Min;
+            XYZ max = bbox.Max;
+            // 获取边界框的8个角点
+            List<XYZ> corners = new List<XYZ>    {
+                new XYZ(min.X, min.Y, min.Z),        new XYZ(max.X, min.Y, min.Z),
+                new XYZ(min.X, max.Y, min.Z),        new XYZ(max.X, max.Y, min.Z),
+                new XYZ(min.X, min.Y, max.Z),        new XYZ(max.X, min.Y, max.Z),
+                new XYZ(min.X, max.Y, max.Z),        new XYZ(max.X, max.Y, max.Z)    };
+            // 计算平面方程: ax + by + cz + d = 0
+            // 平面法向量 (a, b, c)
+            XYZ normal = plane.Normal;
+            // 平面上的点
+            XYZ origin = plane.Origin;
+            // 计算 d = -(a*x0 + b*y0 + c*z0)
+            double d = -(normal.X * origin.X + normal.Y * origin.Y + normal.Z * origin.Z);
+            // 检查角点是否在平面两侧
+            bool hasPositive = false;
+            bool hasNegative = false;
+            foreach (XYZ point in corners)
+            {
+                // 计算有符号距离: (a*x + b*y + c*z + d) / sqrt(a^2 + b^2 + c^2)
+                // 或者简化为 (a*x + b*y + c*z + d)，因为只需要判断符号
+                double signedDistance = normal.X * point.X + normal.Y * point.Y + normal.Z * point.Z + d;
+                // 点在平面上（距离接近0）
+                if (Math.Abs(signedDistance) < 1e-6) return true;
+                if (signedDistance > 0) hasPositive = true;
+                else hasNegative = true;
+                // 平面穿过边界框（点在两侧）
+                if (hasPositive && hasNegative) return true;
+            }
+            // 所有点在同一侧，不相交
+            return false;
+        }
+        /// <summary>
+        /// 检查实体是否与平面相交
+        /// </summary>
+        private bool IsSolidIntersectPlane(Solid solid, Plane plane)
+        {
+            if (solid == null || solid.Faces.Size == 0 || plane == null) return false;
+            XYZ normal = plane.Normal;
+            XYZ origin = plane.Origin;
+            // 收集所有顶点并检查有符号距离
+            List<double> distances = new List<double>();
+            // 从边获取顶点
+            foreach (Edge edge in solid.Edges)
+            {
+                Curve curve = edge.AsCurve();
+                distances.Add(SignedDistanceTo(curve.GetEndPoint(0), normal, origin));
+                distances.Add(SignedDistanceTo(curve.GetEndPoint(1), normal, origin));
+            }
+            // 从三角化面获取顶点（更密集）
+            foreach (Face face in solid.Faces)
+            {
+                Mesh mesh = face.Triangulate();
+                for (int i = 0; i < mesh.NumTriangles; i++)
+                {
+                    MeshTriangle triangle = mesh.get_Triangle(i);
+                    distances.Add(SignedDistanceTo(triangle.get_Vertex(0), normal, origin));
+                    distances.Add(SignedDistanceTo(triangle.get_Vertex(1), normal, origin));
+                    distances.Add(SignedDistanceTo(triangle.get_Vertex(2), normal, origin));
+                }
+            }
+            // 检查距离分布
+            bool hasPositive = false;
+            bool hasNegative = false;
+            foreach (double d in distances)
+            {
+                if (Math.Abs(d) < 1e-6) return true;
+                if (d > 0) hasPositive = true;
+                else hasNegative = true;
+                if (hasPositive && hasNegative) return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// 检查网格是否与平面相交
+        /// </summary>
+        private bool IsMeshIntersectPlane(Mesh mesh, Plane plane)
+        {
+            if (mesh == null || mesh.NumTriangles == 0 || plane == null) return false;
+            // 预计算平面参数，避免重复计算
+            XYZ normal = plane.Normal;
+            XYZ origin = plane.Origin;
+            for (int i = 0; i < mesh.NumTriangles; i++)
+            {
+                MeshTriangle triangle = mesh.get_Triangle(i);
+                // 获取三角形的三个顶点
+                XYZ v0 = triangle.get_Vertex(0);
+                XYZ v1 = triangle.get_Vertex(1);
+                XYZ v2 = triangle.get_Vertex(2);
+                // 计算三个顶点到平面的有符号距离（使用点积）
+                double d0 = SignedDistanceTo(v0, normal, origin);
+                double d1 = SignedDistanceTo(v1, normal, origin);
+                double d2 = SignedDistanceTo(v2, normal, origin);
+                // 检查是否相交：有正有负或等于0（点在平面上）
+                bool hasZero = Math.Abs(d0) < 1e-6 || Math.Abs(d1) < 1e-6 || Math.Abs(d2) < 1e-6;
+                if (hasZero) return true;
+                bool hasPositive = d0 > 0 || d1 > 0 || d2 > 0;
+                bool hasNegative = d0 < 0 || d1 < 0 || d2 < 0;
+                // 平面穿过三角形（点在两侧）
+                if (hasPositive && hasNegative)
+                    return true;
+            }
+            return false;
+        }
+        /// <summary>
+        /// 计算点到平面的有符号距离（内联辅助方法，避免重复代码）
+        /// </summary>
+        private double SignedDistanceTo(XYZ point, XYZ planeNormal, XYZ planeOrigin)
+        {
+            XYZ toPoint = point - planeOrigin;
+            return toPoint.DotProduct(planeNormal);
+        }
+        ////0425 切分水平对象逻辑byDS
+        /// <summary>
+        /// 获取几何元素与平面的所有交线
+        /// </summary>
+        private List<Curve> GetIntersectionCurvesWithPlane(GeometryElement geoElement, Plane plane)
+        {
+            List<Curve> intersectionCurves = new List<Curve>();
+            if (geoElement == null) return intersectionCurves;
+            foreach (GeometryObject geoObj in geoElement)
+            {
+                Solid solid = geoObj as Solid;
+                if (solid != null && solid.Faces.Size > 0)
+                {
+                    //获取实体与平面的交线
+                    List<Curve> solidIntersections = GetSolidIntersectionCurvesWithPlane(solid, plane);
+                    intersectionCurves.AddRange(solidIntersections);
+
+                }
+                else if (geoObj is Mesh mesh && mesh.NumTriangles > 0)
+                {
+                    //获取网格与平面的交线
+                    List<Curve> meshIntersections = GetMeshIntersectionCurvesWithPlane(mesh, plane);
+                    intersectionCurves.AddRange(meshIntersections);
+                }
+            }
+            // 合并连接的曲线
+            return intersectionCurves;
+            //return MergeConnectedCurves(intersectionCurves);
+        }
+        /// <summary>
+        /// 获取实体与平面的交线（最简可靠版）byKIMI
+        /// </summary>
+        private List<Curve> GetSolidIntersectionCurvesWithPlane(Solid solid, Plane plane)
+        {
+            var result = new List<Curve>();
+            if (solid == null) return result;
+
+            XYZ n = plane.Normal;
+            XYZ o = plane.Origin;
+
+            // 收集所有有效交点
+            var pointSet = new HashSet<string>(); // 用于去重
+            var allPoints = new List<XYZ>();
+
+            Action<XYZ> addPoint = (p) =>
+            {
+                string key = $"{Math.Round(p.X, 6)},{Math.Round(p.Y, 6)},{Math.Round(p.Z, 6)}";
+                if (!pointSet.Contains(key))
+                {
+                    pointSet.Add(key);
+                    allPoints.Add(p);
+                }
+            };
+
+            foreach (Edge edge in solid.Edges)
+            {
+                var c = edge.AsCurve();
+                XYZ p0 = c.GetEndPoint(0);
+                XYZ p1 = c.GetEndPoint(1);
+
+                double d0 = (p0 - o).DotProduct(n);
+                double d1 = (p1 - o).DotProduct(n);
+
+                if (Math.Abs(d0) < 1e-6) addPoint(p0);
+                if (Math.Abs(d1) < 1e-6) addPoint(p1);
+
+                if (d0 * d1 < -1e-12)
+                {
+                    double t = Math.Abs(d0) / (Math.Abs(d0) + Math.Abs(d1));
+                    addPoint(p0 + (p1 - p0) * t);
+                }
+            }
+
+            if (allPoints.Count < 2) return result;
+
+            // 在平面内排序并连接
+            XYZ u = plane.XVec.Normalize();
+            XYZ v = plane.YVec.Normalize();
+
+            allPoints = allPoints
+                .OrderBy(p => (p - o).DotProduct(u))
+                .ThenBy(p => (p - o).DotProduct(v))
+                .ToList();
+
+            // 连接相邻点形成交线
+            for (int i = 0; i < allPoints.Count - 1; i++)
+            {
+                double dist = allPoints[i].DistanceTo(allPoints[i + 1]);
+                if (dist > 1e-6 && dist < solid.GetBoundingBox().Max.DistanceTo(solid.GetBoundingBox().Min))
+                {
+                    result.Add(Line.CreateBound(allPoints[i], allPoints[i + 1]));
+                }
+            }
+
+            return result;
+        }
+        ///// <summary>
+        ///// 获取实体与平面的交线
+        ///// </summary>
+        //private List<Curve> GetSolidIntersectionCurvesWithPlane(Solid solid, Plane plane)
+        //{
+        //    List<Curve> intersectionCurves = new List<Curve>();
+        //    if (solid == null || solid.Edges.Size == 0) return intersectionCurves;
+        //    // 创建平面上的两条正交无限直线来代表平面
+        //    // 使用足够大的边界框范围
+        //    BoundingBoxXYZ bbox = solid.GetBoundingBox();
+        //    double size = bbox.Max.DistanceTo(bbox.Min) * 2;
+        //    XYZ origin = plane.Origin;
+        //    XYZ xDir = plane.XVec.Normalize();
+        //    XYZ yDir = plane.YVec.Normalize();
+        //    // 创建两条交叉的无限长直线（在平面内）
+        //    XYZ xStart = origin - xDir * size;
+        //    XYZ xEnd = origin + xDir * size;
+        //    XYZ yStart = origin - yDir * size;
+        //    XYZ yEnd = origin + yDir * size;
+        //    Line xLine = Line.CreateBound(xStart, xEnd);
+        //    Line yLine = Line.CreateBound(yStart, yEnd);
+        //    // 收集所有与平面相交的边
+        //    List<XYZ> intersectionPoints = new List<XYZ>();
+        //    foreach (Edge edge in solid.Edges)
+        //    {
+        //        Curve edgeCurve = edge.AsCurve();
+        //        if (edgeCurve == null) continue;
+        //        // 分别与两条平面线求交
+        //        IntersectionResultArray resultsX, resultsY;
+        //        edgeCurve.Intersect(xLine, out resultsX);
+        //        edgeCurve.Intersect(yLine, out resultsY);
+        //        // 收集交点
+        //        if (resultsX != null)
+        //        {
+        //            foreach (IntersectionResult ir in resultsX)
+        //                intersectionPoints.Add(ir.XYZPoint);
+        //        }
+        //        if (resultsY != null)
+        //        {
+        //            foreach (IntersectionResult ir in resultsY)
+        //                intersectionPoints.Add(ir.XYZPoint);
+        //        }
+        //    }
+        //    // 去重并排序交点，构建交线
+        //    intersectionPoints = intersectionPoints
+        //        .GroupBy(p => new { X = Math.Round(p.X, 6), Y = Math.Round(p.Y, 6), Z = Math.Round(p.Z, 6) })
+        //        .Select(g => g.First()).ToList();
+        //    // 如果交点足够，构建交线段
+        //    if (intersectionPoints.Count >= 2)
+        //    {
+        //        // 投影到平面坐标系，排序后连接
+        //        List<XYZ> sortedPoints = SortPointsOnPlane(intersectionPoints, plane);
+        //        for (int i = 0; i < sortedPoints.Count - 1; i++)
+        //        {
+        //            if (!sortedPoints[i].IsAlmostEqualTo(sortedPoints[i + 1]))
+        //            {
+        //                intersectionCurves.Add(Line.CreateBound(sortedPoints[i], sortedPoints[i + 1]));
+        //            }
+        //        }
+        //    }
+        //    return intersectionCurves;
+        //}
+        /// <summary>
+        /// 在平面坐标系下排序点
+        /// </summary>
+        private List<XYZ> SortPointsOnPlane(List<XYZ> points, Plane plane)
+        {
+            XYZ xAxis = plane.XVec.Normalize();
+            XYZ yAxis = plane.YVec.Normalize();
+            return points
+                .Select(p => new
+                {
+                    Point = p,
+                    U = (p - plane.Origin).DotProduct(xAxis),
+                    V = (p - plane.Origin).DotProduct(yAxis)
+                }).OrderBy(item => item.U)
+                .ThenBy(item => item.V).Select(item => item.Point).ToList();
+        }
+        /// <summary>
+        /// 获取网格与平面的交线
+        /// </summary>
+        private List<Curve> GetMeshIntersectionCurvesWithPlane(Mesh mesh, Plane plane)
+        {
+            List<Curve> intersectionCurves = new List<Curve>();
+            if (mesh == null || mesh.NumTriangles == 0) return intersectionCurves;
+            XYZ planeOrigin = plane.Origin;
+            XYZ planeNormal = plane.Normal;
+            for (int i = 0; i < mesh.NumTriangles; i++)
+            {
+                MeshTriangle triangle = mesh.get_Triangle(i);
+                // 获取三角形的三个顶点
+                XYZ v0 = triangle.get_Vertex(0);
+                XYZ v1 = triangle.get_Vertex(1);
+                XYZ v2 = triangle.get_Vertex(2);
+                // 计算三个顶点到平面的有符号距离（使用自定义方法）
+                double d0 = SignedDistanceTo(v0, planeNormal, planeOrigin);
+                double d1 = SignedDistanceTo(v1, planeNormal, planeOrigin);
+                double d2 = SignedDistanceTo(v2, planeNormal, planeOrigin);
+                // 检查三角形是否与平面相交
+                List<XYZ> intersectionPoints = new List<XYZ>();
+                // 检查每条边与平面的交点
+                AddIntersectionPoint(v0, v1, d0, d1, plane, intersectionPoints);
+                AddIntersectionPoint(v1, v2, d1, d2, plane, intersectionPoints);
+                AddIntersectionPoint(v2, v0, d2, d0, plane, intersectionPoints);
+                // 如果有两个交点，创建线段
+                if (intersectionPoints.Count == 2)
+                {
+                    Line line = Line.CreateBound(intersectionPoints[0], intersectionPoints[1]);
+                    intersectionCurves.Add(line);
+                }
+            }
+            return intersectionCurves;
+        }
+        /// <summary>
+        /// 添加边的交点
+        /// </summary>
+        private void AddIntersectionPoint(XYZ p1, XYZ p2, double d1, double d2, Plane plane, List<XYZ> points)
+        {
+            if (Math.Abs(d1) < 1e-9)
+            {
+                points.Add(p1);
+            }
+            else if (Math.Abs(d2) < 1e-9)
+            {
+                points.Add(p2);
+            }
+            else if (d1 * d2 < 0) // 点在平面两侧
+            {
+                double t = -d1 / (d2 - d1); // 插值参数
+                XYZ intersection = p1 + t * (p2 - p1);
+                points.Add(intersection);
+            }
+        }
+        /// <summary>
+        /// 获取直线与平面的交线段（仅支持Line）
+        /// </summary>
+        private List<Curve> GetLinePlaneSegments(Line line, Plane plane)
+        {
+            List<Curve> segments = new List<Curve>();
+            if (line == null || plane == null) return segments;
+            XYZ start = line.GetEndPoint(0);
+            XYZ end = line.GetEndPoint(1);
+            double d0 = (start - plane.Origin).DotProduct(plane.Normal);
+            double d1 = (end - plane.Origin).DotProduct(plane.Normal);
+            const double eps = 1e-6;
+            // 完全在平面内
+            if (Math.Abs(d0) < eps && Math.Abs(d1) < eps)
+            {
+                segments.Add(line.Clone());
+                return segments;
+            }
+            // 无交点（同侧且不接触）
+            if (d0 > eps && d1 > eps) return segments;
+            if (d0 < -eps && d1 < -eps) return segments;
+            // 计算交点
+            double t = Math.Abs(d0) / (Math.Abs(d0) + Math.Abs(d1));
+            XYZ intersection = start + (end - start) * t;
+            // 返回平面内的部分（根据有符号距离判断）
+            if (d0 >= -eps && d1 >= -eps)
+            {
+                // 都在正侧或接触平面
+                if (d0 < eps) segments.Add(Line.CreateBound(start, intersection));
+                else if (d1 < eps) segments.Add(Line.CreateBound(intersection, end));
+            }
+            else if (d0 <= eps && d1 <= eps)
+            {
+                // 都在负侧或接触平面
+                if (d0 > -eps) segments.Add(Line.CreateBound(start, intersection));
+                else if (d1 > -eps) segments.Add(Line.CreateBound(intersection, end));
+            }
+            else
+            {
+                // 跨平面，返回两侧
+                segments.Add(Line.CreateBound(start, intersection));
+                segments.Add(Line.CreateBound(intersection, end));
+            }
+            return segments;
+        }
+        /// <summary>
+        /// 合并连接的曲线
+        /// </summary>
+        private List<Curve> MergeConnectedCurves(List<Curve> curves)
+        {
+            if (curves.Count <= 1) return curves;
+            List<Curve> mergedCurves = new List<Curve>();
+            List<Curve> remaining = new List<Curve>(curves);
+            while (remaining.Count > 0)
+            {
+                Curve current = remaining[0];
+                remaining.RemoveAt(0);
+                bool merged = true;
+                while (merged && remaining.Count > 0)
+                {
+                    merged = false;
+                    for (int i = 0; i < remaining.Count; i++)
+                    {
+                        if (AreCurvesConnected(current, remaining[i]))
+                        {
+                            // 合并曲线
+                            current = MergeTwoCurves(current, remaining[i]);
+                            remaining.RemoveAt(i);
+                            merged = true;
+                            break;
+                        }
+                    }
+                }
+                mergedCurves.Add(current);
+            }
+            return mergedCurves;
+        }
+        /// <summary>
+        /// 判断两条曲线是否连接
+        /// </summary>
+        private bool AreCurvesConnected(Curve curve1, Curve curve2, double tolerance = 1e-6)
+        {
+            XYZ end1 = curve1.GetEndPoint(1);
+            XYZ start2 = curve2.GetEndPoint(0);
+            return end1.DistanceTo(start2) < tolerance;
+        }
+        /// <summary>
+        /// 合并两条曲线
+        /// </summary>
+        private Curve MergeTwoCurves(Curve curve1, Curve curve2)
+        {
+            // 简单实现：创建一条新的直线连接两个端点
+            XYZ start = curve1.GetEndPoint(0);
+            XYZ end = curve2.GetEndPoint(1);
+            return Line.CreateBound(start, end);
+        }
+        /// <summary>
+        /// 将曲线投影到当前视图平面
+        /// </summary>
+        private Curve ProjectCurveToViewPlane(Curve curve, View activeView)
+        {
+            if (curve == null || activeView == null) return curve;
+
+            // 获取视图平面（适用于平、立、剖面）
+            Plane viewPlane = activeView.SketchPlane.GetPlane();
+            if (viewPlane == null) return curve;
+
+            List<XYZ> projectedPoints = new List<XYZ>();
+
+            // 投影曲线的关键点
+            IList<XYZ> points = curve.Tessellate();
+            foreach (XYZ point in points)
+            {
+                XYZ projectedPoint = ProjectPointToPlane(point, viewPlane);
+                projectedPoints.Add(projectedPoint);
+            }
+
+            if (projectedPoints.Count < 2) return curve;
+
+            XYZ start = projectedPoints[0];
+            XYZ end = projectedPoints[projectedPoints.Count - 1];
+
+            // 检查投影后是否有有效长度
+            double projectedLength = start.DistanceTo(end);
+            if (projectedLength < 1e-6)
+            {
+                // 投影长度为0，曲线与视图平面垂直，返回原曲线
+                return null;
+            }
+
+            // 检查所有投影点是否基本重合（更严格的垂直判断）
+            bool allSame = true;
+            for (int i = 1; i < projectedPoints.Count; i++)
+            {
+                if (!projectedPoints[i].IsAlmostEqualTo(start))
+                {
+                    allSame = false;
+                    break;
+                }
+            }
+            if (allSame) return curve;
+
+            // 根据原始曲线类型创建对应的投影曲线
+            if (curve is Line)
+            {
+                return Line.CreateBound(start, end);
+            }
+            else if (curve is Arc arc)
+            {
+                // 弧线投影后可能变为直线或保持弧线
+                // 简化处理：返回直线段
+                return Line.CreateBound(start, end);
+            }
+            else
+            {
+                // 其他复杂曲线，返回首尾投影点连线
+                return Line.CreateBound(start, end);
+            }
+        }
+        ///// <summary>
+        ///// 将曲线投影到视图平面
+        ///// </summary>
+        //private Curve ProjectCurveToViewPlane(Curve curve, View activeView)
+        //{
+        //    if (activeView is ViewPlan viewPlan)
+        //    {
+        //        // 对于平面视图，投影到标高平面
+        //        //Plane viewPlane = new Plane(viewPlan.ViewDirection, viewPlan.Origin);
+        //        Plane viewPlane = Plane.CreateByNormalAndOrigin(viewPlan.ViewDirection, viewPlan.Origin);
+        //        List<XYZ> projectedPoints = new List<XYZ>();
+        //        // 投影曲线的关键点
+        //        IList<XYZ> points = curve.Tessellate();
+        //        foreach (XYZ point in points)
+        //        {
+        //            XYZ projectedPoint = ProjectPointToPlane(point, viewPlane);
+        //            projectedPoints.Add(projectedPoint);
+        //        }
+        //        // 根据投影点创建新曲线
+        //        if (projectedPoints.Count >= 2)
+        //        {
+        //            return Line.CreateBound(projectedPoints[0], projectedPoints[projectedPoints.Count - 1]);
+        //        }
+        //    }
+        //    return curve;
+        //}
+        /// <summary>
+        /// 将点投影到平面
+        /// </summary>
+        private XYZ ProjectPointToPlane(XYZ point, Plane plane)
+        {
+            XYZ planeOrigin = plane.Origin;
+            XYZ planeNormal = plane.Normal;
+            double distance = SignedDistanceTo(point, planeNormal, planeOrigin);
+            return point - distance * plane.Normal;
+        }
+        /// <summary>
+        /// 设置线条样式
+        /// </summary>
+        private void SetLineStyle(dynamic line, string styleName)
+        {
+            try
+            {
+                // 获取线型样式
+                FilteredElementCollector collector = new FilteredElementCollector(line.Document);
+                GraphicsStyle graphicsStyle = collector
+                    .OfClass(typeof(GraphicsStyle)).Cast<GraphicsStyle>()
+                    .FirstOrDefault(g => g.Name == styleName);
+
+                if (graphicsStyle != null)
+                {
+                    line.LineStyle = graphicsStyle;
+                }
+            }
+            catch
+            {
+                // 如果设置失败，使用默认样式
+            }
+        }
+
+
+
+        ////0425 切分水平对象逻辑byKimi
+        ///// <summary>
+        ///// 主入口：处理与参照平面相交且正交的所有楼板/天花板/屋面
+        ///// </summary>
+        //public void ProcessIntersectingElements(Document doc, View activeView, ReferencePlane selectedRefPlane,
+        //    out List<ElementId> createdElements, out List<ElementId> deletedElements)
+        //{
+        //    createdElements = new List<ElementId>();
+        //    deletedElements = new List<ElementId>();
+
+        //    // 获取参照平面
+        //    Plane refPlane = selectedRefPlane.GetPlane();
+        //    XYZ planeOrigin = refPlane.Origin;
+        //    XYZ planeNormal = refPlane.Normal;
+
+        //    // 确定投影方向（使用平面法向量的水平投影或垂直方向）
+        //    XYZ cutDirection = GetCutDirection(planeNormal);
+
+        //    // 收集所有目标元素
+        //    List<Element> targetElements = CollectTargetElements(doc, activeView);
+
+        //    // 筛选相交且正交的元素
+        //    List<Element> intersectingElements = FilterIntersectingOrthogonal(
+        //        targetElements, refPlane, planeNormal, activeView);
+
+        //    if (intersectingElements.Count == 0) return;
+
+        //    // 执行打断操作
+        //    using (TransactionGroup tg = new TransactionGroup(doc, "打断板"))
+        //    {
+        //        tg.Start();
+
+        //        foreach (Element elem in intersectingElements)
+        //        {
+        //            try
+        //            {
+        //                SplitElementByPlane(doc, elem, refPlane, planeNormal, cutDirection,
+        //                    createdElements, deletedElements);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                Debug.WriteLine($"打断失败 [{elem.Id}]: {ex.Message}");
+        //            }
+        //        }
+
+        //        tg.Assimilate();
+        //    }
+        //}
+        ///// <summary>
+        ///// 收集目标元素（楼板、天花板、迹线屋面）
+        ///// </summary>
+        //private List<Element> CollectTargetElements(Document doc, View activeView)
+        //{
+        //    var result = new List<Element>();
+
+        //    // 楼板
+        //    result.AddRange(new FilteredElementCollector(doc, activeView.Id)
+        //        .OfClass(typeof(Floor)).WhereElementIsNotElementType().ToList());
+
+        //    // 天花板
+        //    result.AddRange(new FilteredElementCollector(doc, activeView.Id)
+        //        .OfClass(typeof(Ceiling)).WhereElementIsNotElementType().ToList());
+
+        //    // 迹线屋面（有Footprint的）
+        //    result.AddRange(new FilteredElementCollector(doc, activeView.Id)
+        //        .OfClass(typeof(RoofBase)).WhereElementIsNotElementType()
+        //        .Cast<RoofBase>()
+        //        .Where(r => r is FootPrintRoof)
+        //        .Cast<Element>()
+        //        .ToList());
+
+        //    return result;
+        //}
+        ///// <summary>
+        ///// 筛选与平面相交且正交的元素
+        ///// </summary>
+        //private List<Element> FilterIntersectingOrthogonal(
+        //    List<Element> elements, Plane refPlane, XYZ planeNormal, View activeView)
+        //{
+        //    var result = new List<Element>();
+
+        //    foreach (Element elem in elements)
+        //    {
+        //        BoundingBoxXYZ bbox = elem.get_BoundingBox(activeView);
+        //        if (bbox == null) continue;
+
+        //        // 快速边界框检查
+        //        if (!CheckBoundingBoxIntersectsPlane(bbox, refPlane)) continue;
+
+        //        // 精确几何检查
+        //        Options opt = new Options
+        //        {
+        //            ComputeReferences = true,
+        //            DetailLevel = ViewDetailLevel.Fine
+        //        };
+        //        GeometryElement geo = elem.get_Geometry(opt);
+        //        if (geo == null) continue;
+
+        //        if (CheckGeometryIntersectAndOrthogonal(geo, refPlane, planeNormal))
+        //        {
+        //            result.Add(elem);
+        //        }
+        //    }
+
+        //    return result;
+        //}
+        ///// <summary>
+        ///// 核心方法：用平面打断元素（原位复制+分割边界）
+        ///// </summary>
+        //private void SplitElementByPlane(Document doc, Element elem,
+        //    Plane refPlane, XYZ planeNormal, XYZ cutDirection,
+        //    List<ElementId> created, List<ElementId> deleted)
+        //{
+        //    // 获取元素类型和参数
+        //    ElementId typeId = elem.GetTypeId();
+        //    ElementId levelId = GetElementLevelId(elem);
+        //    if (levelId == null) throw new InvalidOperationException("无法获取标高");
+
+        //    // 获取原始边界（水平投影轮廓）
+        //    List<CurveLoop> originalLoops = GetElementFootprint(elem);
+        //    if (originalLoops == null || originalLoops.Count == 0)
+        //        throw new InvalidOperationException("无法获取边界轮廓");
+
+        //    // 计算平面与边界的交点
+        //    List<XYZ> intersectionPoints = new List<XYZ>();
+        //    foreach (CurveLoop loop in originalLoops)
+        //    {
+        //        foreach (Curve curve in loop)
+        //        {
+        //            IntersectionResultArray results;
+        //            SetComparisonResult compare = curve.Intersect(refPlane, out results);
+        //            if (compare == SetComparisonResult.Overlap && results != null)
+        //            {
+        //                foreach (IntersectionResult ir in results)
+        //                {
+        //                    intersectionPoints.Add(ir.XYZPoint);
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    // 去重交点
+        //    intersectionPoints = intersectionPoints
+        //        .GroupBy(p => new
+        //        {
+        //            X = Math.Round(p.X, 6),
+        //            Y = Math.Round(p.Y, 6),
+        //            Z = Math.Round(p.Z, 6)
+        //        })
+        //        .Select(g => g.First())
+        //        .OrderBy(p => p.DotProduct(cutDirection))
+        //        .ToList();
+
+        //    if (intersectionPoints.Count < 2)
+        //        throw new InvalidOperationException("交点不足，无法分割");
+
+        //    // 确定分割方向：沿平面在水平面的投影线
+        //    XYZ splitLineDir = planeNormal.CrossProduct(XYZ.BasisZ);
+        //    if (splitLineDir.IsAlmostEqualTo(XYZ.Zero))
+        //    {
+        //        // 平面水平，使用任意水平方向
+        //        splitLineDir = XYZ.BasisX;
+        //    }
+        //    splitLineDir = splitLineDir.Normalize();
+
+        //    // 计算分割平面在元素局部坐标系的投影范围
+        //    double minProj = intersectionPoints.Min(p => p.DotProduct(splitLineDir));
+        //    double maxProj = intersectionPoints.Max(p => p.DotProduct(splitLineDir));
+        //    double midProj = (minProj + maxProj) / 2;
+
+        //    // 分割原始边界为两侧
+        //    List<CurveLoop> sideALoops = new List<CurveLoop>();
+        //    List<CurveLoop> sideBLoops = new List<CurveLoop>();
+
+        //    foreach (CurveLoop originalLoop in originalLoops)
+        //    {
+        //        List<Curve> sideACurves = new List<Curve>();
+        //        List<Curve> sideBCurves = new List<Curve>();
+        //        List<XYZ> loopIntersections = new List<XYZ>();
+
+        //        // 收集当前环与分割线的交点
+        //        foreach (Curve curve in originalLoop)
+        //        {
+        //            XYZ start = curve.GetEndPoint(0);
+        //            XYZ end = curve.GetEndPoint(1);
+
+        //            double startProj = start.DotProduct(splitLineDir);
+        //            double endProj = end.DotProduct(splitLineDir);
+
+        //            // 判断端点在哪一侧
+        //            bool startInA = startProj <= midProj;
+        //            bool endInA = endProj <= midProj;
+
+        //            if (startInA && endInA)
+        //            {
+        //                // 整条边在A侧
+        //                sideACurves.Add(curve.Clone());
+        //            }
+        //            else if (!startInA && !endInA)
+        //            {
+        //                // 整条边在B侧
+        //                sideBCurves.Add(curve.Clone());
+        //            }
+        //            else
+        //            {
+        //                // 跨分割线，计算交点并分割
+        //                XYZ intersection = FindCurvePlaneIntersection(curve, splitLineDir, midProj);
+        //                loopIntersections.Add(intersection);
+
+        //                if (startInA)
+        //                {
+        //                    sideACurves.Add(Line.CreateBound(start, intersection));
+        //                    sideBCurves.Add(Line.CreateBound(intersection, end));
+        //                }
+        //                else
+        //                {
+        //                    sideBCurves.Add(Line.CreateBound(start, intersection));
+        //                    sideACurves.Add(Line.CreateBound(intersection, end));
+        //                }
+        //            }
+        //        }
+
+        //        // 添加交点连线（沿分割线连接两个交点）
+        //        if (loopIntersections.Count >= 2)
+        //        {
+        //            // 排序并连接交点形成分割线
+        //            loopIntersections = loopIntersections
+        //                .OrderBy(p => p.DotProduct(planeNormal.CrossProduct(XYZ.BasisZ).Normalize()))
+        //                .ToList();
+
+        //            for (int i = 0; i < loopIntersections.Count - 1; i += 2)
+        //            {
+        //                XYZ p1 = loopIntersections[i];
+        //                XYZ p2 = loopIntersections[i + 1];
+
+        //                Curve cutLine = Line.CreateBound(p1, p2);
+        //                sideACurves.Add(cutLine);
+        //                sideBCurves.Add(cutLine.Clone());
+        //            }
+        //        }
+
+        //        // 重建CurveLoop
+        //        if (sideACurves.Count >= 3)
+        //        {
+        //            try
+        //            {
+        //                CurveLoop loopA = CurveLoop.Create(sideACurves);
+        //                if (loopA.IsOpen())
+        //                {
+        //                    // 尝试闭合
+        //                    loopA = CloseCurveLoop(loopA);
+        //                }
+        //                if (!loopA.IsOpen()) sideALoops.Add(loopA);
+        //            }
+        //            catch { /* 忽略无效环 */ }
+        //        }
+
+        //        if (sideBCurves.Count >= 3)
+        //        {
+        //            try
+        //            {
+        //                CurveLoop loopB = CurveLoop.Create(sideBCurves);
+        //                if (loopB.IsOpen())
+        //                {
+        //                    loopB = CloseCurveLoop(loopB);
+        //                }
+        //                if (!loopB.IsOpen()) sideBLoops.Add(loopB);
+        //            }
+        //            catch { /* 忽略无效环 */ }
+        //        }
+        //    }
+
+        //    // 删除原始元素
+        //    deleted.Add(elem.Id);
+
+        //    // 创建A侧新元素
+        //    if (sideALoops.Count > 0)
+        //    {
+        //        ElementId newIdA = CreateElementByFootprint(doc, elem, typeId, levelId, sideALoops);
+        //        if (newIdA != null) created.Add(newIdA);
+        //    }
+
+        //    // 创建B侧新元素
+        //    if (sideBLoops.Count > 0)
+        //    {
+        //        ElementId newIdB = CreateElementByFootprint(doc, elem, typeId, levelId, sideBLoops);
+        //        if (newIdB != null) created.Add(newIdB);
+        //    }
+
+        //    // 执行删除
+        //    doc.Delete(elem.Id);
+        //}
+        ///// <summary>
+        ///// 计算曲线与分割平面的交点
+        ///// </summary>
+        //private XYZ FindCurvePlaneIntersection(Curve curve, XYZ splitDir, double midProj)
+        //{
+        //    XYZ start = curve.GetEndPoint(0);
+        //    XYZ end = curve.GetEndPoint(1);
+
+        //    double startProj = start.DotProduct(splitDir);
+        //    double endProj = end.DotProduct(splitDir);
+
+        //    // 线性插值
+        //    double t = (midProj - startProj) / (endProj - startProj);
+        //    t = Math.Max(0, Math.Min(1, t)); // 限制在[0,1]
+
+        //    return start + (end - start) * t;
+        //}
+        ///// <summary>
+        ///// 尝试闭合开放的CurveLoop
+        ///// </summary>
+        //private CurveLoop CloseCurveLoop(CurveLoop openLoop)
+        //{
+        //    var curves = openLoop.ToList();
+        //    if (curves.Count < 2) return openLoop;
+
+        //    XYZ firstStart = curves.First().GetEndPoint(0);
+        //    XYZ lastEnd = curves.Last().GetEndPoint(1);
+
+        //    if (!firstStart.IsAlmostEqualTo(lastEnd))
+        //    {
+        //        curves.Add(Line.CreateBound(lastEnd, firstStart));
+        //    }
+
+        //    return CurveLoop.Create(curves);
+        //}
+        ///// <summary>
+        ///// 根据轮廓创建新元素（楼板/天花板/屋面）
+        ///// </summary>
+        //private ElementId CreateElementByFootprint(
+        //    Document doc, Element originalElem, ElementId typeId, ElementId levelId, List<CurveLoop> loops)
+        //{
+        //    using (Transaction t = new Transaction(doc, "创建分割元素"))
+        //    {
+        //        t.Start();
+
+        //        ElementId newId = null;
+
+        //        if (originalElem is Floor)
+        //        {
+        //            // 创建楼板
+        //            Floor newFloor = Floor.Create(doc, loops, typeId, levelId);
+        //            newId = newFloor.Id;
+
+        //            // 复制厚度等参数
+        //            CopyFloorParameters(doc, originalElem, newFloor);
+        //        }
+        //        else if (originalElem is Ceiling)
+        //        {
+        //            // 创建天花板
+        //            Ceiling newCeiling = Ceiling.Create(doc, loops, typeId, levelId);
+        //            newId = newCeiling.Id;
+
+        //            CopyCeilingParameters(doc, originalElem, newCeiling);
+        //        }
+        //        else if (originalElem is RoofBase)
+        //        {
+        //            // 创建迹线屋面
+        //            ModelCurveArray footPrintToModelCurveMapping = new ModelCurveArray();
+        //            FootPrintRoof newRoof = doc.Create.NewFootPrintRoof(
+        //                loops.First(), levelId, typeId, out footPrintToModelCurveMapping);
+        //            newId = newRoof.Id;
+
+        //            CopyRoofParameters(doc, originalElem, newRoof);
+        //        }
+
+        //        t.Commit();
+        //        return newId;
+        //    }
+        //}
+        ///// <summary>
+        ///// 获取元素的标高ID
+        ///// </summary>
+        //private ElementId GetElementLevelId(Element elem)
+        //{
+        //    // 尝试各种参数获取标高
+        //    Parameter levelParam = elem.get_Parameter(BuiltInParameter.LEVEL_PARAM)
+        //        ?? elem.get_Parameter(BuiltInParameter.FLOOR_LEVEL_PARAM)
+        //        ?? elem.get_Parameter(BuiltInParameter.ROOF_BASE_LEVEL_PARAM)
+        //        ?? elem.get_Parameter(BuiltInParameter.CEILING_HEIGHT_ABOVE_LEVEL_PARAM);
+
+        //    if (levelParam != null && levelParam.StorageType == StorageType.ElementId)
+        //    {
+        //        return levelParam.AsElementId();
+        //    }
+
+        //    // 通过类型或实例属性获取
+        //    if (elem is Floor floor) return floor.LevelId;
+        //    if (elem is Ceiling ceiling) return ceiling.LevelId;
+        //    if (elem is RoofBase roof) return roof.LevelId;
+
+        //    return null;
+        //}
+        ///// <summary>
+        ///// 获取元素的水平投影轮廓
+        ///// </summary>
+        //private List<CurveLoop> GetElementFootprint(Element elem)
+        //{
+        //    if (elem is Floor floor)
+        //    {
+        //        // 获取楼板草图轮廓
+        //        var sketch = floor.GetSlabShapeEditor();
+        //        // 或者通过几何获取底部面轮廓
+        //        return GetHorizontalProfileFromGeometry(elem);
+        //    }
+        //    else if (elem is Ceiling ceiling)
+        //    {
+        //        return GetHorizontalProfileFromGeometry(elem);
+        //    }
+        //    else if (elem is RoofBase roof)
+        //    {
+        //        // 迹线屋面直接获取Footprint
+        //        var footprint = roof.GetFootprint();
+        //        if (footprint != null && footprint.Count > 0)
+        //        {
+        //            return new List<CurveLoop> { CurveLoop.Create(footprint) };
+        //        }
+        //    }
+
+        //    return GetHorizontalProfileFromGeometry(elem);
+        //}
+        ///// <summary>
+        ///// 从几何中提取水平投影轮廓
+        ///// </summary>
+        //private List<CurveLoop> GetHorizontalProfileFromGeometry(Element elem)
+        //{
+        //    Options opt = new Options { DetailLevel = ViewDetailLevel.Fine };
+        //    GeometryElement geo = elem.get_Geometry(opt);
+
+        //    var allLoops = new List<CurveLoop>();
+
+        //    foreach (GeometryObject obj in geo)
+        //    {
+        //        if (obj is Solid solid)
+        //        {
+        //            // 找到最大的水平面（法向量接近Z轴）
+        //            foreach (Face face in solid.Faces)
+        //            {
+        //                if (face is PlanarFace planarFace)
+        //                {
+        //                    double dotZ = Math.Abs(planarFace.FaceNormal.DotProduct(XYZ.BasisZ));
+        //                    if (dotZ > 0.99) // 水平面
+        //                    {
+        //                        var loops = face.GetEdgesAsCurveLoops();
+        //                        allLoops.AddRange(loops);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    return allLoops;
+        //}
+        ///// <summary>
+        ///// 确定切割方向（水平投影的主方向）
+        ///// </summary>
+        //private XYZ GetCutDirection(XYZ planeNormal)
+        //{
+        //    // 平面法向量的水平投影
+        //    XYZ horizontal = new XYZ(planeNormal.X, planeNormal.Y, 0);
+
+        //    if (horizontal.IsAlmostEqualTo(XYZ.Zero))
+        //    {
+        //        // 平面垂直，使用任意水平方向
+        //        return XYZ.BasisX;
+        //    }
+
+        //    return horizontal.Normalize();
+        //}
+        ///// <summary>
+        ///// 复制楼板参数
+        ///// </summary>
+        //private void CopyFloorParameters(Document doc, Element source, Element target)
+        //{
+        //    // 厚度
+        //    Parameter thicknessParam = source.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM);
+        //    if (thicknessParam != null)
+        //    {
+        //        Parameter targetParam = target.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM);
+        //        if (targetParam != null && !targetParam.IsReadOnly)
+        //            targetParam.Set(thicknessParam.AsDouble());
+        //    }
+
+        //    // 结构
+        //    Parameter structuralParam = source.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
+        //    if (structuralParam != null)
+        //    {
+        //        Parameter targetParam = target.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
+        //        if (targetParam != null && !targetParam.IsReadOnly)
+        //            targetParam.Set(structuralParam.AsInteger());
+        //    }
+
+        //    // 其他关键参数...
+        //}
+        ///// <summary>
+        ///// 复制天花板参数
+        ///// </summary>
+        //private void CopyCeilingParameters(Document doc, Element source, Element target)
+        //{
+        //    // 高度
+        //    Parameter heightParam = source.get_Parameter(BuiltInParameter.CEILING_HEIGHT_ABOVE_LEVEL_PARAM);
+        //    if (heightParam != null)
+        //    {
+        //        Parameter targetParam = target.get_Parameter(BuiltInParameter.CEILING_HEIGHT_ABOVE_LEVEL_PARAM);
+        //        if (targetParam != null && !targetParam.IsReadOnly)
+        //            targetParam.Set(heightParam.AsDouble());
+        //    }
+        //}
+        ///// <summary>
+        ///// 复制屋面参数
+        ///// </summary>
+        //private void CopyRoofParameters(Document doc, Element source, Element target)
+        //{
+        //    // 坡度
+        //    Parameter slopeParam = source.get_Parameter(BuiltInParameter.ROOF_SLOPE);
+        //    if (slopeParam != null)
+        //    {
+        //        Parameter targetParam = target.get_Parameter(BuiltInParameter.ROOF_SLOPE);
+        //        if (targetParam != null && !targetParam.IsReadOnly)
+        //            targetParam.Set(slopeParam.AsDouble());
+        //    }
+        //}
+        ///// <summary>
+        ///// 统一的几何检查：相交且正交
+        ///// </summary>
+        //private bool CheckGeometryIntersectAndOrthogonal(
+        //    GeometryElement geoElement, Plane refPlane, XYZ planeNormal)
+        //{
+        //    foreach (GeometryObject geoObj in geoElement)
+        //    {
+        //        bool found = false;
+
+        //        if (geoObj is Solid solid && solid.Volume > 1e-9)
+        //        {
+        //            found = CheckSolidIntersectAndOrthogonal(solid, refPlane, planeNormal);
+        //        }
+        //        else if (geoObj is Mesh mesh && mesh.NumTriangles > 0)
+        //        {
+        //            found = CheckMeshIntersectAndOrthogonal(mesh, refPlane, planeNormal);
+        //        }
+        //        else if (geoObj is GeometryInstance instance)
+        //        {
+        //            GeometryElement symbolGeom = instance.GetSymbolGeometry();
+        //            if (symbolGeom != null)
+        //                found = CheckGeometryIntersectAndOrthogonal(symbolGeom, refPlane, planeNormal);
+        //        }
+
+        //        if (found) return true;
+        //    }
+        //    return false;
+        //}
+
         ///// <summary>
         ///// 处理板类元素（楼板、屋顶等），通过创建洞口实现
         ///// </summary>
@@ -110,54 +1234,7 @@ namespace CreatePipe
         //        }
         //    }
         //    return false;
-        //}
-        //0424
-        /// <summary>
-        /// 检查边界框是否与平面相交
-        /// </summary>
-        //private bool DoesBoundingBoxIntersectPlane(BoundingBoxXYZ bbox, Plane plane)
-        //{
-        //    if (bbox == null || plane == null) return false;
-        //    XYZ min = bbox.Min;
-        //    XYZ max = bbox.Max;
-        //    // 获取边界框的8个角点
-        //    List<XYZ> corners = new List<XYZ>
-        //    {
-        //        new XYZ(min.X, min.Y, min.Z), new XYZ(max.X, min.Y, min.Z),
-        //        new XYZ(min.X, max.Y, min.Z), new XYZ(max.X, max.Y, min.Z),
-        //        new XYZ(min.X, min.Y, max.Z), new XYZ(max.X, min.Y, max.Z),
-        //        new XYZ(min.X, max.Y, max.Z), new XYZ(max.X, max.Y, max.Z)
-        //    };
-        //    XYZ origin = plane.Origin;
-        //    XYZ normal = plane.Normal;
-        //    bool hasPositive = false;
-        //    bool hasNegative = false;
-        //    // 检查每个角点在平面的哪一侧
-        //    foreach (XYZ point in corners)
-        //    {
-        //        double signedDistance = normal.DotProduct(point - origin);
-        //        if (signedDistance > 0) hasPositive = true;
-        //        else if (signedDistance < 0) hasNegative = true;
-        //        // 如果两侧都有点，则相交
-        //        if (hasPositive && hasNegative)
-        //            return true;
-        //    }
-        //    // 检查边界框是否跨越平面（即使角点都在同一侧，但盒子可能穿过平面）
-        //    // 这种情况发生在平面穿过边界框但未经过任何角点时
-        //    if (hasPositive || hasNegative)
-        //    {
-        //        // 计算边界框中心到平面的距离
-        //        XYZ center = (min + max) * 0.5;
-        //        double centerDist = normal.DotProduct(center - origin);
-        //        // 计算边界框在平面法线方向上的半长
-        //        XYZ diagonal = max - min;
-        //        double halfExtent = Math.Abs(normal.DotProduct(diagonal)) * 0.5;
-        //        // 如果中心到平面的距离小于半长，则相交
-        //        if (Math.Abs(centerDist) <= halfExtent)
-        //            return true;
-        //    }
-        //    return false;
-        //}
+        //}       
         ////private XYZ FindIntersection(Curve curve, Plane plane)
         ////{
         ////    IntersectionResultArray results;
@@ -171,31 +1248,7 @@ namespace CreatePipe
         ////private bool IsPointOnCurve(Curve curve, XYZ point)
         ////{
         ////    return curve.Distance(point) < 1e-6; // 使用容差判断点是否在曲线上
-        ////}
-        ////private bool DoesBoundingBoxIntersectPlane(BoundingBoxXYZ bbox, Plane plane)
-        ////{
-        ////    if (bbox == null) return false;
-        ////    // 检查包围盒的8个角点是否在平面的两侧
-        ////    bool hasPointOnPositiveSide = false;
-        ////    bool hasPointOnNegativeSide = false;
-        ////    for (int i = 0; i < 2; i++)
-        ////    {
-        ////        for (int j = 0; j < 2; j++)
-        ////        {
-        ////            for (int k = 0; k < 2; k++)
-        ////            {
-        ////                XYZ corner = new XYZ(
-        ////                    i == 0 ? bbox.Min.X : bbox.Max.X,
-        ////                    j == 0 ? bbox.Min.Y : bbox.Max.Y,
-        ////                    k == 0 ? bbox.Min.Z : bbox.Max.Z);
-        ////                double signedDistance = plane.Normal.DotProduct(corner - plane.Origin);
-        ////                if (signedDistance > 1e-9) hasPointOnPositiveSide = true;
-        ////                if (signedDistance < -1e-9) hasPointOnNegativeSide = true;
-        ////            }
-        ////        }
-        ////    }
-        ////    return hasPointOnPositiveSide && hasPointOnNegativeSide;
-        ////}
+        ////}     
         ///// <summary>
         ///// 在视图中绘制可见性分析的结果
         ///// </summary>
@@ -991,6 +2044,229 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            //0425 参照平面切割测试
+            // 检查当前视图是否为平面、立面或剖面
+            if (!(doc.ActiveView.ViewType is ViewType.FloorPlan || doc.ActiveView.ViewType is ViewType.Section || doc.ActiveView.ViewType is ViewType.Elevation))
+            {
+                message = "请在平面、立面或剖面视图中运行此命令。";
+                return Result.Failed;
+            }
+            // 1. 让用户选择一个参照平面
+            Reference refPlaneRef;
+            try
+            {
+                refPlaneRef = uiDoc.Selection.PickObject(ObjectType.Element, new ReferencePlaneSelectionFilter(), "请选择一个用于打断的参照平面");
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return Result.Cancelled;
+            }
+            // 获取选中的参照平面元素
+            ReferencePlane selectedRefPlane = doc.GetElement(refPlaneRef) as ReferencePlane;
+            if (selectedRefPlane == null)
+            {
+                message = "未选择有效的参照平面。";
+                return Result.Failed;
+            }
+            // 获取参照平面的几何信息
+            Plane refPlane = selectedRefPlane.GetPlane();
+            XYZ planeOrigin = refPlane.Origin;
+            XYZ planeNormal = refPlane.Normal;
+            // 收集所有目标元素
+            List<Element> targetElements = new List<Element>();
+            // 楼板
+            targetElements.AddRange(new FilteredElementCollector(doc, activeView.Id)
+                .OfClass(typeof(Floor)).WhereElementIsNotElementType().ToList());
+            // 天花板
+            targetElements.AddRange(new FilteredElementCollector(doc, activeView.Id)
+                .OfClass(typeof(Ceiling)).WhereElementIsNotElementType().ToList());
+            // 迹线屋面（通过参数筛选）
+            targetElements.AddRange(new FilteredElementCollector(doc, activeView.Id)
+                .OfClass(typeof(RoofBase)).WhereElementIsNotElementType().Cast<RoofBase>()
+                .Where(r =>
+                {
+                    return r is FootPrintRoof;
+                    //// 迹线屋面有 Footprint 草图，拉伸屋面没有
+                }).Cast<Element>().ToList());
+            // 存储与参照平面相交且正交的楼板信息
+            List<KeyValuePair<ElementId, string>> intersectingFloors = new List<KeyValuePair<ElementId, string>>();
+            List<ElementId> intersectingFloorIds = new List<ElementId>();
+            foreach (Element floor in targetElements)
+            {
+                // 获取楼板的边界框（快速筛选）
+                BoundingBoxXYZ floorBbox = floor.get_BoundingBox(activeView);
+                if (floorBbox == null) continue;
+                // 快速检测：检查楼板的边界框是否与参照平面相交（可选，提高性能）
+                bool bboxIntersects = CheckBoundingBoxIntersectsPlane(floorBbox, refPlane);
+                if (!bboxIntersects) continue;
+                // 获取楼板的几何信息进行精确检测
+                Options geoOptions = new Options();
+                geoOptions.ComputeReferences = true;
+                geoOptions.DetailLevel = ViewDetailLevel.Fine;
+                GeometryElement geoElement = floor.get_Geometry(geoOptions);
+                if (geoElement == null) continue;
+                bool isIntersectingAndOrthogonal = false;
+                // 遍历楼板的几何实体进行精确相交和正交检测
+                foreach (GeometryObject geoObj in geoElement)
+                {
+                    Solid solid = geoObj as Solid;
+                    if (solid != null && solid.Faces.Size > 0)
+                    {
+                        // 检查实体是否与平面相交
+                        if (IsSolidIntersectPlane(solid, refPlane))
+                        {
+                            // 进一步检查是否有面的法向量与参照平面正交
+                            foreach (Face face in solid.Faces)
+                            {
+                                XYZ faceNormal = face.ComputeNormal(UV.Zero);
+                                if (faceNormal != null)
+                                {
+                                    double dotProduct = Math.Abs(faceNormal.DotProduct(planeNormal));
+                                    if (dotProduct < 1e-6) // 正交检查
+                                    {
+                                        isIntersectingAndOrthogonal = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else if (geoObj is Mesh mesh && mesh.NumTriangles > 0)
+                    {
+                        // 检查网格是否与平面相正交
+                        if (IsMeshIntersectPlane(mesh, refPlane))
+                        {
+                            for (int i = 0; i < mesh.NumTriangles; i++)
+                            {
+                                MeshTriangle triangle = mesh.get_Triangle(i);
+                                // 正确计算三角形法向量（叉积）
+                                XYZ v0 = triangle.get_Vertex(0);
+                                XYZ v1 = triangle.get_Vertex(1);
+                                XYZ v2 = triangle.get_Vertex(2);
+                                XYZ edge1 = v1 - v0;
+                                XYZ edge2 = v2 - v0;
+                                XYZ triangleNormal = edge1.CrossProduct(edge2).Normalize();
+                                // 判断三角形是否与平面正交（三角形法向量平行于参考平面）
+                                // 即三角形法向量与平面法向量垂直（点积接近0）
+                                double dotProduct = Math.Abs(triangleNormal.DotProduct(planeNormal));
+                                // dotProduct ≈ 0 表示三角形法向量 ⊥ 平面法向量
+                                // 即三角形平面 ∥ 参考平面（三角形与参考平面正交/垂直）
+                                if (dotProduct < 1e-3) // 使用稍大的容差
+                                {
+                                    isIntersectingAndOrthogonal = true;
+                                    break; // 跳出三角形循环
+                                }
+                            }
+                            // 关键：如果已找到正交三角形，跳出外层 mesh 循环
+                            if (isIntersectingAndOrthogonal)
+                                break;
+                        }
+                        ////普通相交简化如下
+                        //if (IsMeshIntersectPlane(mesh, refPlane))
+                        //{
+                        //    isIntersectingAndOrthogonal = true;
+                        //    break; // 假设 mesh 相交即视为正交（根据业务需求）
+                        //}
+                    }
+                    if (isIntersectingAndOrthogonal) break;
+                }
+                if (isIntersectingAndOrthogonal)
+                {
+                    intersectingFloorIds.Add(floor.Id);
+                    // 获取楼板信息用于显示
+                    Parameter levelParam = floor.get_Parameter(BuiltInParameter.LEVEL_PARAM);
+                    string levelName = levelParam != null ? levelParam.AsValueString() : "未知";
+                    string floorTypeName = floor.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString();
+                    string floorInfo = $"楼板 ID:{floor.Id.IntegerValue}, 类型:{floorTypeName}, 标高:{levelName}";
+                    intersectingFloors.Add(new KeyValuePair<ElementId, string>(floor.Id, floorInfo));
+                }
+            }
+            //// 输出结果
+            int intersectingCount = intersectingFloors.Count;
+            message = $"共找到 {intersectingCount} 个与参照平面相交且正交的平面元素。";
+            //if (intersectingCount > 0)
+            //{
+            //    uiDoc.Selection.SetElementIds(intersectingFloorIds);
+            //}
+            //TaskDialog.Show("tt", message);
+            //// 在找到相交且正交的板之后，创建构造线
+            if (!(intersectingCount > 0 || intersectingFloorIds.Count > 0)) return Result.Cancelled;
+            // 开始一个事务来创建构造线
+            using (Transaction trans = new Transaction(doc, "创建相交构造线"))
+            {
+                trans.Start();
+                List<Curve> allIntersectionCurves = new List<Curve>();
+                foreach (ElementId elementId in intersectingFloorIds)
+                {
+                    Element element = doc.GetElement(elementId);
+                    if (element == null) continue;
+                    // 重新获取该元素的几何信息
+                    Options geoOptions = new Options();
+                    geoOptions.ComputeReferences = true;
+                    geoOptions.DetailLevel = ViewDetailLevel.Fine;
+                    GeometryElement geoElement = element.get_Geometry(geoOptions);
+                    if (geoElement == null) continue;
+                    // 获取该元素与参照平面的所有交线
+                    List<Curve> intersectionCurves = GetIntersectionCurvesWithPlane(geoElement, refPlane);
+                    allIntersectionCurves.AddRange(intersectionCurves);
+                    message += intersectionCurves.Count().ToString();
+                }
+                //// 创建构造线（使用模型线或详图线）
+                if (allIntersectionCurves.Count > 0)
+                {
+                    // 选择创建方式：在平面视图中使用详图线，在3D视图中使用模型线
+                    bool useDetailLines = (activeView.ViewType == ViewType.FloorPlan ||
+                                           activeView.ViewType == ViewType.CeilingPlan ||
+                                           activeView.ViewType == ViewType.Section ||
+                                           activeView.ViewType == ViewType.Elevation);
+                    //if (useDetailLines)
+                    //{
+                    //    // 在视图中创建详图线（仅在该视图中可见）
+                    //    foreach (Curve curve in allIntersectionCurves)
+                    //    {
+                    //        // 将曲线投影到视图平面（如果需要）
+                    //        Curve projectedCurve = ProjectCurveToViewPlane(curve, activeView);
+                    //        if (projectedCurve != null)
+                    //        {
+                    //            //TaskDialog.Show("tt", (projectedCurve.Length * 304.8).ToString());
+                    //            //// 创建详图线
+                    //            DetailLine detailLine = doc.Create.NewDetailCurve(activeView, projectedCurve) as DetailLine;
+                    //            if (detailLine != null)
+                    //            {
+                    //                // 设置线型样式（可选）
+                    //                // 注意：需要先获取或创建线型样式
+                    //                SetLineStyle(detailLine, "Dash");
+                    //            }
+                    //        }
+                    //    }
+                    //    message += $"\n已创建 {allIntersectionCurves.Count} 条详图线。";
+                    //}
+                    //else
+                    //{
+                    //// 创建模型线（在所有视图中可见）
+                    //// 需要选择一个工作平面
+                    SketchPlane sketchPlane = SketchPlane.Create(doc, refPlane);
+                    foreach (Curve curve in allIntersectionCurves)
+                    {
+                        ModelCurve modelCurve = doc.Create.NewModelCurve(curve, sketchPlane);
+                        if (modelCurve != null)
+                        {
+                            // 设置线型样式（可选）
+                            SetLineStyle(modelCurve, "Dash");
+                        }
+                    }
+                    message += $"\n已创建 {allIntersectionCurves.Count} 条模型线。";
+                    //}
+                }
+                else
+                {
+                    message += "\n未找到有效的交线。";
+                }
+                trans.Commit();
+            }
+            TaskDialog.Show("执行结果", message);
+
+
             //////1003 SplitElementsCommand 变形缝、后浇带打断板、梁
             //// 检查当前视图是否为平面、立面或剖面
             //if (!(doc.ActiveView.ViewType is ViewType.FloorPlan || doc.ActiveView.ViewType is ViewType.Section || doc.ActiveView.ViewType is ViewType.Elevation))
@@ -1247,110 +2523,110 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
 
-            ////1002 拆分楼板，读取出所有轮廓并分别保存多个楼板。注意存在逻辑问题，未处理环嵌套的问题，无法维持板内部开洞
-            // 1. 提示用户选择一个楼板
-            Reference selectedRef;
-            try
-            {
-                selectedRef = uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "请选择一个包含多个轮廓的楼板");
-            }
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return Result.Cancelled;
-            }
-            Floor originalFloor = doc.GetElement(selectedRef) as Floor;
-            if (originalFloor == null)
-            {
-                message = "选择的不是一个有效的楼板。";
-                return Result.Failed;
-            }
-            // 2. 通过几何体获取楼板的轮廓
-            List<CurveArray> profileLoops = GetFloorLoopsFromGeometry(originalFloor);
-            if (profileLoops == null || profileLoops.Count == 0)
-            {
-                message = "无法从楼板的几何体中提取轮廓。";
-                return Result.Failed;
-            }
-            // 3. 检查轮廓数量
-            if (profileLoops.Count <= 1)
-            {
-                TaskDialog.Show("提示", "所选楼板只包含一个轮廓，无需拆分。");
-                return Result.Succeeded;
-            }
-            using (TransactionGroup tg = new TransactionGroup(doc, "拆分楼板"))
-            {
-                tg.Start();
-                try
-                {
-                    ElementId floorTypeId = originalFloor.GetTypeId();
-                    ElementId levelId = originalFloor.LevelId;
-                    bool isStructural = originalFloor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)?.AsInteger() == 1;
-                    Level level = doc.GetElement(levelId) as Level;
-                    FloorType floorType = doc.GetElement(floorTypeId) as FloorType;
-                    foreach (CurveArray curveLoop in profileLoops)
-                    {
-                        using (Transaction tx = new Transaction(doc, "创建单个楼板"))
-                        {
-                            tx.Start();
-                            doc.Create.NewFloor(curveLoop, floorType, level, isStructural);
-                            tx.Commit();
-                        }
-                    }
-                    using (Transaction tx = new Transaction(doc, "删除原始楼板"))
-                    {
-                        tx.Start();
-                        doc.Delete(originalFloor.Id);
-                        tx.Commit();
-                    }
-                    tg.Assimilate();
-                    TaskDialog.Show("成功", $"已成功将原始楼板拆分为 {profileLoops.Count} 个独立的楼板。");
-                    return Result.Succeeded;
-                }
-                catch (System.Exception ex)
-                {
-                    message = "在拆分楼板时发生错误: " + ex.Message;
-                    tg.RollBack();
-                    return Result.Failed;
-                }
-            }
-            ////0404 升级柱切板和梁，梁切板。使用 BuiltInCategory 枚举，而不是魔术数字
-            var structuralColumns = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_StructuralColumns)
-                .WhereElementIsNotElementType().ToElements();
-            var structuralFraming = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_StructuralFraming)
-                .WhereElementIsNotElementType().ToElements();
-            using (Transaction transaction = new Transaction(doc, "自动调整几何连接关系"))
-            {
-                transaction.Start();
-                // 1. 柱切割梁和楼板
-                foreach (Element column in structuralColumns)
-                {
-                    List<Element> nearbyElements = GetIntersectingElements(doc, column, 0.1); // 稍微扩大搜索范围
-                    foreach (Element nearbyElem in nearbyElements)
-                    {
-                        // 使用类型安全的比较
-                        var categoryId = nearbyElem.Category.Id.IntegerValue;
-                        if (categoryId == (int)BuiltInCategory.OST_StructuralFraming || categoryId == (int)BuiltInCategory.OST_Floors)
-                        {
-                            EnsureJoinOrder(doc, column, nearbyElem);
-                        }
-                    }
-                }
-                // 2. 梁切割楼板
-                foreach (Element beam in structuralFraming)
-                {
-                    List<Element> nearbyElements = GetIntersectingElements(doc, beam, 0.1); // 稍微扩大搜索范围
-                    foreach (Element nearbyElem in nearbyElements)
-                    {
-                        if (nearbyElem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Floors)
-                        {
-                            EnsureJoinOrder(doc, beam, nearbyElem);
-                        }
-                    }
-                }
-                transaction.Commit();
-            }
+            //////1002 拆分楼板，读取出所有轮廓并分别保存多个楼板。注意存在逻辑问题，未处理环嵌套的问题，无法维持板内部开洞
+            //// 1. 提示用户选择一个楼板
+            //Reference selectedRef;
+            //try
+            //{
+            //    selectedRef = uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "请选择一个包含多个轮廓的楼板");
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //Floor originalFloor = doc.GetElement(selectedRef) as Floor;
+            //if (originalFloor == null)
+            //{
+            //    message = "选择的不是一个有效的楼板。";
+            //    return Result.Failed;
+            //}
+            //// 2. 通过几何体获取楼板的轮廓
+            //List<CurveArray> profileLoops = GetFloorLoopsFromGeometry(originalFloor);
+            //if (profileLoops == null || profileLoops.Count == 0)
+            //{
+            //    message = "无法从楼板的几何体中提取轮廓。";
+            //    return Result.Failed;
+            //}
+            //// 3. 检查轮廓数量
+            //if (profileLoops.Count <= 1)
+            //{
+            //    TaskDialog.Show("提示", "所选楼板只包含一个轮廓，无需拆分。");
+            //    return Result.Succeeded;
+            //}
+            //using (TransactionGroup tg = new TransactionGroup(doc, "拆分楼板"))
+            //{
+            //    tg.Start();
+            //    try
+            //    {
+            //        ElementId floorTypeId = originalFloor.GetTypeId();
+            //        ElementId levelId = originalFloor.LevelId;
+            //        bool isStructural = originalFloor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)?.AsInteger() == 1;
+            //        Level level = doc.GetElement(levelId) as Level;
+            //        FloorType floorType = doc.GetElement(floorTypeId) as FloorType;
+            //        foreach (CurveArray curveLoop in profileLoops)
+            //        {
+            //            using (Transaction tx = new Transaction(doc, "创建单个楼板"))
+            //            {
+            //                tx.Start();
+            //                doc.Create.NewFloor(curveLoop, floorType, level, isStructural);
+            //                tx.Commit();
+            //            }
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "删除原始楼板"))
+            //        {
+            //            tx.Start();
+            //            doc.Delete(originalFloor.Id);
+            //            tx.Commit();
+            //        }
+            //        tg.Assimilate();
+            //        TaskDialog.Show("成功", $"已成功将原始楼板拆分为 {profileLoops.Count} 个独立的楼板。");
+            //        return Result.Succeeded;
+            //    }
+            //    catch (System.Exception ex)
+            //    {
+            //        message = "在拆分楼板时发生错误: " + ex.Message;
+            //        tg.RollBack();
+            //        return Result.Failed;
+            //    }
+            //}
+            //////0404 升级柱切板和梁，梁切板。使用 BuiltInCategory 枚举，而不是魔术数字
+            //var structuralColumns = new FilteredElementCollector(doc)
+            //    .OfCategory(BuiltInCategory.OST_StructuralColumns)
+            //    .WhereElementIsNotElementType().ToElements();
+            //var structuralFraming = new FilteredElementCollector(doc)
+            //    .OfCategory(BuiltInCategory.OST_StructuralFraming)
+            //    .WhereElementIsNotElementType().ToElements();
+            //using (Transaction transaction = new Transaction(doc, "自动调整几何连接关系"))
+            //{
+            //    transaction.Start();
+            //    // 1. 柱切割梁和楼板
+            //    foreach (Element column in structuralColumns)
+            //    {
+            //        List<Element> nearbyElements = GetIntersectingElements(doc, column, 0.1); // 稍微扩大搜索范围
+            //        foreach (Element nearbyElem in nearbyElements)
+            //        {
+            //            // 使用类型安全的比较
+            //            var categoryId = nearbyElem.Category.Id.IntegerValue;
+            //            if (categoryId == (int)BuiltInCategory.OST_StructuralFraming || categoryId == (int)BuiltInCategory.OST_Floors)
+            //            {
+            //                EnsureJoinOrder(doc, column, nearbyElem);
+            //            }
+            //        }
+            //    }
+            //    // 2. 梁切割楼板
+            //    foreach (Element beam in structuralFraming)
+            //    {
+            //        List<Element> nearbyElements = GetIntersectingElements(doc, beam, 0.1); // 稍微扩大搜索范围
+            //        foreach (Element nearbyElem in nearbyElements)
+            //        {
+            //            if (nearbyElem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Floors)
+            //            {
+            //                EnsureJoinOrder(doc, beam, nearbyElem);
+            //            }
+            //        }
+            //    }
+            //    transaction.Commit();
+            //}
             ////0909 取楼梯中心几何点
             //var columnRef = uiDoc.Selection.PickObject(ObjectType.Element, new StairsFilter(), "选择楼梯");
             //Stairs stair = doc.GetElement(columnRef.ElementId) as Stairs;

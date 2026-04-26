@@ -120,15 +120,15 @@ namespace CreatePipe.Form
                 });
             });
         }
-        /// <summary>
-        /// 辅助方法：截断字符串以适应表格宽度
-        /// </summary>
-        private string TruncateString(string input, int maxLength)
-        {
-            if (string.IsNullOrEmpty(input)) return string.Empty;
-            if (input.Length <= maxLength) return input;
-            return input.Substring(0, maxLength - 3) + "...";
-        }
+        ///// <summary>
+        ///// 辅助方法：截断字符串以适应表格宽度
+        ///// </summary>
+        //private string TruncateString(string input, int maxLength)
+        //{
+        //    if (string.IsNullOrEmpty(input)) return string.Empty;
+        //    if (input.Length <= maxLength) return input;
+        //    return input.Substring(0, maxLength - 3) + "...";
+        //}
         public ICommand TotalSystemCommand => new RelayCommand<IEnumerable<object>>(TotalSystemCount);
         private void TotalSystemCount(IEnumerable<object> selectedElements)
         {
@@ -136,7 +136,6 @@ namespace CreatePipe.Form
             //if (selectedElements == null) return;
             // 1. 获取要统计的 StructuralEntity 列表
             List<StructuralEntity> selectedItems;
-
             if (selectedElements == null || !selectedElements.Any())
             {
                 // 如果没有选择，从现有的所有 StructuralEntity 获取（需要从外部传入或获取）
@@ -144,7 +143,7 @@ namespace CreatePipe.Form
                 selectedItems = selectedElements.Cast<StructuralEntity>().ToList();
                 if (selectedItems == null || !selectedItems.Any())
                 {
-                    TaskDialog.Show("统计结果", "没有找到任何结构构件数据！");
+                    TaskDialog.Show("统计结果", "没有选择任何结构类型！");
                     return;
                 }
             }
@@ -152,47 +151,46 @@ namespace CreatePipe.Form
             {
                 selectedItems = selectedElements.Cast<StructuralEntity>().ToList();
             }
-
             // 构建统计报告
             var report = new StringBuilder();
             report.AppendLine("========== 结构构件统计报告 ==========");
             report.AppendLine($"统计时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             report.AppendLine($"统计范围: {(selectedElements == null || !selectedElements.Any() ? "全部模型" : $"已选择 {selectedItems.Count} 个族类型")}");
-            report.AppendLine();
-
             // ========== 第一部分：按类型统计 ==========
-            report.AppendLine("【第一部分：按族类型统计】");
-            report.AppendLine("┌────────────┬──────────────┬────────────┬──────────────┬──────────────┐");
-            report.AppendLine("│ 族名称     │ 类型名称     │ 构件数量   │ 总长度(m)    │ 总体积(m³)   │");
-            report.AppendLine("├────────────┼──────────────┼────────────┼──────────────┼──────────────┤");
-
+            report.AppendLine("【第一部分：按族Family统计】");
+            //report.AppendLine(" 族名称       类型名称      │ 构件数量    │ 总长度(m)      │ 总体积(m³)   │");
             double grandTotalLength = 0;
             double grandTotalVolume = 0;
             int grandTotalInstanceCount = 0;
-
-            foreach (var entity in selectedItems)
+            int grandTotalSymbolCount = 0;
+            // 按FamilyId分组
+            var familiesGroup = selectedItems.GroupBy(item => item.FamilyId)
+                .Select(group => new
+                {
+                    FamilyId = group.Key,
+                    FamilyName = group.First().FamilyName,
+                    SymbolCount = group.Select(item => item.SymbolId).Distinct().Count(),
+                    TotalLength = group.Sum(item => item.TotalLength),
+                    TotalVolume = group.Sum(item => item.TotalVolume),
+                    TotalInstanceCount = group.Sum(item => item.InstanceCount)
+                }).ToList();
+            report.AppendLine($"{"族名称"} // {"族类型数"} // {"实例数"}//{"总长度"} // {"总体积"}");
+            // 输出每个族的汇总数据
+            foreach (var family in familiesGroup)
             {
-                report.AppendLine($"│ {TruncateString(entity.FamilyName, 10),-10} │ " +
-                                 $"{TruncateString(entity.SymbolName, 12),-12} │ " +
-                                 $"{entity.InstanceCount,10} │ " +
-                                 $"{entity.TotalLength,12:F2} │ " +
-                                 $"{entity.TotalVolume,12:F3} │");
-
-                grandTotalLength += entity.TotalLength;
-                grandTotalVolume += entity.TotalVolume;
-                grandTotalInstanceCount += entity.InstanceCount;
+                report.AppendLine($"│ {family.FamilyName}//{family.SymbolCount}//{family.TotalInstanceCount}//{family.TotalLength:F2}//{family.TotalVolume:F3} │");
+                grandTotalLength += family.TotalLength;
+                grandTotalVolume += family.TotalVolume;
+                grandTotalInstanceCount += family.TotalInstanceCount;
+                grandTotalSymbolCount += family.SymbolCount;
             }
 
-            report.AppendLine("├────────────┼──────────────┼────────────┼──────────────┼──────────────┤");
-            report.AppendLine($"│ {"合计",-10} │ {"",-12} │ {grandTotalInstanceCount,10} │ {grandTotalLength,12:F2} │ {grandTotalVolume,12:F3} │");
-            report.AppendLine("└────────────┴──────────────┴────────────┴──────────────┴──────────────┘");
+            // 输出合计行
+            report.AppendLine($"{"合计"}//{grandTotalSymbolCount}//{grandTotalInstanceCount}// {grandTotalLength:F2}//{grandTotalVolume:F3}");
             report.AppendLine();
-
             // ========== 第二部分：按类别统计 ==========
             report.AppendLine("【第二部分：按构件类别统计】");
-
-            var categoryStats = selectedItems
-                .GroupBy(e => e.StructuralCategory)
+            var categoryStats = selectedItems.GroupBy(e => e.StructuralCategory)
                 .Select(g => new
                 {
                     Category = g.Key,
@@ -201,32 +199,13 @@ namespace CreatePipe.Form
                     InstanceCount = g.Sum(e => e.InstanceCount),
                     FamilyCount = g.Select(e => e.FamilyName).Distinct().Count(),
                     SymbolCount = g.Count()
-                })
-                .OrderBy(g => g.Category)
-                .ToList();
-
-            report.AppendLine("┌────────────┬────────────┬────────────┬──────────────┬──────────────┐");
-            report.AppendLine("│ 类别       │ 族数量     │ 类型数量   │ 总长度(m)    │ 总体积(m³)   │");
-            report.AppendLine("├────────────┼────────────┼────────────┼──────────────┼──────────────┤");
-
+                }).OrderBy(g => g.Category).ToList();
+            report.AppendLine("类别//族数量//类型数量// 总长度(m)//总体积(m³) ");
             foreach (var stat in categoryStats)
             {
-                report.AppendLine($"│ {stat.Category,-10} │ " +
-                                 $"{stat.FamilyCount,10} │ " +
-                                 $"{stat.SymbolCount,10} │ " +
-                                 $"{stat.TotalLength,12:F2} │ " +
-                                 $"{stat.TotalVolume,12:F3} │");
+                report.AppendLine($"│ {stat.Category}//{stat.FamilyCount}//{stat.SymbolCount}//{stat.TotalLength:F2}//{stat.TotalVolume:F3} │");
             }
-
-            report.AppendLine("├────────────┼────────────┼────────────┼──────────────┼──────────────┤");
-            report.AppendLine($"│ {"合计",-10} │ " +
-                             $"{categoryStats.Sum(s => s.FamilyCount),10} │ " +
-                             $"{categoryStats.Sum(s => s.SymbolCount),10} │ " +
-                             $"{grandTotalLength,12:F2} │ " +
-                             $"{grandTotalVolume,12:F3} │");
-            report.AppendLine("└────────────┴────────────┴────────────┴──────────────┴──────────────┘");
-            report.AppendLine();
-
+            report.AppendLine($"{"合计"}//{categoryStats.Sum(s => s.FamilyCount)}//{categoryStats.Sum(s => s.SymbolCount)}//{grandTotalLength:F2}//{grandTotalVolume:F3} │");
             // 梁柱细分统计（如果存在）
             var beamColumnStats = selectedItems
                 .Where(e => e.StructuralCategory == "结构梁" || e.StructuralCategory == "结构柱")
@@ -238,20 +217,17 @@ namespace CreatePipe.Form
                     TotalVolume = g.Sum(e => e.TotalVolume)
                 })
                 .ToDictionary(g => g.Category, g => new { g.TotalLength, g.TotalVolume });
-
             if (beamColumnStats.Any())
             {
                 report.AppendLine("【梁柱细分统计】");
                 foreach (var stat in beamColumnStats)
                 {
-                    report.AppendLine($"  • {stat.Key}: 总长度 = {stat.Value.TotalLength:F2}m, 总体积 = {stat.Value.TotalVolume:F3}m³");
+                    report.AppendLine($"•{stat.Key}: 总长度 = {stat.Value.TotalLength:F2}m, 总体积 = {stat.Value.TotalVolume:F3}m³");
                 }
                 report.AppendLine();
             }
-
             // ========== 第三部分：按材质统计 ==========
             report.AppendLine("【第三部分：按材质统计】");
-
             var materialStats = selectedItems
                 .Where(e => !string.IsNullOrEmpty(e.StructuralMaterialName))
                 .GroupBy(e => e.StructuralMaterialName)
@@ -263,35 +239,23 @@ namespace CreatePipe.Form
                     InstanceCount = g.Sum(e => e.InstanceCount),
                     // 统计来源（哪些族类型使用此材质）
                     Sources = g.Select(e => $"{e.FamilyName}/{e.SymbolName}").Distinct().ToList()
-                })
-                .OrderByDescending(g => g.TotalVolume)
-                .ToList();
-
+                }).OrderByDescending(g => g.TotalVolume).ToList();
             if (materialStats.Any())
             {
-                report.AppendLine("┌──────────────────┬──────────────┬──────────────┬────────────────────────────┐");
-                report.AppendLine("│ 材质名称         │ 总体积(m³)   │ 总长度(m)    │ 来源（族/类型）            │");
-                report.AppendLine("├──────────────────┼──────────────┼──────────────┼────────────────────────────┤");
-
+                report.AppendLine("材质名称//总体积(m³)//总长度(m)//来源（族/类型）│");
                 foreach (var stat in materialStats)
                 {
                     string sources = string.Join(", ", stat.Sources.Take(3));
                     if (stat.Sources.Count > 3) sources += $" 等{stat.Sources.Count}处";
 
-                    report.AppendLine($"│ {TruncateString(stat.Material, 16),-16} │ " +
-                                     $"{stat.TotalVolume,12:F3} │ " +
-                                     $"{stat.TotalLength,12:F2} │ " +
-                                     $"{TruncateString(sources, 26),-26} │");
+                    report.AppendLine($"│ {stat.Material}//{stat.TotalVolume,12:F3}//{stat.TotalLength,12:F2}//{sources}");
                 }
-
-                report.AppendLine("└──────────────────┴──────────────┴──────────────┴────────────────────────────┘");
             }
             else
             {
                 report.AppendLine("  未找到材质信息或所有构件均未定义材质");
             }
             report.AppendLine();
-
             // 添加材质体积占比分析
             if (materialStats.Any() && grandTotalVolume > 0)
             {
@@ -299,11 +263,10 @@ namespace CreatePipe.Form
                 foreach (var stat in materialStats.Take(5))
                 {
                     double percentage = (stat.TotalVolume / grandTotalVolume) * 100;
-                    report.AppendLine($"  • {stat.Material}: {percentage:F1}% ({stat.TotalVolume:F3}m³)");
+                    report.AppendLine($"•{stat.Material}: {percentage:F1}% ({stat.TotalVolume:F3}m³)");
                 }
                 report.AppendLine();
             }
-
             // 添加汇总信息
             report.AppendLine("========== 统计摘要 ==========");
             report.AppendLine($"✓ 统计族类型数量: {selectedItems.Count}");
@@ -312,17 +275,13 @@ namespace CreatePipe.Form
             report.AppendLine($"✓ 所有构件总长度: {grandTotalLength:F2} 米");
             report.AppendLine($"✓ 所有构件总体积: {grandTotalVolume:F3} 立方米");
             report.AppendLine($"✓ 涉及材质种类: {materialStats.Count}");
-
             if (selectedItems.Any(e => string.IsNullOrEmpty(e.StructuralMaterialName)))
             {
                 int noMaterialCount = selectedItems.Count(e => string.IsNullOrEmpty(e.StructuralMaterialName));
                 report.AppendLine($"⚠ 未定义材质的类型数量: {noMaterialCount}");
             }
-
             // 显示报告
             TaskDialog.Show("结构构件统计报告", report.ToString());
-
-
         }
         public ICommand DeleteElementCommand => new RelayCommand<StructuralEntity>(DeleteElement);
         public void DeleteElement(StructuralEntity entity)
@@ -396,7 +355,6 @@ namespace CreatePipe.Form
                             materialId = symbolMaterialParam?.AsElementId();
                         }
                     }
-
                     // 3. 获取材质名称
                     if (materialId != null && materialId != ElementId.InvalidElementId)
                     {
@@ -404,7 +362,6 @@ namespace CreatePipe.Form
                         StructuralMaterialName = material?.Name;
                     }
                 }
-
             }
             catch (Exception)
             {
