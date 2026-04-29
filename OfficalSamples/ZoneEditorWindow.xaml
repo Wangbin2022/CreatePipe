@@ -1,0 +1,52 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.ZoneEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+Title="Edit Zone" Height="300" Width="450"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0">
+            <Label Content="Available Spaces:" FontWeight="Bold"/>
+            <ListView ItemsSource="{Binding AvailableSpaces}" 
+                      SelectedItem="{Binding SelectedAvailableSpace}"
+                      Height="200">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
+            <Button Content="→ Add →" Command="{Binding AddSpaceCommand}" Margin="0,0,0,10"/>
+            <Button Content="← Remove ←" Command="{Binding RemoveSpaceCommand}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2">
+            <Label Content="Zone Spaces:" FontWeight="Bold"/>
+            <ListView ItemsSource="{Binding ZoneSpaces}" 
+                      SelectedItem="{Binding SelectedZoneSpace}"
+                      Height="200">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="OK" Command="{Binding OKCommand}" Width="75" Margin="0,0,5,0"
+                    Click="OkButton_Click"/>
+            <Button Content="Cancel" IsCancel="True" Width="75"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,41 @@
+﻿<UserControl x:Class="CreatePipe.OfficalSamples.LayerParameterControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Label Content="钢筋类型:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"/>
+        <ComboBox Grid.Row="0" Grid.Column="1"
+                  ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=Window}, 
+                                        Path=DataContext.BarTypes}"
+                  SelectedValue="{Binding BarTypeId}"
+                  DisplayMemberPath="Key"
+                  SelectedValuePath="Value"
+                  Margin="5"/>
+
+        <Label Content="弯钩类型:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"/>
+        <ComboBox Grid.Row="1" Grid.Column="1"
+                  ItemsSource="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=Window}, 
+                                        Path=DataContext.HookTypes}"
+                  SelectedValue="{Binding HookTypeId}"
+                  DisplayMemberPath="Key"
+                  SelectedValuePath="Value"
+                  Margin="5"/>
+
+        <Label Content="弯钩方向:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"/>
+        <ComboBox Grid.Row="2" Grid.Column="1"
+                  ItemsSource="{Binding OrientationValues}"
+                  SelectedValue="{Binding HookOrientation}"
+                  DisplayMemberPath="Key"
+                  SelectedValuePath="Value"
+                  Margin="5"/>
+    </Grid>
+</UserControl>

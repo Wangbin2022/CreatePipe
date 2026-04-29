@@ -1,0 +1,103 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.AreaReinforcementParameterWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="面积配筋参数编辑" 
+        Height="600" Width="550"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="ToolWindow"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <!-- 墙体数据模板 -->
+        <!--<DataTemplate DataType="{x:Type local:WallAreaReinforcementData}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Expander Header="构造设置" IsExpanded="True">
+                    <StackPanel Margin="10">
+                        <ComboBox ItemsSource="{Binding LayoutRuleValues}" 
+                                  SelectedValue="{Binding LayoutRule}"
+                                  DisplayMemberPath="Key"
+                                  SelectedValuePath="Value"/>
+                    </StackPanel>
+                </Expander>
+                <Expander Header="外部主方向层" IsExpanded="True">
+                    <local:LayerParameterControl DataContext="{Binding ExteriorMajor}"/>
+                </Expander>
+                <Expander Header="外部次方向层">
+                    <local:LayerParameterControl DataContext="{Binding ExteriorMinor}"/>
+                </Expander>
+                <Expander Header="内部主方向层">
+                    <local:LayerParameterControl DataContext="{Binding InteriorMajor}"/>
+                </Expander>
+                <Expander Header="内部次方向层">
+                    <local:LayerParameterControl DataContext="{Binding InteriorMinor}"/>
+                </Expander>
+            </ScrollViewer>
+        </DataTemplate>-->
+        <!-- 楼板数据模板 -->
+        <!--<DataTemplate DataType="{x:Type local:FloorAreaReinforcementData}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Expander Header="构造设置" IsExpanded="True">
+                    <StackPanel Margin="10">
+                        <ComboBox ItemsSource="{Binding LayoutRuleValues}" 
+                                  SelectedValue="{Binding LayoutRule}"
+                                  DisplayMemberPath="Key"
+                                  SelectedValuePath="Value"/>
+                    </StackPanel>
+                </Expander>
+                <Expander Header="顶部主方向层" IsExpanded="True">
+                    <local:LayerParameterControl DataContext="{Binding TopMajor}"/>
+                </Expander>
+                <Expander Header="顶部次方向层">
+                    <local:LayerParameterControl DataContext="{Binding TopMinor}"/>
+                </Expander>
+                <Expander Header="底部主方向层">
+                    <local:LayerParameterControl DataContext="{Binding BottomMajor}"/>
+                </Expander>
+                <Expander Header="底部次方向层">
+                    <local:LayerParameterControl DataContext="{Binding BottomMinor}"/>
+                </Expander>
+            </ScrollViewer>
+        </DataTemplate>-->
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <!-- 参数编辑区域 -->
+        <GroupBox Header="钢筋参数设置" Grid.Row="0">
+            <ContentControl Content="{Binding CurrentData}"/>
+        </GroupBox>
+        <!-- 按钮栏 -->
+        <StackPanel Grid.Row="1" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,10,0,0">
+            <Button Content="确定" 
+                    Command="{Binding OKCommand}"
+                    Width="75"
+                    Margin="0,0,10,0"
+                    IsDefault="True"/>
+            <Button Content="取消" 
+                    Command="{Binding CancelCommand}"
+                    Width="75"
+                    IsCancel="True"/>
+        </StackPanel>
+        <!-- 加载遮罩层 -->
+        <Border Grid.RowSpan="2"
+                Background="#80000000"
+                Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
+                <TextBlock Text="正在保存参数..." 
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           Margin="0,10,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

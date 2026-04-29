@@ -97,6 +97,7 @@
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
     <Compile Include="filter\RoofFilter.cs" />
     <Compile Include="filter\XReferenceSelectionFilter.cs" />
+    <Compile Include="Form\Behaviors\NumericInputBehavior.cs" />
     <Compile Include="Form\CableTraySystemManagerView.xaml.cs">
       <DependentUpon>CableTraySystemManagerView.xaml</DependentUpon>
     </Compile>
@@ -120,6 +121,8 @@
     </Compile>
     <Compile Include="Form\Converters\AllToHiddenConverter.cs" />
     <Compile Include="Form\Converters\BackgroundToForegroundConverter.cs" />
+    <Compile Include="Form\Converters\BooleanToBrushConverter.cs" />
+    <Compile Include="Form\Converters\BooleanToResultTextConverter.cs" />
     <Compile Include="Form\Converters\BoolToVisibilityConverter.cs" />
     <Compile Include="Form\Converters\ColorConverter.cs" />
     <Compile Include="Form\Converters\ColorToNameConverter.cs" />
@@ -127,10 +130,14 @@
     <Compile Include="Form\Converters\FileSizeConverter.cs" />
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
     <Compile Include="Form\Converters\InverseBooleanConverter.cs" />
+    <Compile Include="Form\Converters\InverseBooleanToVisibilityConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
     <Compile Include="Form\Converters\LastMEPSystemTextColor.cs" />
+    <Compile Include="Form\Converters\ResultBackgroundConverter.cs" />
+    <Compile Include="Form\Converters\ResultForegroundConverter.cs" />
     <Compile Include="Form\Converters\RevitColorConverter.cs" />
     <Compile Include="Form\Converters\RevitColorToBrushConverter.cs" />
+    <Compile Include="Form\Converters\StatusColorConverter.cs" />
     <Compile Include="Form\Converters\TextColorConverter.cs" />
     <Compile Include="Form\Converters\TextTruncateConverter.cs" />
     <Compile Include="Form\DuctEditAssembleView.xaml.cs">
@@ -245,6 +252,53 @@
     </Compile>
     <Compile Include="Obselete\PipeSelectView.xaml.cs">
       <DependentUpon>PipeSelectView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AddParameterWindow.xaml.cs">
+      <DependentUpon>AddParameterWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AllViewsWindow.xaml.cs">
+      <DependentUpon>AllViewsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AnalyticalSupportWindow.xaml.cs">
+      <DependentUpon>AnalyticalSupportWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AreaReinforcementParameterWindow.xaml.cs">
+      <DependentUpon>AreaReinforcementParameterWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AreaReinforcementWindow.xaml.cs">
+      <DependentUpon>AreaReinforcementWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AutoJoinWindow.xaml.cs">
+      <DependentUpon>AutoJoinWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AutoTagRoomsWindow.xaml.cs">
+      <DependentUpon>AutoTagRoomsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DuctSystemWindow.xaml.cs">
+      <DependentUpon>DuctSystemWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ExportToExcelWindow.xaml.cs">
+      <DependentUpon>ExportToExcelWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\LayerParameterControl.xaml.cs">
+      <DependentUpon>LayerParameterControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\LogService.cs" />
+    <Compile Include="OfficalSamples\ParameterBindingBrowserWindow.xaml.cs">
+      <DependentUpon>ParameterBindingBrowserWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\PipeCollisionResolver.cs" />
+    <Compile Include="OfficalSamples\PrintMonitorWindow.xaml.cs">
+      <DependentUpon>PrintMonitorWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\UniqueIdManagerWindow.xaml.cs">
+      <DependentUpon>UniqueIdManagerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ZoneEditorMainWindow.xaml.cs">
+      <DependentUpon>ZoneEditorMainWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ZoneEditorWindow.xaml.cs">
+      <DependentUpon>ZoneEditorWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="ProjectParameterData.cs" />
     <Compile Include="RevitOperationLogger.cs" />
@@ -1001,6 +1055,66 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\RevitStylePopup\ToastWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AddParameterWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AllViewsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AnalyticalSupportWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AreaReinforcementParameterWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AreaReinforcementWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AutoJoinWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\AutoTagRoomsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DuctSystemWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ExportToExcelWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\LayerParameterControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ParameterBindingBrowserWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\PrintMonitorWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\UniqueIdManagerWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ZoneEditorMainWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ZoneEditorWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

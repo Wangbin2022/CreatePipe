@@ -10,7 +10,8 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="机电管线坡度检查" Width="240" Height="260"
-        ResizeMode="NoResize" Topmost="True" WindowStartupLocation="CenterScreen">
+        ResizeMode="NoResize" Topmost="True" WindowStartupLocation="CenterScreen"
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style x:Key="TransparentHoverButtonStyle" TargetType="{x:Type Button}">
@@ -49,8 +50,16 @@
                 <RowDefinition Height="30"/>
                 <RowDefinition Height="30"/>
                 <RowDefinition Height="30"/>
-            </Grid.RowDefinitions>  
+            </Grid.RowDefinitions>
         </Grid>
+        <StackPanel Margin="10">
+            <TextBlock Text="只能输入整数（正数）："/>
+            <TextBox bv:NumericInputBehavior.IsNumericEnabled="True"
+                         Text="{Binding D, UpdateSourceTrigger=PropertyChanged}"
+                         Height="30" Margin="0,5"/>
+            <TextBlock Text="{Binding IntegerValue, StringFormat='当前值: {0}'}" 
+                           Foreground="Gray"/>
+        </StackPanel>
         <DockPanel Grid.Row="1" Margin="0,5,5,5">
             <Button  Content="查找并高亮显示" Command="{Binding DrawTableCommand}"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>

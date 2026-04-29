@@ -1,0 +1,126 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.UniqueIdManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+     Title="梁和楼板唯一ID管理器" 
+        Height="500" Width="700"
+        WindowStartupLocation="CenterScreen"
+              xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+    <Window.Resources>
+        <conv:BooleanToBrushConverter x:Key="BooleanToBrushConverter"/>
+        <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        <conv:ResultBackgroundConverter x:Key="ResultBackgroundConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" 
+                   Text="梁和楼板唯一ID管理器"
+                   FontSize="18" 
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,15"/>
+
+        <!-- 状态栏 -->
+        <Border Grid.Row="1" 
+                Background="{Binding IsProcessing, Converter={StaticResource ResultBackgroundConverter}}"
+                CornerRadius="5"
+                Padding="10"
+                Margin="0,0,0,15">
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="12" Height="12" 
+                         Fill="{Binding IsParameterAdded, Converter={StaticResource BooleanToBrushConverter}}"
+                         VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ParameterStatusText}" 
+                           Margin="10,0,20,0"
+                           VerticalAlignment="Center"
+                           FontWeight="Bold"/>
+                <TextBlock Text="{Binding StatusMessage}" 
+                           Foreground="Gray"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 唯一ID列表 -->
+        <GroupBox Grid.Row="2" Header="唯一ID列表" Margin="0,0,0,15">
+            <DataGrid ItemsSource="{Binding UniqueIdList}"
+                      SelectedItem="{Binding SelectedItem}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      Margin="10">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="类别" 
+                                        Binding="{Binding CategoryName}"
+                                        Width="120"/>
+                    <DataGridTextColumn Header="名称" 
+                                        Binding="{Binding ElementName}"
+                                        Width="150"/>
+                    <DataGridTextColumn Header="ID" 
+                                        Binding="{Binding ElementId}"
+                                        Width="80"/>
+                    <DataGridTextColumn Header="唯一ID" 
+                                        Binding="{Binding UniqueIdValue}"
+                                        Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- 按钮栏 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="添加共享参数" 
+                    Command="{Binding AddParameterCommand}"
+                    IsEnabled="{Binding IsParameterAdded, Converter={StaticResource InverseBooleanConverter}}"
+                    Width="120"
+                    Height="35"
+                    Margin="0,0,10,0"
+                    Background="{Binding IsParameterAdded, Converter={StaticResource BooleanToBrushConverter}}"
+                    Foreground="White"/>
+            <Button Content="生成唯一ID" 
+                    Command="{Binding GenerateIdsCommand}"
+                    Width="100"
+                    Height="35"
+                    Margin="0,0,10,0"
+                    Background="#5B9BD5"
+                    Foreground="White"/>
+
+            <Button Content="查找定位" 
+                    Command="{Binding FindElementCommand}"
+                    Width="80"
+                    Height="35"
+                    Margin="0,0,10,0"
+                    Background="#70AD47"
+                    Foreground="White"/>
+
+            <Button Content="刷新" 
+                    Command="{Binding RefreshCommand}"
+                    Width="70"
+                    Height="35"
+                    Margin="0,0,10,0"/>
+
+            <Button Content="关闭" 
+                    Command="{Binding CloseCommand}"
+                    Width="70"
+                    Height="35"
+                    IsCancel="True"/>
+        </StackPanel>
+        <!-- 加载遮罩 -->
+        <Border Grid.RowSpan="4"
+                Background="#80000000"
+                Visibility="{Binding IsProcessing, Converter={StaticResource BooleanToBrushConverter}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="15"/>
+                <TextBlock Text="{Binding StatusMessage}" 
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           Margin="0,10,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

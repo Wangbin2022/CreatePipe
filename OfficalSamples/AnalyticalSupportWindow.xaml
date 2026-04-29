@@ -1,0 +1,68 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.AnalyticalSupportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+        Title="分析模型支撑信息" 
+        Height="450" Width="800"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 数据表格：显示构件支撑信息 -->
+        <DataGrid Grid.Row="0"
+                  ItemsSource="{Binding SupportInfoList}"
+                  SelectedItem="{Binding SelectedItem}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  RowHeaderWidth="0"
+                  AlternatingRowBackground="LightGray"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow">
+
+            <DataGrid.Columns>
+                <!-- 构件ID列 -->
+                <DataGridTextColumn Header="构件ID" 
+                                    Binding="{Binding Id}"
+                                    Width="100"/>
+
+                <!-- 构件类型列 -->
+                <DataGridTextColumn Header="构件类型" 
+                                    Binding="{Binding ElementType}"
+                                    Width="280"/>
+
+                <!-- 支撑类型列 -->
+                <DataGridTextColumn Header="支撑类型" 
+                                    Binding="{Binding SupportType}"
+                                    Width="200"/>
+
+                <!-- 备注列 -->
+                <DataGridTextColumn Header="备注" 
+                                    Binding="{Binding Remark}"
+                                    Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 底部按钮栏 -->
+        <StackPanel Grid.Row="1" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,10,0,0">
+            <Button Content="关闭(..)" 
+                    Command="{Binding CloseCommand}"
+                    Width="75"
+                    Height="25"
+                    IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

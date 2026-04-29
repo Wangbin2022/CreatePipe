@@ -1,0 +1,155 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.ExportToExcelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+   Title="导出构件数据到Excel" 
+        Height="550" Width="900"
+        WindowStartupLocation="CenterScreen"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+    <Window.Resources>
+        <conv:BooleanToBrushConverter x:Key="BooleanToBrushConverter"/>
+        <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" 
+                   Text="按类别导出Revit构件参数到Excel"
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Margin="0,0,0,10"
+                   HorizontalAlignment="Center"/>
+
+        <!-- 主内容区域：左右分栏 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：类别列表 -->
+            <GroupBox Header="构件类别" Grid.Column="0">
+                <ListBox ItemsSource="{Binding CategoryGroups}"
+                         SelectedItem="{Binding SelectedCategory}"
+                         DisplayMemberPath="CategoryName">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="ToolTip">
+                                <Setter.Value>
+                                    <TextBlock>
+                                        <Run Text="构件数量: "/>
+                                        <Run Text="{Binding Elements.Count}"/>
+                                        <LineBreak/>
+                                        <Run Text="公共属性: "/>
+                                        <Run Text="{Binding CommonProperties.Count}"/>
+                                    </TextBlock>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </GroupBox>
+
+            <!-- 分隔线 -->
+            <GridSplitter Grid.Column="1" 
+                          HorizontalAlignment="Stretch"
+                          Background="LightGray"/>
+
+            <!-- 右侧：数据预览 -->
+            <GroupBox Header="数据预览" Grid.Column="2">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 选中类别的统计信息 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5" Grid.IsSharedSizeScope="True">
+                        <TextBlock Text="类别：" FontWeight="Bold" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding SelectedCategory.CategoryName}" Margin="0,0,15,0"/>
+                        <TextBlock Text="构件数：" FontWeight="Bold" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding SelectedCategory.Elements.Count}" Margin="0,0,15,0"/>
+                        <TextBlock Text="公共属性数：" FontWeight="Bold" Margin="0,0,5,0"/>
+                        <TextBlock Text="{Binding SelectedCategory.CommonProperties.Count}"/>
+                    </StackPanel>
+
+                    <!-- 数据表格 -->
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding SelectedCategory.Elements}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              GridLinesVisibility="Horizontal"
+                              AlternatingRowBackground="LightGray"
+                              RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <!-- 构件ID列 -->
+                            <DataGridTextColumn Header="构件ID" 
+                                                Binding="{Binding Id}"
+                                                Width="80"/>
+                            <!-- 动态生成属性列 -->
+                            <DataGridTemplateColumn Header="参数值" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ItemsControl ItemsSource="{Binding ParameterValues}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock>
+                                                        <Run Text="{Binding Key}" FontWeight="Bold"/>
+                                                        <Run Text=": "/>
+                                                        <Run Text="{Binding Value}"/>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </GroupBox>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <Border Grid.Row="2" 
+                Background="#F0F0F0" 
+                BorderBrush="#CCCCCC" 
+                BorderThickness="0,1,0,0"
+                Margin="-10,10,-10,0"
+                Padding="10,5">
+            <TextBlock Text="{Binding ExportStatus}" 
+                       Foreground="{Binding IsExporting, Converter={StaticResource BooleanToBrushConverter}}"/>
+        </Border>
+
+        <!-- 按钮栏 -->
+        <StackPanel Grid.Row="3" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,10,0,0">
+            <Button Content="刷新数据" 
+                    Command="{Binding RefreshCommand}"
+                    Width="80"
+                    Margin="0,0,10,0"/>
+            <Button Content="导出到Excel" 
+                    Command="{Binding ExportCommand}"
+                    IsEnabled="{Binding IsExporting, Converter={StaticResource InverseBooleanConverter}}"
+                    Width="100"
+                    Margin="0,0,10,0"
+                    Background="#5B9BD5"
+                    Foreground="White"/>
+            <Button Content="关闭" 
+                    Command="{Binding CloseCommand}"
+                    Width="75"
+                    IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

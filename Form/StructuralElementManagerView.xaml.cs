@@ -335,8 +335,36 @@ namespace CreatePipe.Form
                 TotalVolume += item.get_Parameter(BuiltInParameter.HOST_VOLUME_COMPUTED).AsDouble() * 304.8 * 304.8 * 304.8 / (1000 * 1000 * 1000);
             }
             // 2. 楼层统计
-            StructuralInstanceCount = instances.GroupBy(fi => fi.Document.GetElement(fi.LevelId)?.Name ?? "未定义楼层")
-                .ToDictionary(g => g.Key, g => g.Count().ToString());
+            //StructuralInstanceCount = instances.GroupBy(fi => fi.Document.GetElement(fi.LevelId)?.Name ?? "未定义楼层")
+            //    .ToDictionary(g => g.Key, g => g.Count().ToString());
+            StructuralInstanceCount = new Dictionary<string, string>();
+            var groups = new Dictionary<string, List<FamilyInstance>>();
+            foreach (FamilyInstance fi in instances)
+            {
+                string levelName = "未定义楼层";
+                if (fi.Symbol.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralFraming)
+                {
+                    levelName = (Document.GetElement(fi.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM).AsElementId()) as Level).Name;
+                }
+                else if (fi.LevelId != null)
+                {
+                    Element level = fi.Document.GetElement(fi.LevelId);
+                    if (level != null)
+                    {
+                        levelName = level.Name;
+                    }
+                }
+                if (!groups.ContainsKey(levelName))
+                {
+                    groups[levelName] = new List<FamilyInstance>();
+                }
+                groups[levelName].Add(fi);
+            }
+            foreach (var group in groups)
+            {
+                StructuralInstanceCount[group.Key] = group.Value.Count.ToString();
+            }
+            //材质收集处理
             try
             {
                 if (instances.Count != 0)

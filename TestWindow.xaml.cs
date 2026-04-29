@@ -34,6 +34,7 @@ namespace CreatePipe
             _doc = _uidoc.Document;
 
         }
+        public string D { get; set; } = "0";
         public ICommand SaveConfigCommand => new BaseBindingCommand(SaveConfig);
         private void SaveConfig(object obj)
         {

@@ -28,14 +28,6 @@ namespace CreatePipe.Form.Behaviors
                 }
             }
         }
-        //0510 改直接执行，不延迟
-        //private static void OnTextChanged(object sender, TextChangedEventArgs e)
-        //{
-        //    var textBox = (TextBox)sender;
-        //    var command = GetTextChangedCommand(textBox);
-        //    command?.Execute(textBox.Text); // 直接执行，无延迟
-        //}
-        //200毫秒延迟执行版本
         private static void OnTextChanged(object sender, TextChangedEventArgs e)
         {
             var textBox = (TextBox)sender;
