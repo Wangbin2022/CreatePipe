@@ -1,0 +1,146 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.RevitBeamSystemCreatorView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+   Title="创建梁系统" Height="550" Width="800"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+              xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+    <Window.Resources>
+        <conv:StatusColorConverter x:Key="StatusColorConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:BooleanToResultTextConverter x:Key="BooleanToResultTextConverter"/>
+        <!-- 布局方式显示模板 -->
+        <DataTemplate x:Key="LayoutMethodTemplate">
+            <TextBlock Text="{Binding}" />
+        </DataTemplate>
+
+        <!-- 梁类型显示模板 -->
+        <DataTemplate x:Key="BeamTypeTemplate">
+            <!--<TextBlock Text="{Binding Family.Name}: {Binding Name}" />-->
+            <TextBlock Text="{Binding Family.Name}" />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="320"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 左侧：轮廓预览区域 -->
+        <Border Grid.Column="0" BorderBrush="#CCCCCC" BorderThickness="1" 
+                Background="White" Margin="0,0,10,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="轮廓预览" FontWeight="Bold" 
+                           Margin="5" Background="White"/>
+
+                <!-- 绘图区域 -->
+                <Viewbox Grid.Row="1" Stretch="Uniform" Margin="10">
+                    <Canvas Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}">
+                        <Canvas.Background>
+                            <DrawingBrush>
+                                <DrawingBrush.Drawing>
+                                    <DrawingGroup>
+                                        <GeometryDrawing Brush="White" Geometry="M0,0 L400,0 400,400 0,400Z"/>
+                                        <DrawingGroup>
+                                            <GeometryDrawing Brush="Transparent" >
+                                                <!--<GeometryDrawing Brush="Transparent" Pen="Black">-->
+                                                <GeometryDrawing.Geometry>
+                                                    <RectangleGeometry Rect="0,0,400,400"/>
+                                                </GeometryDrawing.Geometry>
+                                            </GeometryDrawing>
+                                        </DrawingGroup>
+                                    </DrawingGroup>
+                                </DrawingBrush.Drawing>
+                            </DrawingBrush>
+                        </Canvas.Background>
+
+                        <!-- 轮廓绘制 -->
+                        <Image Width="{Binding CanvasWidth}" Height="{Binding CanvasHeight}">
+                            <Image.Source>
+                                <DrawingImage Drawing="{Binding ProfileDrawing}"/>
+                            </Image.Source>
+                        </Image>
+                    </Canvas>
+                </Viewbox>
+
+                <!-- 加载指示器 -->
+                <Border Grid.Row="1" Background="#80FFFFFF" 
+                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="加载中..." HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="16" Foreground="Gray"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 右侧：参数设置区域 -->
+        <StackPanel Grid.Column="1" Margin="10,0,0,0">
+            <GroupBox Header="梁系统参数" Margin="0,0,0,10">
+                <StackPanel Margin="5">
+                    <!-- 布局方式 -->
+                    <TextBlock Text="布局方式:" Margin="0,5,0,2"/>
+                    <ComboBox ItemsSource="{Binding DataModel.AvailableLayoutMethods}" 
+                              SelectedItem="{Binding DataModel.SelectedLayoutMethod}"
+                              DisplayMemberPath="DisplayName"/>
+
+                    <!-- 间距（条件显示） -->
+                    <TextBlock Text="{Binding DataModel.SpacingLabel}" 
+                               Visibility="{Binding DataModel.ShowSpacing, Converter={StaticResource BoolToVisibilityConverter}}"
+                               Margin="0,10,0,2"/>
+                    <TextBox Text="{Binding DataModel.Spacing, UpdateSourceTrigger=PropertyChanged}"
+                             Visibility="{Binding DataModel.ShowSpacing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- 梁数量（条件显示） -->
+                    <TextBlock Text="梁数量:" 
+                               Visibility="{Binding DataModel.ShowNumberOfLines, Converter={StaticResource BoolToVisibilityConverter}}"
+                               Margin="0,10,0,2"/>
+                    <TextBox Text="{Binding DataModel.NumberOfLines, UpdateSourceTrigger=PropertyChanged}"
+                             Visibility="{Binding DataModel.ShowNumberOfLines, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- 对齐方式（条件显示） -->
+                    <TextBlock Text="对齐方式:" 
+                               Visibility="{Binding DataModel.ShowJustifyType, Converter={StaticResource BoolToVisibilityConverter}}"
+                               Margin="0,10,0,2"/>
+                    <ComboBox ItemsSource="{Binding DataModel.AvailableJustifyTypes}" 
+                              SelectedItem="{Binding DataModel.JustifyType}"
+                              Visibility="{Binding DataModel.ShowJustifyType, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- 梁类型 -->
+                    <TextBlock Text="梁类型:" Margin="0,10,0,2"/>
+                    <ComboBox ItemsSource="{Binding DataModel.AvailableBeamTypes}" 
+                              SelectedItem="{Binding DataModel.SelectedBeamType}"
+                              DisplayMemberPath="Name"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- 状态信息 -->
+            <TextBlock Text="{Binding StatusMessage}" 
+                       Foreground="{Binding StatusMessage, Converter={StaticResource StatusColorConverter}}"
+                       TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+            <!-- 按钮区域 -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="切换方向" 
+                        Command="{Binding RotateDirectionCommand}"
+                        Width="90" Height="30" Margin="0,0,10,0"/>
+                <Button Content="确定" 
+                        Command="{Binding OkCommand}"
+                        Width="75" Height="30" Margin="0,0,10,0"
+                        IsDefault="True"/>
+                <Button Content="取消" 
+                        Command="{Binding CancelCommand}"
+                        Width="75" Height="30"
+                        IsCancel="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

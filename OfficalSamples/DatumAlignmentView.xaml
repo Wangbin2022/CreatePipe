@@ -1,0 +1,172 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.DatumAlignmentView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+     Title="基准线对齐工具" Height="480" Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        MinHeight="400" MinWidth="450"
+          xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <local:AxisToIconConverter x:Key="AxisToIconConverter"/>
+        <local:SuccessToBrushConverter x:Key="SuccessToBrushConverter"/>
+        <local:SuccessToForegroundConverter x:Key="SuccessToForegroundConverter"/>
+        
+        <!-- 对齐轴颜色转换器 -->
+        <SolidColorBrush x:Key="XAxisBrush" Color="#E74C3C"/>
+        <SolidColorBrush x:Key="YAxisBrush" Color="#27AE60"/>
+        <SolidColorBrush x:Key="ZAxisBrush" Color="#2980B9"/>
+
+        <Style x:Key="DatumListItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Margin" Value="2"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsZAligned}" Value="True">
+                    <Setter Property="Background" Value="#E8F4FD"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="15">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <TextBlock Grid.Row="0" Text="基准线对齐" FontSize="16" FontWeight="Bold" 
+                       Margin="0,0,0,10" HorizontalAlignment="Center"/>
+
+            <!-- 说明 -->
+            <TextBlock Grid.Row="1" Text="将选中的基准线（轴线/标高/参照平面）对齐到指定的参考基准线方向" 
+                       FontSize="12" Foreground="Gray" TextWrapping="Wrap"
+                       Margin="0,0,0,15"/>
+
+            <!-- 基准线列表 -->
+            <GroupBox Grid.Row="2" Header="已选中的基准线" Margin="0,5">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" 
+                                   FontSize="11" Foreground="Gray"/>
+                        <Button Grid.Column="1" Command="{Binding RefreshSelectionCommand}"
+                                Content="刷新" Width="60" Height="25" Margin="5,0,0,0"/>
+                    </Grid>
+
+                    <ListBox Grid.Row="1" ItemsSource="{Binding SelectedDatums}"
+                             SelectedItem="{Binding SelectedReferenceDatum}"
+                             ItemContainerStyle="{StaticResource DatumListItemStyle}"
+                             Margin="5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="3" Padding="5,3">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 方向图标 -->
+                                        <TextBlock Grid.Column="0" 
+                                                   Text="{Binding Axis, Converter={StaticResource AxisToIconConverter}}"
+                                                   FontSize="14" Width="25" 
+                                                   HorizontalAlignment="Center"/>
+
+                                        <!-- 名称 -->
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" 
+                                                   Margin="10,0" VerticalAlignment="Center"/>
+
+                                        <!-- 参考标识 -->
+                                        <Border Grid.Column="2" 
+                                                Background="#FFD700" CornerRadius="8"
+                                                Padding="6,2"
+                                                Visibility="{Binding IsSelected, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListBoxItem}, 
+                                                                     Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="参考线" FontSize="9" FontWeight="Bold"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </GroupBox>
+
+            <!-- 对齐信息 -->
+            <Border Grid.Row="3" Background="#F5F5F5" CornerRadius="5" Padding="10" Margin="0,10">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Rectangle Width="12" Height="12" Fill="{StaticResource XAxisBrush}" Margin="0,0,5,0"/>
+                    <TextBlock Text="X方向" Margin="0,0,15,0"/>
+                    <Rectangle Width="12" Height="12" Fill="{StaticResource YAxisBrush}" Margin="0,0,5,0"/>
+                    <TextBlock Text="Y方向" Margin="0,0,15,0"/>
+                    <Rectangle Width="12" Height="12" Fill="{StaticResource ZAxisBrush}" Margin="0,0,5,0"/>
+                    <TextBlock Text="Z方向"/>
+                    <TextBlock Text="| 将对齐" Margin="15,0,0,0"/>
+                    <TextBlock Text="{Binding ToBeAlignedCount}" FontWeight="Bold" Margin="5,0"/>
+                    <TextBlock Text="个基准线"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 结果消息 -->
+            <!--<Border Grid.Row="4" Background="{Binding LastResult.Success, Converter={StaticResource SuccessToBrushConverter}}"
+                    CornerRadius="3" Padding="8,5" Margin="0,5,0,10"
+                    Visibility="{Binding LastResult, Converter={StaticResource NullToVisibilityConverter}}">
+                <TextBlock Text="{Binding LastResult.Message}" 
+                           TextWrapping="Wrap" FontSize="11"
+                           Foreground="{Binding LastResult.Success, Converter={StaticResource SuccessToForegroundConverter}}"/>
+            </Border>-->
+
+            <!-- 按钮区域 -->
+            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+                <Button Command="{Binding AlignCommand}" 
+                        Content="对齐" Width="80" Height="30"
+                        IsEnabled="{Binding CanAlign}"
+                        Background="#007ACC" Foreground="White"
+                        Margin="0,0,10,0">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#007ACC"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Background" Value="#CCC"/>
+                                    <Setter Property="Foreground" Value="Gray"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Command="{Binding CancelCommand}" Content="取消" Width="80" Height="30"/>
+            </StackPanel>
+
+            <!-- 加载进度提示 -->
+            <Border Grid.RowSpan="6" Background="#80FFFFFF" 
+                    Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
+                    <TextBlock Text="{Binding StatusMessage}" Margin="0,10,0,0" 
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

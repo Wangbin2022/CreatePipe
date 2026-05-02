@@ -96,6 +96,7 @@
     <Compile Include="filter\LinkedPipeDuctSelectionFilter.cs" />
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
     <Compile Include="filter\RoofFilter.cs" />
+    <Compile Include="filter\StructuralConnectionSelectionFilter.cs" />
     <Compile Include="filter\XReferenceSelectionFilter.cs" />
     <Compile Include="Form\Behaviors\NumericInputBehavior.cs" />
     <Compile Include="Form\CableTraySystemManagerView.xaml.cs">
@@ -127,12 +128,14 @@
     <Compile Include="Form\Converters\ColorConverter.cs" />
     <Compile Include="Form\Converters\ColorToNameConverter.cs" />
     <Compile Include="Form\Converters\ContentTemplateSelector.cs" />
+    <Compile Include="Form\Converters\EnumToBooleanConverter.cs" />
     <Compile Include="Form\Converters\FileSizeConverter.cs" />
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
     <Compile Include="Form\Converters\InverseBooleanConverter.cs" />
     <Compile Include="Form\Converters\InverseBooleanToVisibilityConverter.cs" />
     <Compile Include="Form\Converters\IsStringConverter.cs" />
     <Compile Include="Form\Converters\LastMEPSystemTextColor.cs" />
+    <Compile Include="Form\Converters\NullToVisibilityConverter.cs" />
     <Compile Include="Form\Converters\ResultBackgroundConverter.cs" />
     <Compile Include="Form\Converters\ResultForegroundConverter.cs" />
     <Compile Include="Form\Converters\RevitColorConverter.cs" />
@@ -140,6 +143,7 @@
     <Compile Include="Form\Converters\StatusColorConverter.cs" />
     <Compile Include="Form\Converters\TextColorConverter.cs" />
     <Compile Include="Form\Converters\TextTruncateConverter.cs" />
+    <Compile Include="Form\Converters\ZeroToVisibilityConverter.cs" />
     <Compile Include="Form\DuctEditAssembleView.xaml.cs">
       <DependentUpon>DuctEditAssembleView.xaml</DependentUpon>
     </Compile>
@@ -256,11 +260,15 @@
     <Compile Include="OfficalSamples\AddParameterWindow.xaml.cs">
       <DependentUpon>AddParameterWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\AirHandlerCreator.cs" />
     <Compile Include="OfficalSamples\AllViewsWindow.xaml.cs">
       <DependentUpon>AllViewsWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\AnalyticalSupportWindow.xaml.cs">
       <DependentUpon>AnalyticalSupportWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\AreaReinforcementCreatView.xaml.cs">
+      <DependentUpon>AreaReinforcementCreatView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\AreaReinforcementParameterWindow.xaml.cs">
       <DependentUpon>AreaReinforcementParameterWindow.xaml</DependentUpon>
@@ -274,25 +282,124 @@
     <Compile Include="OfficalSamples\AutoTagRoomsWindow.xaml.cs">
       <DependentUpon>AutoTagRoomsWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\CommandDisabler.cs" />
+    <Compile Include="OfficalSamples\CreateCurtainWallView.xaml.cs">
+      <DependentUpon>CreateCurtainWallView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CreateCurvedBeamView.xaml.cs">
+      <DependentUpon>CreateCurvedBeamView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CreateOrthogonalGridView.xaml.cs">
+      <DependentUpon>CreateOrthogonalGridView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CreateSharedParameter.cs" />
+    <Compile Include="OfficalSamples\CreateWallsUnderBeamView.xaml.cs">
+      <DependentUpon>CreateWallsUnderBeamView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DatumAlignmentView.xaml.cs">
+      <DependentUpon>DatumAlignmentView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DatumPropagationView.xaml.cs">
+      <DependentUpon>DatumPropagationView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DatumStyleModificationView.xaml.cs">
+      <DependentUpon>DatumStyleModificationView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DeckPropertyView.xaml.cs">
+      <DependentUpon>DeckPropertyView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DefaultElementTypesView.xaml.cs">
+      <DependentUpon>DefaultElementTypesView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DesignOptionView.xaml.cs">
+      <DependentUpon>DesignOptionView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\DimensionCleaner.cs" />
+    <Compile Include="OfficalSamples\DimensionHorizontalMover.cs" />
+    <Compile Include="OfficalSamples\DMUAssociativeSectionUpdate.cs" />
     <Compile Include="OfficalSamples\DuctSystemWindow.xaml.cs">
       <DependentUpon>DuctSystemWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\DuplicateView.cs" />
+    <Compile Include="OfficalSamples\ElementsBatchCreator.cs" />
     <Compile Include="OfficalSamples\ExportToExcelWindow.xaml.cs">
       <DependentUpon>ExportToExcelWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ExtensibleStorageDataView.xaml.cs">
+      <DependentUpon>ExtensibleStorageDataView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ExtensibleStorageDeletion.cs" />
+    <Compile Include="OfficalSamples\ExtensibleStorageManagerView.xaml.cs">
+      <DependentUpon>ExtensibleStorageManagerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ExtensibleStorageStatistics.cs" />
+    <Compile Include="OfficalSamples\ExtensibleStorageUtility.cs" />
+    <Compile Include="OfficalSamples\FindSouthFacingWalls.cs" />
+    <Compile Include="OfficalSamples\FireRatingManagerView.xaml.cs">
+      <DependentUpon>FireRatingManagerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\FormatStatusExtensions.cs" />
+    <Compile Include="OfficalSamples\FoundationSlabView.xaml.cs">
+      <DependentUpon>FoundationSlabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\GenerateFloorView.xaml.cs">
+      <DependentUpon>GenerateFloorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\GenericStructuralConnectionView.xaml.cs">
+      <DependentUpon>GenericStructuralConnectionView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\InPlaceFamilyAnalyzerView.xaml.cs">
+      <DependentUpon>InPlaceFamilyAnalyzerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\InvisibleParam.cs" />
+    <Compile Include="OfficalSamples\JournalingView.xaml.cs">
+      <DependentUpon>JournalingView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\LayerParameterControl.xaml.cs">
       <DependentUpon>LayerParameterControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\LevelsPropertyView.xaml.cs">
+      <DependentUpon>LevelsPropertyView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\LogService.cs" />
+    <Compile Include="OfficalSamples\MathTools.cs" />
+    <Compile Include="OfficalSamples\DimensionMoveToPickedPoint.cs" />
     <Compile Include="OfficalSamples\ParameterBindingBrowserWindow.xaml.cs">
       <DependentUpon>ParameterBindingBrowserWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\PatternCreateView.xaml.cs">
+      <DependentUpon>PatternCreateView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\PatternManagerView.xaml.cs">
+      <DependentUpon>PatternManagerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\PipeCollisionResolver.cs" />
     <Compile Include="OfficalSamples\PrintMonitorWindow.xaml.cs">
       <DependentUpon>PrintMonitorWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\RevitBeamSystemCreatorView.xaml.cs">
+      <DependentUpon>RevitBeamSystemCreatorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\RevitCSGGenerator.cs" />
+    <Compile Include="OfficalSamples\SchemaWrapper.cs" />
+    <Compile Include="OfficalSamples\SectionViewCreator.cs" />
+    <Compile Include="OfficalSamples\SetSharedParameterCommand.cs" />
+    <Compile Include="OfficalSamples\SortFamilyParametersView.xaml.cs">
+      <DependentUpon>SortFamilyParametersView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\StructuralFrameBuilderView.xaml.cs">
+      <DependentUpon>StructuralFrameBuilderView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\TrussCreator.cs" />
     <Compile Include="OfficalSamples\UniqueIdManagerWindow.xaml.cs">
       <DependentUpon>UniqueIdManagerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\Validation.cs" />
+    <Compile Include="OfficalSamples\Vector4.cs" />
+    <Compile Include="OfficalSamples\WallCompoundStructureCommand.cs" />
+    <Compile Include="OfficalSamples\WallDimensionDemo.cs" />
+    <Compile Include="OfficalSamples\WallFromBeamsCreatView.xaml.cs">
+      <DependentUpon>WallFromBeamsCreatView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\ZoneEditorMainWindow.xaml.cs">
       <DependentUpon>ZoneEditorMainWindow.xaml</DependentUpon>
@@ -1070,6 +1177,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\AreaReinforcementCreatView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\AreaReinforcementParameterWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1086,6 +1197,46 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\CreateCurtainWallView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CreateCurvedBeamView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CreateOrthogonalGridView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CreateWallsUnderBeamView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DatumAlignmentView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DatumPropagationView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DatumStyleModificationView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DeckPropertyView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DefaultElementTypesView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\DesignOptionView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\DuctSystemWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1094,7 +1245,43 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\ExtensibleStorageDataView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ExtensibleStorageManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\FireRatingManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\FoundationSlabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\GenerateFloorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\GenericStructuralConnectionView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\InPlaceFamilyAnalyzerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\JournalingView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\LayerParameterControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\LevelsPropertyView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1102,11 +1289,35 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\PatternCreateView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\PatternManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\PrintMonitorWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\RevitBeamSystemCreatorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\SortFamilyParametersView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\StructuralFrameBuilderView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\UniqueIdManagerWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\WallFromBeamsCreatView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

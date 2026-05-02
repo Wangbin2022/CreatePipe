@@ -1,0 +1,141 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.CreateWallsUnderBeamView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="在梁下方创建墙体" Height="550" Width="550"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <local:CreateWallStatusConverter x:Key="CreateWallStatusConverter"/>
+        <!-- 状态颜色转换器 -->
+        <Style x:Key="StatusStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Status}" Value="✓ 有效">
+                    <Setter Property="Foreground" Value="Green"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="{x:Null}">
+                    <Setter Property="Foreground" Value="Gray"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Status}" Value="检查中...">
+                    <Setter Property="Foreground" Value="Orange"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="在梁下方创建墙体" FontSize="16" FontWeight="Bold" 
+                   Margin="0,0,0,10" HorizontalAlignment="Center"/>
+
+        <!-- 选中的梁列表 -->
+        <GroupBox Grid.Row="1" Header="选中的梁" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 摘要信息 -->
+                <Border Grid.Row="0" Background="#E8F0FE" CornerRadius="3" Padding="5" Margin="5">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="📊 " FontSize="12"/>
+                        <TextBlock Text="{Binding SummaryInfo}" FontSize="12"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 梁列表 -->
+                <ListView Grid.Row="1" ItemsSource="{Binding SelectedBeams}" 
+                          SelectedItem="{Binding SelectedBeam}"
+                          Margin="5" Height="150">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="状态" Width="60" DisplayMemberBinding="{Binding Status}"/>
+                            <GridViewColumn Header="名称" Width="150" DisplayMemberBinding="{Binding Name}"/>
+                            <GridViewColumn Header="ID" Width="80" DisplayMemberBinding="{Binding Id}"/>
+                            <GridViewColumn Header="长度(ft)" Width="80" DisplayMemberBinding="{Binding Length, StringFormat=F2}"/>
+                        </GridView>
+                    </ListView.View>
+
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Foreground" Value="{Binding Status, Converter={StaticResource CreateWallStatusConverter}}"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+            </Grid>
+        </GroupBox>
+
+        <!-- 墙体参数设置 -->
+        <GroupBox Grid.Row="2" Header="墙体参数" Margin="0,0,0,10">
+            <StackPanel Margin="10">
+                <!-- 墙体类型 -->
+                <TextBlock Text="墙体类型:" Margin="0,5,0,2"/>
+                <ComboBox ItemsSource="{Binding Settings.AvailableWallTypes}" 
+                          SelectedItem="{Binding Settings.SelectedWallType}"
+                          DisplayMemberPath="Name"
+                          IsEnabled="{Binding HasValidBeams}"/>
+
+                <!-- 墙体高度 -->
+                <TextBlock Text="墙体高度 (英尺):" Margin="0,10,0,2"/>
+                <TextBox Text="{Binding Settings.WallHeight, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding HasValidBeams}"/>
+
+                <!-- 偏移量 -->
+                <TextBlock Text="梁底偏移 (英尺):" Margin="0,10,0,2"/>
+                <TextBox Text="{Binding Settings.OffsetFromBeam, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding HasValidBeams}"/>
+
+                <!-- 结构墙选项 -->
+                <CheckBox Content="创建结构墙" 
+                          IsChecked="{Binding Settings.IsStructural}"
+                          IsEnabled="{Binding HasValidBeams}"
+                          Margin="0,10,0,0"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="3" Margin="0,0,0,10">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <ProgressBar Width="80" Height="15" IsIndeterminate="{Binding IsProcessing}"
+                             Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- 提示信息 -->
+        <TextBlock Grid.Row="4" Text="💡 提示：墙体将沿梁的中心线创建，从梁底部向下延伸" 
+                   FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="创建墙体" 
+                    Command="{Binding CreateWallsCommand}"
+                    Width="90" Height="30" Margin="0,0,10,0"
+                    IsDefault="True"
+                    IsEnabled="{Binding CanCreate}"/>
+            <Button Content="取消" 
+                    Command="{Binding CancelCommand}"
+                    Width="75" Height="30"
+                    IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -440,7 +440,6 @@ namespace CreatePipe.OfficalSamples
         TowardsExterior = 0,
         TowardsInterior = 2
     }
-
     /// <summary>
     /// 图层参数组基类
     /// </summary>
@@ -474,7 +473,6 @@ namespace CreatePipe.OfficalSamples
             set { _hookOrientation = value; OnPropertyChanged(); }
         }
     }
-
     /// <summary>
     /// 墙体面积配筋数据模型
     /// </summary>
@@ -534,7 +532,6 @@ namespace CreatePipe.OfficalSamples
             set { _interiorMinor = value; OnPropertyChanged(); }
         }
     }
-
     /// <summary>
     /// 墙体图层参数（带方向枚举转换）
     /// </summary>
@@ -548,7 +545,6 @@ namespace CreatePipe.OfficalSamples
             set => base.HookOrientation = (int)value;
         }
     }
-
     /// <summary>
     /// 楼板面积配筋数据模型
     /// </summary>
@@ -612,7 +608,6 @@ namespace CreatePipe.OfficalSamples
         protected void OnPropertyChanged(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
-
     /// <summary>
     /// 楼板图层参数（带方向枚举转换）
     /// </summary>

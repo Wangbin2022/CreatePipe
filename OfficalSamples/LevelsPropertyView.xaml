@@ -1,0 +1,190 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.LevelsPropertyView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="标高管理器" 
+        Height="550" Width="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:BooleanToBrushConverter x:Key="BooleanToBrushConverter"/>
+        <local:BoolToStringConverter x:Key="BoolToStringConverter "/>
+        <local:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
+        <!-- 数据模板 -->
+        <DataTemplate x:Key="ElevationCellTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBox Text="{Binding Elevation, UpdateSourceTrigger=LostFocus, StringFormat=F2}"
+                         Width="80" IsEnabled="{Binding RelativeSource={RelativeSource AncestorType=Window}, 
+                         Path=DataContext.IsBusy, Converter={StaticResource InverseBooleanConverter}}"/>
+                <TextBlock Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, 
+                           Path=DataContext.UnitDisplay}" Margin="5,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="NameCellTemplate">
+            <TextBox Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
+                     Width="150" IsEnabled="{Binding RelativeSource={RelativeSource AncestorType=Window}, 
+                     Path=DataContext.IsBusy, Converter={StaticResource InverseBooleanConverter}}"/>
+        </DataTemplate>
+
+        <!-- 行样式 - 修改标记 -->
+        <Style x:Key="DataGridRowStyle" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsModified}" Value="True">
+                    <Setter Property="Background" Value="#FFFDE8"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsNew}" Value="True">
+                    <Setter Property="Background" Value="#FFE8F5E9"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#2C3E50" CornerRadius="5" Margin="0,0,0,10" Padding="10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="📐 " FontSize="16"/>
+                <TextBlock Text="标高管理器 - 查看/编辑/添加/删除标高" 
+                           FontSize="14" FontWeight="Bold" Foreground="White"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 工具栏 -->
+        <ToolBar Grid.Row="1" Margin="0,0,0,10">
+            <Button Command="{Binding SaveCommand}" ToolTip="保存所有更改">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="💾 " FontSize="14"/>
+                    <TextBlock Text="保存"/>
+                </StackPanel>
+            </Button>
+            <Separator/>
+            <Button Command="{Binding RefreshCommand}" ToolTip="刷新数据">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🔄 " FontSize="14"/>
+                    <TextBlock Text="刷新"/>
+                </StackPanel>
+            </Button>
+        </ToolBar>
+
+        <!-- 标高列表 -->
+        <DataGrid Grid.Row="2" 
+                  ItemsSource="{Binding Levels}"
+                  SelectedItem="{Binding SelectedLevel}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  AlternatingRowBackground="#F8F8F8"
+                  RowStyle="{StaticResource DataGridRowStyle}"
+                  IsReadOnly="False"
+                  Margin="0,0,0,10">
+
+            <DataGrid.Columns>
+                <!-- ID列 -->
+                <DataGridTextColumn Header="ID" 
+                                    Binding="{Binding Id}"
+                                    Width="50"
+                                    IsReadOnly="True"/>
+                <!-- 名称列 -->
+                <DataGridTemplateColumn Header="名称" 
+                                        Width="180"
+                                        CellTemplate="{StaticResource NameCellTemplate}"/>
+                <!-- 高度列 -->
+                <DataGridTemplateColumn Header="高度" 
+                                        Width="150"
+                                        CellTemplate="{StaticResource ElevationCellTemplate}"/>
+                <!-- 状态列 -->
+                <!--<DataGridTextColumn Header="状态" 
+                                    Binding="{Binding IsModified, Converter={StaticResource BoolToStringConverter}, 
+                                    ConverterParameter='已修改;正常'}"
+                                    Width="80"
+                                    IsReadOnly="True">-->
+                <DataGridTextColumn Header="状态" 
+                                    Binding="{Binding IsModified}"
+                                    Width="80"
+                                    IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" 
+                                    Value="{Binding IsModified, Converter={StaticResource BooleanToBrushConverter}, 
+                                            ConverterParameter='#E67E22;#999'}"/>
+                            <Setter Property="FontWeight" 
+                                    Value="{Binding IsModified, Converter={StaticResource BoolToFontWeightConverter}}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 新增标高区域 -->
+        <Border Grid.Row="3" Background="#F5F5F5" CornerRadius="5" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="➕ 新增标高：" VerticalAlignment="Center" FontWeight="Bold" Margin="0,0,10,0"/>
+
+                <TextBlock Grid.Column="1" Text="名称：" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="2" 
+                         Text="{Binding NewLevelName, UpdateSourceTrigger=PropertyChanged}"
+                         Width="120" Margin="5,0,10,0"/>
+
+                <TextBlock Grid.Column="3" Text="高度：" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="4" 
+                         Text="{Binding NewLevelElevation, UpdateSourceTrigger=PropertyChanged}"
+                         Width="80" Margin="5,0,10,0"/>
+                <TextBlock Grid.Column="5" Text="{Binding UnitDisplay}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+
+                <Button Grid.Column="6" 
+                        Content="添加" 
+                        Command="{Binding AddLevelCommand}"
+                        Width="60"
+                        Background="#27AE60" Foreground="White"/>
+            </Grid>
+        </Border>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="4">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock Text="📊 共 {Binding Levels.Count} 个标高"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock Text="单位: {Binding UnitDisplay}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- 加载遮罩 -->
+        <Border Grid.RowSpan="5" 
+                Background="#CCFFFFFF"
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
+                <TextBlock Text="{Binding StatusMessage}" Margin="0,10" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

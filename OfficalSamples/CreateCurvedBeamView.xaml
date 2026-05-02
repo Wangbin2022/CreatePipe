@@ -1,0 +1,117 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.CreateCurvedBeamView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="弧形梁创建工具" Height="300" Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+         xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <!-- 按钮样式模板 -->
+        <Style TargetType="Button" x:Key="CurveButtonStyle">
+            <Setter Property="Width" Value="90"/>
+            <Setter Property="Height" Value="70"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="5" Padding="15">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <TextBlock Grid.Row="0" Text="创建弧形梁" FontSize="16" FontWeight="Bold" 
+                       Margin="0,0,0,15" HorizontalAlignment="Center"/>
+
+            <!-- 梁类型选择 -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5">
+                <TextBlock Text="梁类型：" Width="80" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding BeamTypes}" 
+                          SelectedItem="{Binding SelectedBeamType}"
+                          DisplayMemberPath="SymbolName"
+                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                          Width="250" Margin="5,0"/>
+            </StackPanel>
+
+            <!-- 标高选择 -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5">
+                <TextBlock Text="标高：" Width="80" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding Levels}" 
+                          SelectedItem="{Binding SelectedLevel}"
+                          DisplayMemberPath="LevelName"
+                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                          Width="250" Margin="5,0"/>
+            </StackPanel>
+
+            <!-- 分隔线 -->
+            <Separator Grid.Row="3" Margin="0,15" VerticalAlignment="Top"/>
+
+            <!-- 曲线类型按钮区域 -->
+            <UniformGrid Grid.Row="3" Columns="3" Rows="1" 
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Margin="0,0,0,10">
+
+                <!-- 圆弧梁按钮 -->
+                <Button Style="{StaticResource CurveButtonStyle}" 
+                        Command="{Binding CreateArcCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}">
+                    <StackPanel>
+                        <!--<Image Source="/Resources/arc3.png" Width="48" Height="32" Margin="0,5"/>-->
+                        <TextBlock Text="圆弧梁" Margin="0,5"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 椭圆弧梁按钮 -->
+                <Button Style="{StaticResource CurveButtonStyle}" 
+                        Command="{Binding CreateEllipseCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}">
+                    <StackPanel>
+                        <!--<Image Source="/Resources/partialellipse.png" Width="48" Height="32" Margin="0,5"/>-->
+                        <TextBlock Text="椭圆弧梁" Margin="0,5"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 样条曲线梁按钮 -->
+                <Button Style="{StaticResource CurveButtonStyle}" 
+                        Command="{Binding CreateSplineCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}">
+                    <StackPanel>
+                        <!--<Image Source="/Resources/spline.png" Width="48" Height="32" Margin="0,5"/>-->
+                        <TextBlock Text="样条梁" Margin="0,5"/>
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
+
+            <!-- 状态栏 -->
+            <StatusBar Grid.Row="4" Margin="-15,0,-15,-15" Height="30">
+                <StatusBarItem>
+                    <Grid>
+                        <ProgressBar IsIndeterminate="{Binding IsBusy}" 
+                                     Height="15" Width="180" 
+                                     Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"
+                                     VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding StatusMessage}" 
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                </StatusBarItem>
+            </StatusBar>
+        </Grid>
+    </Border>
+</Window>

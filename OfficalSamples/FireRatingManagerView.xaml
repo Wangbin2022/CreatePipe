@@ -1,0 +1,61 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.FireRatingManagerView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+      Title="防火等级参数管理器" Height="500" Width="700"
+        WindowStartupLocation="CenterScreen"       >
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="0" Margin="0,0,0,10">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="Blue"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding IsProcessing}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- 操作按钮区域 -->
+        <WrapPanel Grid.Row="1" Margin="0,0,0,10">
+            <Button Content="1. 应用共享参数" Width="140" Height="30" Margin="0,0,5,0"
+                    Command="{Binding ApplyParameterCommand}"/>
+            <Button Content="2. 导出到 Excel" Width="120" Height="30" Margin="0,0,5,0"
+                    Command="{Binding ExportCommand}"/>
+            <Button Content="3. 从 Excel 导入" Width="120" Height="30" Margin="0,0,5,0"
+                    Command="{Binding ImportCommand}"/>
+            <Button Content="刷新" Width="80" Height="30" Margin="0,0,5,0"
+                    Command="{Binding RefreshCommand}"/>
+        </WrapPanel>
+
+        <!-- 数据表格 -->
+        <DataGrid Grid.Row="2" 
+                  ItemsSource="{Binding DoorsData}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  AlternatingRowBackground="#F5F5F5"
+                  HeadersVisibility="Column">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding IdValue}" Width="80"/>
+                <DataGridTextColumn Header="标高" Binding="{Binding LevelName}" Width="100"/>
+                <DataGridTextColumn Header="标记" Binding="{Binding Tag}" Width="120"/>
+                <DataGridTextColumn Header="防火等级" Binding="{Binding FireRating}" Width="100"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 操作提示 -->
+        <TextBlock Grid.Row="3" Margin="0,10,0,0" 
+                   Text="提示：请按顺序操作：1.应用参数 → 2.导出/导入 → 3.刷新查看结果"
+                   Foreground="Gray" FontSize="11"/>
+    </Grid>
+</Window>

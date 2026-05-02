@@ -1,0 +1,160 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.AreaReinforcementCreatView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="{Binding WindowTitle}" Height="500" Width="450"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+      xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+    <Window.Resources>
+        <!-- 布尔值转可见性转换器 -->
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:StatusColorConverter x:Key="StatusColorConverter"/>
+
+        <!-- 墙体/楼板参数模板选择器 -->
+        <DataTemplate x:Key="WallParameterTemplate">
+            <Grid Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="布局规则:" Margin="5,5,5,5"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" 
+                          ItemsSource="{Binding LayoutRules}"
+                          SelectedItem="{Binding LayoutRule}"
+                          Margin="5,5,5,5"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="外墙主要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="1" Grid.Column="1" 
+                          IsChecked="{Binding ExteriorMajorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="外墙次要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="2" Grid.Column="1" 
+                          IsChecked="{Binding ExteriorMinorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="内墙主要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="3" Grid.Column="1" 
+                          IsChecked="{Binding InteriorMajorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="内墙次要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="4" Grid.Column="1" 
+                          IsChecked="{Binding InteriorMinorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FloorParameterTemplate">
+            <Grid Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="布局规则:" Margin="5,5,5,5"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" 
+                          ItemsSource="{Binding LayoutRules}"
+                          SelectedItem="{Binding LayoutRule}"
+                          Margin="5,5,5,5"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="顶部主要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="1" Grid.Column="1" 
+                          IsChecked="{Binding TopMajorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="顶部次要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="2" Grid.Column="1" 
+                          IsChecked="{Binding TopMinorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="底部主要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="3" Grid.Column="1" 
+                          IsChecked="{Binding BottomMajorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="底部次要方向:" Margin="5,5,5,5"/>
+                <CheckBox Grid.Row="4" Grid.Column="1" 
+                          IsChecked="{Binding BottomMinorDirection}"
+                          Margin="5,5,5,5" VerticalAlignment="Center"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- 内容模板选择器 -->
+        <DataTemplate DataType="{x:Type local:WallReinforcementData}">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource WallParameterTemplate}"/>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:FloorReinforcementData}">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource FloorParameterTemplate}"/>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 元素信息 -->
+        <Border Grid.Row="0" Background="#E8F0FE" CornerRadius="5" Padding="10" Margin="0,0,0,10">
+            <TextBlock Text="{Binding ElementInfo}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        </Border>
+
+        <!-- 分隔线 -->
+        <Separator Grid.Row="1" Margin="0,0,0,10"/>
+
+        <!-- 参数区域 -->
+        <GroupBox Grid.Row="2" Header="钢筋参数设置" Margin="0,0,0,10">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ContentControl Content="{Binding CurrentParameters}"/>
+            </ScrollViewer>
+        </GroupBox>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="3" Margin="0,0,0,10">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, 
+                    Converter={StaticResource StatusColorConverter}}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <ProgressBar Width="80" Height="15" IsIndeterminate="{Binding IsProcessing}"
+                             Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="创建钢筋" 
+                    Command="{Binding CreateCommand}"
+                    Width="90" Height="30" Margin="0,0,10,0"
+                    IsDefault="True"/>
+            <Button Content="取消" 
+                    Command="{Binding CancelCommand}"
+                    Width="75" Height="30"
+                    IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
