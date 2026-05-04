@@ -653,7 +653,7 @@ namespace CreatePipe.OfficalSamples
         /// 获取元素的所有面
         /// 使用C# 7.3的模式匹配和yield return
         /// </summary>
-        public static IEnumerable<Face> GetFaces(Element element)
+        public static IEnumerable<Autodesk.Revit.DB.Face> GetFaces(Element element)
         {
             if (element is null) yield break;
 
@@ -671,7 +671,7 @@ namespace CreatePipe.OfficalSamples
                 // 使用模式匹配获取Solid
                 if (geoObject is Solid solid && solid.Faces.Size > 0)
                 {
-                    foreach (Face face in solid.Faces)
+                    foreach (Autodesk.Revit.DB.Face face in solid.Faces)
                     {
                         yield return face;
                     }
@@ -682,7 +682,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 获取面的三角剖分顶点
         /// </summary>
-        public static List<XYZ> GetFaceVertices(Face face)
+        public static List<XYZ> GetFaceVertices(Autodesk.Revit.DB.Face face)
         {
             var mesh = face.Triangulate();
             return mesh?.Vertices?.ToList() ?? new List<XYZ>();
@@ -691,7 +691,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 判断面是否为水平面
         /// </summary>
-        public static bool IsHorizontalFace(Face face)
+        public static bool IsHorizontalFace(Autodesk.Revit.DB.Face face)
         {
             var vertices = GetFaceVertices(face);
             if (vertices.Count < 3) return false;
@@ -703,7 +703,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 判断面是否与直线平行
         /// </summary>
-        public static bool IsFaceParallelToLine(Face face, Line line)
+        public static bool IsFaceParallelToLine(Autodesk.Revit.DB.Face face, Line line)
         {
             var vertices = GetFaceVertices(face);
             if (vertices.Count < 3) return false;

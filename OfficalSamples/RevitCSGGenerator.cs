@@ -389,7 +389,7 @@ namespace CreatePipe.OfficalSamples
             }
 
             // 遍历所有面并添加到可视化场
-            foreach (Face face in solid.Faces)
+            foreach (Autodesk.Revit.DB.Face face in solid.Faces)
             {
                 AddFaceToSpatialField(sfm, face);
             }
@@ -487,7 +487,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 将面添加到空间场
         /// </summary>
-        private void AddFaceToSpatialField(SpatialFieldManager sfm, Face face)
+        private void AddFaceToSpatialField(SpatialFieldManager sfm, Autodesk.Revit.DB.Face face)
         {
             // 添加面作为空间场基元
             var primitiveIndex = sfm.AddSpatialFieldPrimitive(face, Transform.Identity);
@@ -505,7 +505,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 计算面上的采样点值 - 使用out参数简化
         /// </summary>
-        private static void ComputeFaceValues(Face face, out IList<UV> uvPoints, out IList<ValueAtPoint> valueList)
+        private static void ComputeFaceValues(Autodesk.Revit.DB.Face face, out IList<UV> uvPoints, out IList<ValueAtPoint> valueList)
         {
             uvPoints = new List<UV>();
             valueList = new List<ValueAtPoint>();

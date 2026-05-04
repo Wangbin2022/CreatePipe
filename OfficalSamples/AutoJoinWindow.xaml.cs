@@ -45,14 +45,14 @@ namespace CreatePipe.OfficalSamples
         /// </summary>
         public bool IsOverlapped(GeometryObject geoA, GeometryObject geoB)
         {
-            var facesA = new List<Face>();
+            List<Autodesk.Revit.DB.Face> facesA = new List<Autodesk.Revit.DB.Face>();
             var curvesB = new List<Curve>();
 
             GetAllFaces(geoA, facesA);
             GetAllCurves(geoB, curvesB);
 
             // 检测面与曲线是否相交
-            foreach (var face in facesA)
+            foreach (Autodesk.Revit.DB.Face face in facesA)
             {
                 foreach (var curve in curvesB)
                 {
@@ -84,7 +84,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 递归获取所有面
         /// </summary>
-        private void GetAllFaces(GeometryObject geometry, List<Face> faces)
+        private void GetAllFaces(GeometryObject geometry, List<Autodesk.Revit.DB.Face> faces)
         {
             switch (geometry)
             {
@@ -97,7 +97,7 @@ namespace CreatePipe.OfficalSamples
             }
         }
 
-        private void GetAllFacesFromElement(GeometryElement geoElement, List<Face> faces)
+        private void GetAllFacesFromElement(GeometryElement geoElement, List<Autodesk.Revit.DB.Face> faces)
         {
             foreach (var geoObj in geoElement)
             {
@@ -105,11 +105,11 @@ namespace CreatePipe.OfficalSamples
             }
         }
 
-        private void GetAllFacesFromSolid(Solid solid, List<Face> faces)
+        private void GetAllFacesFromSolid(Solid solid, List<Autodesk.Revit.DB.Face> faces)
         {
             if (solid?.Faces != null)
             {
-                faces.AddRange(solid.Faces.Cast<Face>());
+                faces.AddRange(solid.Faces.Cast<Autodesk.Revit.DB.Face>());
             }
         }
 
@@ -141,14 +141,14 @@ namespace CreatePipe.OfficalSamples
         {
             if (solid?.Faces != null)
             {
-                foreach (Face face in solid.Faces)
+                foreach (Autodesk.Revit.DB.Face face in solid.Faces)
                 {
                     GetAllCurvesFromFace(face, curves);
                 }
             }
         }
 
-        private void GetAllCurvesFromFace(Face face, List<Curve> curves)
+        private void GetAllCurvesFromFace(Autodesk.Revit.DB.Face face, List<Curve> curves)
         {
             foreach (EdgeArray edgeLoop in face.EdgeLoops)
             {

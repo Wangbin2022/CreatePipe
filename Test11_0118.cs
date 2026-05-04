@@ -547,7 +547,7 @@ namespace CreatePipe
             Solid solid = geoElem.OfType<Solid>().FirstOrDefault(s => s.Volume > 0);
             if (solid == null) return null;
             PlanarFace bottomFace = null;
-            foreach (Face face in solid.Faces)
+            foreach (Autodesk.Revit.DB.Face face in solid.Faces)
             {
                 PlanarFace pFace = face as PlanarFace;
                 if (pFace != null && pFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
@@ -2561,7 +2561,7 @@ namespace CreatePipe
                 distances.Add(SignedDistanceTo(curve.GetEndPoint(1), normal, origin));
             }
             // 从三角化面获取顶点（更密集）
-            foreach (Face face in solid.Faces)
+            foreach (Autodesk.Revit.DB.Face face in solid.Faces)
             {
                 Mesh mesh = face.Triangulate();
                 for (int i = 0; i < mesh.NumTriangles; i++)

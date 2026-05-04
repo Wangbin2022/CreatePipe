@@ -1,0 +1,90 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.PathReinforcementEdit"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+ Title="新建路径钢筋" Height="500" Width="550"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 绘图区域 -->
+        <Border Grid.Row="0" 
+                BorderBrush="Gray" 
+                BorderThickness="1"
+                Background="White"
+                CornerRadius="3">
+            <Grid>
+                <Image x:Name="DrawingArea" 
+                       Stretch="Fill"
+                       MouseDown="DrawingArea_MouseDown"
+                       MouseMove="DrawingArea_MouseMove"/>
+
+                <!-- 指令提示 -->
+                <TextBlock Text="{Binding InstructionText}"
+                           Margin="5"
+                           VerticalAlignment="Top"
+                           HorizontalAlignment="Left"
+                           Foreground="Gray"
+                           FontSize="11"
+                           Background="Transparent"/>
+
+                <!-- 状态提示 -->
+                <Border Background="#DDDDDD"
+                        CornerRadius="3"
+                        Padding="5,2"
+                        VerticalAlignment="Bottom"
+                        HorizontalAlignment="Left"
+                        Margin="5"
+                        Visibility="{Binding HasPoints, Converter={StaticResource BoolToVis}}">
+                    <TextBlock FontSize="10">
+                        已绘制 <Run Text="{Binding PointsCount, Mode=OneWay}"/> 个点，右键完成
+                    </TextBlock>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 控制面板 -->
+        <StackPanel Grid.Row="1" 
+                    Orientation="Horizontal"
+                    Margin="0,10"
+                    HorizontalAlignment="Right">
+            <CheckBox Content="Flip" 
+                      IsChecked="{Binding IsFlip}"
+                      VerticalAlignment="Center"
+                      Margin="5"/>
+            <Button Content="清空" 
+                    Command="{Binding CleanCommand}"
+                    Width="70" Margin="5"/>
+            <Button Content="预览" 
+                    Command="{Binding PreviewCommand}"
+                    Width="70" Margin="5"/>
+            <Button Content="创建" 
+                    Command="{Binding CreateCommand}"
+                    Width="70" Margin="5"
+                    Background="LightGreen"/>
+            <Button Content="取消" 
+                    Command="{Binding CancelCommand}"
+                    Width="70" Margin="5"/>
+        </StackPanel>
+
+        <!-- 说明文字 -->
+        <TextBlock Grid.Row="2" 
+                   Text="💡 提示：按 ESC 键清除所有点"
+                   FontSize="10"
+                   Foreground="Gray"
+                   Margin="0,5"/>
+    </Grid>
+</Window>

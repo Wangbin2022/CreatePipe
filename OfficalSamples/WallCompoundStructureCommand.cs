@@ -375,20 +375,19 @@ namespace CreatePipe.OfficalSamples
         /// </summary>
         private Material CreateBrickMaterial()
         {
-            // 尝试获取现有材质或创建新材质
-            var existingMaterial = GetMaterialByName(BRICK_MATERIAL_NAME);
-
-            if (existingMaterial != null)
-            {
-                var subTransaction = new SubTransaction(_uiDoc.Document);
-                subTransaction.Start();
-                var newMaterial = existingMaterial.Duplicate(BRICK_NEW_MATERIAL_NAME);
-                newMaterial.MaterialClass = "Brick";
-                subTransaction.Commit();
-                return newMaterial;
-            }
-
-            return CreateNewMaterial("New Brick Sample", new Color(255, 0, 0), "Brick", CreateBrickStructuralAsset(), CreateBrickThermalAsset());
+            //// 尝试获取现有材质或创建新材质
+            //var existingMaterial = GetMaterialByName(BRICK_MATERIAL_NAME);
+            //if (existingMaterial != null)
+            //{
+            //    var subTransaction = new SubTransaction(_uiDoc.Document);
+            //    subTransaction.Start();
+            //    var newMaterial = existingMaterial.Duplicate(BRICK_NEW_MATERIAL_NAME);
+            //    newMaterial.MaterialClass = "Brick";
+            //    subTransaction.Commit();
+            //    return newMaterial;
+            //}
+            //return CreateNewMaterial("New Brick Sample", new Color(255, 0, 0), "Brick", CreateBrickStructuralAsset(), CreateBrickThermalAsset());
+            return null;
         }
 
         /// <summary>
@@ -396,19 +395,19 @@ namespace CreatePipe.OfficalSamples
         /// </summary>
         private Material CreateConcreteMaterial()
         {
-            var existingMaterial = GetMaterialByName(CONCRETE_MATERIAL_NAME);
-
-            if (existingMaterial != null)
-            {
-                var subTransaction = new SubTransaction(_uiDoc.Document);
-                subTransaction.Start();
-                var newMaterial = existingMaterial.Duplicate(CONCRETE_NEW_MATERIAL_NAME);
-                newMaterial.MaterialClass = "Concrete";
-                subTransaction.Commit();
-                return newMaterial;
-            }
-            return CreateNewMaterial("New Concrete Sample", new Color(130, 150, 120), "Concrete",
-                CreateConcreteStructuralAsset(), CreateConcreteThermalAsset());
+            //var existingMaterial = GetMaterialByName(CONCRETE_MATERIAL_NAME);
+            //if (existingMaterial != null)
+            //{
+            //    var subTransaction = new SubTransaction(_uiDoc.Document);
+            //    subTransaction.Start();
+            //    var newMaterial = existingMaterial.Duplicate(CONCRETE_NEW_MATERIAL_NAME);
+            //    newMaterial.MaterialClass = "Concrete";
+            //    subTransaction.Commit();
+            //    return newMaterial;
+            //}
+            //return CreateNewMaterial("New Concrete Sample", new Color(130, 150, 120), "Concrete",
+            //    CreateConcreteStructuralAsset(), CreateConcreteThermalAsset());
+            return null;
         }
         /// <summary>
         /// 创建新材质（通用方法）
@@ -442,15 +441,15 @@ namespace CreatePipe.OfficalSamples
             return material;
         }
 
-        /// <summary>
-        /// 创建砖结构材质属性
-        /// 使用C# 7.3的对象初始化器
-        /// </summary>
-        private StructuralAsset CreateBrickStructuralAsset() =>
-            new StructuralAsset("BrickStructuralAsset", StructuralAssetClass.Generic)
-            {
-                //DampingRatio = 0.5
-            };
+        ///// <summary>
+        ///// 创建砖结构材质属性
+        ///// 使用C# 7.3的对象初始化器
+        ///// </summary>
+        //private StructuralAsset CreateBrickStructuralAsset() =>
+        //    new StructuralAsset("BrickStructuralAsset", StructuralAssetClass.Generic)
+        //    {
+        //        //DampingRatio = 0.5
+        //    };
 
         /// <summary>
         /// 创建砖热工材质属性
@@ -464,15 +463,15 @@ namespace CreatePipe.OfficalSamples
                 ThermalConductivity = 0.5
             };
 
-        /// <summary>
-        /// 创建混凝土结构材质属性
-        /// </summary>
-        private StructuralAsset CreateConcreteStructuralAsset() =>
-            new StructuralAsset("ConcreteStructuralAsset", StructuralAssetClass.Concrete)
-            {
-                ConcreteBendingReinforcement = 0.5,
-                //DampingRatio = 0.5
-            };
+        ///// <summary>
+        ///// 创建混凝土结构材质属性
+        ///// </summary>
+        //private StructuralAsset CreateConcreteStructuralAsset() =>
+        //    new StructuralAsset("ConcreteStructuralAsset", StructuralAssetClass.Concrete)
+        //    {
+        //        ConcreteBendingReinforcement = 0.5,
+        //        //DampingRatio = 0.5
+        //    };
 
         /// <summary>
         /// 创建混凝土热工材质属性

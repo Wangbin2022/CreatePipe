@@ -1,0 +1,134 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.NewRoofView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+   Title="屋顶管理" Height="550" Width="650"
+        WindowStartupLocation="CenterOwner"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标签页控件 -->
+        <TabControl Grid.Row="0" Margin="0,0,0,10">
+            <!-- 迹线屋顶标签页 -->
+            <TabItem Header="迹线屋顶">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 屋顶列表 -->
+                    <ListView Grid.Row="0" 
+                              ItemsSource="{Binding FootPrintRoofs}"
+                              SelectedItem="{Binding SelectedFootPrintRoof}"
+                              Margin="0,0,0,10">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="ID" DisplayMemberBinding="{Binding RoofId}" Width="80"/>
+                                <GridViewColumn Header="名称" DisplayMemberBinding="{Binding Name}" Width="120"/>
+                                <GridViewColumn Header="基准标高" DisplayMemberBinding="{Binding LevelName}" Width="120"/>
+                                <GridViewColumn Header="屋顶类型" DisplayMemberBinding="{Binding RoofTypeName}" Width="150"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                    <!-- 创建面板 -->
+                    <GroupBox Grid.Row="1" Header="创建迹线屋顶" Margin="0,5">
+                        <StackPanel Margin="10">
+                            <Button Content="选择迹线轮廓" Command="{Binding SelectFootPrintCommand}" 
+                                    Margin="0,5" Height="30"/>
+                            <ComboBox ItemsSource="{Binding Levels}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedLevel}" 
+                                      Margin="0,5" ToolTip="基准标高"/>
+                            <ComboBox ItemsSource="{Binding RoofTypes}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedFootPrintRoofType}"
+                                      Margin="0,5" ToolTip="屋顶类型"/>
+                            <Button Content="创建" Command="{Binding CreateFootPrintRoofCommand}"
+                                    Margin="0,5" Height="30" Background="LightGreen"/>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+
+            <!-- 拉伸屋顶标签页 -->
+            <TabItem Header="拉伸屋顶">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 屋顶列表 -->
+                    <ListView Grid.Row="0" 
+                              ItemsSource="{Binding ExtrusionRoofs}"
+                              SelectedItem="{Binding SelectedExtrusionRoof}"
+                              Margin="0,0,0,10">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="ID" DisplayMemberBinding="{Binding RoofId}" Width="80"/>
+                                <GridViewColumn Header="名称" DisplayMemberBinding="{Binding Name}" Width="120"/>
+                                <GridViewColumn Header="参考标高" DisplayMemberBinding="{Binding LevelName}" Width="120"/>
+                                <GridViewColumn Header="屋顶类型" DisplayMemberBinding="{Binding RoofTypeName}" Width="150"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                    <!-- 创建面板 -->
+                    <GroupBox Grid.Row="1" Header="创建拉伸屋顶" Margin="0,5">
+                        <StackPanel Margin="10">
+                            <Button Content="选择拉伸轮廓" Command="{Binding SelectProfileCommand}"
+                                    Margin="0,5" Height="30"/>
+                            <ComboBox ItemsSource="{Binding ReferencePlanes}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedReferencePlane}"
+                                      Margin="0,5" ToolTip="参考平面"/>
+                            <ComboBox ItemsSource="{Binding Levels}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedRefLevel}"
+                                      Margin="0,5" ToolTip="参考标高"/>
+                            <ComboBox ItemsSource="{Binding RoofTypes}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding SelectedExtrusionRoofType}"
+                                      Margin="0,5" ToolTip="屋顶类型"/>
+                            <Grid Margin="0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="拉伸起点:" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Text="{Binding ExtrusionStart}" Margin="5,0"/>
+                                <TextBlock Grid.Column="2" Text="拉伸终点:" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="3" Text="{Binding ExtrusionEnd}" Margin="5,0"/>
+                            </Grid>
+                            <Button Content="创建" Command="{Binding CreateExtrusionRoofCommand}"
+                                    Margin="0,5" Height="30" Background="LightGreen"/>
+                        </StackPanel>
+                    </GroupBox>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="编辑选中屋顶" Command="{Binding EditRoofCommand}"
+                    Width="100" Margin="5" IsEnabled="{Binding CanEditRoof}"/>
+            <Button Content="刷新列表" Command="{Binding RefreshCommand}"
+                    Width="80" Margin="5"/>
+            <Button Content="确定" Command="{Binding OkCommand}" Width="75" Margin="5" IsDefault="True"/>
+            <Button Content="取消" Command="{Binding CancelCommand}" Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+
+        <!-- 进度覆盖层 -->
+        <Border Background="#CCFFFFFF" Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="处理中..." HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16"/>
+        </Border>
+    </Grid>
+</Window>

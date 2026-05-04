@@ -1,0 +1,72 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.FamilyPlacementView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+          Title="族实例放置助手" Height="250" Width="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" 
+                   Text="请选择族实例放置方式：" 
+                   FontSize="14"
+                   FontWeight="Bold"
+                   Margin="0,0,0,15"/>
+
+        <GroupBox Grid.Row="1" Header="放置类型" Margin="0,0,0,15">
+            <StackPanel Margin="15">
+                <RadioButton Content="基于面的放置 (FaceBased)"
+                             IsChecked="{Binding IsFaceBasedSelected}"
+                             Margin="0,5"/>
+                <RadioButton Content="基于草图的放置 (SketchBased)"
+                             IsChecked="{Binding IsSketchBasedSelected}"
+                             Margin="0,5"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- 说明文字 -->
+        <TextBlock Grid.Row="2" 
+                   Text="💡 提示：基于面的族需要选择目标面；基于草图的族需要绘制或拾取草图线。"
+                   FontSize="11"
+                   Foreground="Gray"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,15"/>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="4" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button Content="下一步" Command="{Binding NextCommand}"
+                    Width="80" Height="30" Margin="5"
+                    Background="LightGreen"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="80" Height="30" Margin="5"
+                    IsCancel="True"/>
+        </StackPanel>
+
+        <!-- 处理中覆盖层 -->
+        <Border Background="#CCFFFFFF" 
+                Grid.RowSpan="5"
+                Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="处理中..." 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center"
+                       FontSize="16"
+                       FontWeight="Bold"/>
+        </Border>
+    </Grid>
+</Window>

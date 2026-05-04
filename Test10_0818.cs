@@ -10,12 +10,15 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
+using CreatePipe.MEPevent;
 using CreatePipe.OfficalSamples;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Management.Instrumentation;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -23,7 +26,9 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using static CreatePipe.OfficalSamples.DuplicateView;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 using View = Autodesk.Revit.DB.View;
 //ObserverableObject
 //service.Update(++index, id.Value.ToString());
@@ -43,8 +48,307 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            //////0504 官方代码测试
+
+            //PostCommandWorkflow监控文档保存操作，在保存前检查是否已添加修订（Revision），并引导用户完成修订流程。
+            //目前执行缺乏反馈，待重修
+            //PostCommandRevisionMonitor 核心监控类，订阅DocumentSaving事件，处理修订检查逻辑
+            //PostCommandRevisionMonitorEvent 外部事件处理器，在修订命令完成后执行清理和重新保存
+            //new PostCommandRevisionMonitor(doc);
+
+            //PointCloudEngine 点云相关跳过
+
+            ////PlacementOptions 帮助用户放置族实例，支持两种放置方式：  
+            ///////原逻辑 两重界面就没有必要 待重优化
+            ////FaceBased(基于面) 将族实例放置在现有面上 插座、开关、设备
+            ////SketchBased(基于草图)  通过绘制草图线放置族实例 梁、支撑、幕墙网格
+            //try
+            //{
+            //    if (commandData.Application.ActiveUIDocument?.Document == null)
+            //    {
+            //        message = "请打开一个活动文档。";
+            //        return Result.Failed;
+            //    }
+            //    var window = new FamilyPlacementView(commandData);
+            //    window.ShowDialog();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////PhysicalProp
+            ////读取并显示结构构件（梁、柱、支撑）的材料物理属性。使用TaskDialog显示所有属性值.
+            //new DumpMaterialPhysicalParameters(commandData);
+
+            ////PlaceFamilyInstanceByFace 在选中的面上创建基于点(Point-Based)或基于线(Line-Based)的族实例
+            ////原逻辑 两重界面就没有必要 待重优化
+            ////BasedTypeForm 选择族类型（Point - Based / Line - Based）
+            ////PlaceFamilyInstanceForm 主窗体，选择面、族类型、位置和方向
+            ////FamilyInstanceCreator   核心数据类，管理面列表、族符号列表，执行创建
+            ////BasedType   枚举类型（Point / Line）
+            //try
+            //{
+            //    var creator = new FamilyInstanceCreator(commandData.Application);
+            //    var baseTypeWindow = new PlaceFamilyBasedTypeView();
+            //    var baseTypeVm = new BasedTypeViewModel();
+            //    baseTypeWindow.DataContext = baseTypeVm;
+            //    BasedType? selectedType = null;
+            //    baseTypeVm.TypeSelected += type => selectedType = type;
+            //    baseTypeVm.CloseWindow = () => baseTypeWindow.Close();
+            //    baseTypeWindow.ShowDialog();
+            //    if (selectedType.HasValue)
+            //    {
+            //        var placeWindow = new PlaceFamilyInstanceView(creator, selectedType.Value);
+            //        placeWindow.ShowDialog();
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////PhaseSample PickPhaseCmd根据构件的创建阶段或拆除阶段来筛选和选择构件。
+            //var document = commandData.Application.ActiveUIDocument.Document;
+            //// 检查是否有阶段定义
+            //if (document.Phases.Size == 0)
+            //{
+            //    message = "当前文档中没有定义任何阶段。";
+            //    return Result.Failed;
+            //}
+            //var window = new PhaseSelectorView(document);
+            //window.ShowDialog();
+            //// 获取选中的元素并添加到输出集合
+            //var selectedElements = window.GetSelectedElements();
+            //if (selectedElements.Size > 0)
+            //{
+            //    foreach (Element element in selectedElements)
+            //    {
+            //        elements.Insert(element);
+            //    }
+            //    message = $"找到 {selectedElements.Size} 个符合条件的构件";
+            //}
+
+            ////PerformanceAdviserControl 通过PerformanceAdviser API执行性能规则检查，特别是检查门的面翻转(FacingFlipped)状态。
+            ////主要是IPerformanceAdviserRule接口如何调用
+            ////RuleInfo 规则信息数据类
+            ////FlippedDoorCheck 实现IPerformanceAdviserRule的自定义规则，检查门是否面翻转
+            ////TestDisplayDialog   WinForm窗体，显示规则列表供用户选择执行
+            ////主要功能流程
+            ////获取规则列表：从PerformanceAdviser获取所有已注册规则
+            ////识别自定义规则：通过RuleId识别FlippedDoorCheck规则
+            ////用户选择：在DataGridView中显示规则名称、描述、是否自定义规则
+            ////执行检查：用户选择要运行的规则，调用PerformanceAdviser执行
+            ////结果报告：FlippedDoorCheck将检查结果以FailureMessage形式报告到Revit
+            //var performanceAdviser = PerformanceAdviser.GetPerformanceAdviser();
+            //var document = commandData.Application.ActiveUIDocument.Document;
+            //var window = new PerformanceCheckerView(performanceAdviser, document);
+            //window.ShowDialog();
+            //地阿妈存在较大问题，直接执行会崩溃。
+
+            ////PathReinforcement用于查看和编辑路径钢筋(PathReinforcement)的属性，并提供几何预览。
+            ////预览绘制	PictureBox + GDI+转为	DrawingVisual + Image是否有必要？
+            //PathReinforcementView pathReinforcementView = new PathReinforcementView();
+            //pathReinforcementView.Show();
+
+            //PanelSchedule 用于显示获取选中元素的所有参数并格式化，类似Revit自带的"属性"面板。 已转移
+
+            ////Openings OpeningInfoView在洞口处画X线，也有Vector类 比较复杂
+            ////所有辅助类都在OpeningInfo 中。大概10个中等长度辅助族
+            //OpeningInfoView opening = new OpeningInfoView(new OpeningViewModel(uiApp,new OpeningInfo(new Opening(),uiApp)));
+            //opening.ShowDialog();
+
+            ////ObjectViewer 查看选中元素的三维几何模型/分析模型及其参数信息。
+            //只转义了主界面逻辑，MathUtil，Sketch，UCS，Vector，Para和ParaFactory都尚缺。GeometryData和Graphics2DData，Graphics3DData负责将构件转为GDI显示，也没有实现。
+            //Element element = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, "Sth")) as Element;
+            //ObjectViewerView objectViewerView = new ObjectViewerView(element,uiApp);
+            //objectViewerView.ShowDialog();
+
+            ////NewRoof 包括RoofManager和两种RoofWrapper 代码量太大只有核心翻译，form的主界面有500行？conv也不全
+            ////创建两种类型的屋顶：迹线屋顶（FootPrintRoof）和拉伸屋顶（ExtrusionRoof）。
+            ////RoofsManager 数据管理，收集Revit中的屋顶、标高、类型等信息
+            ////RoofForm    主窗体，显示屋顶列表，创建 / 编辑屋顶
+            ////RoofEditorForm 编辑窗体，使用PropertyGrid编辑屋顶属性
+            ////FootPrintRoofWrapper    迹线屋顶的PropertyGrid包装器
+            ////ExtrusionRoofWrapper    拉伸屋顶的PropertyGrid包装器
+            ////FootPrintRoofLine   迹线屋顶单条边线的属性包装
+            ////LevelConverter  标高类型转换器（用于PropertyGrid下拉选择）
+            ////RoofItem ListView项，显示屋顶基本信息
+            //RoofsManager roofsManager = new RoofsManager(commandData);
+            //NewRoofView newRoofView = new NewRoofView(commandData, roofsManager);
+            //newRoofView.ShowDialog();
+
+            ////NewPathReinforcement Revit插件，用于在墙或楼板上创建路径钢筋（PathReinforcement）。又出现MathTool,PRofile交叉识别错误，需后续补充
+            ////LineTool 直线/ 折线绘图工具，左键添加点，右键完成
+            ////Profile / ProfileWall / ProfileFloor    处理几何转换和路径钢筋创建
+            ////Matrix4 3D / 2D坐标转换矩阵（从引用的MathTools）
+            //PathReinforcementEdit pathReinforcement =new PathReinforcementEdit(null);
+            //pathReinforcement.ShowDialog();
+
+            ////NewOpening 通用开洞工具 再次涉及大量几何元素生成和MathTool编辑方法 代码过长只有核心部分待后续补充
+            ////用于在墙或楼板上创建各种形状的洞口（矩形、圆形、弧形、多边形）。
+            ////ITool派生类 绘图工具（直线、矩形、圆形、弧形）
+            ////Profile / ProfileWall / ProfileFloor    处理几何转换和洞口创建
+            //NewOpeningView newOpeningView = new NewOpeningView(null);
+            //newOpeningView.ShowDialog();
+
+            //MultiThreading=WorkThread 对墙面进行热力图/应力分析的可视化展示，核心特点是将计算任务放在后台线程执行，通过Idling事件异步更新UI。
+            //是否应改为Async await方式简化调用？？
+            //new MultiThreadingFaceAnalysis(commandData);
+
+            //MultistoryStairs 问题有点多，待测试 创建和管理多层楼梯（Multistory Stairs），包含三个独立命令： 命令类 功能
+            //CreateMultistoryStairsCommand 从选中的单层楼梯创建多层楼梯
+            //AddStairsCommand 向现有多层楼梯中添加层（通过选中标高）
+            //RemoveStairsCommand 从多层楼梯中移除指定层
+
+            ////MaterialProperties 砖和混凝土材质返回有问题，得看API是否改了
+            ////Revit插件，用于修改结构构件（梁、柱、支撑）的材料属性：
+            ////获取选中的结构构件
+            ////显示当前材料属性
+            ////允许用户切换材料类型（钢 / 混凝土等）
+            ////修改材料的单位重量
+            ////应用材料变更到Revit模型
+            //// 检查选中元素数量
+            //var selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds.Count != 1)
+            //{
+            //    TaskDialog.Show("Revit", "请选择一个结构构件（梁、柱或支撑）");
+            //    return Result.Failed;
+            //}
+            //var selectedElement = doc.GetElement(selectedIds.First());
+            //// 验证选中元素是否为有效的结构构件
+            //if (!IsValidStructuralElement(selectedElement))
+            //{
+            //    TaskDialog.Show("Revit", "请选择一个结构构件（梁、柱或支撑）");
+            //    return Result.Failed;
+            //}
+            //try
+            //{
+            //    var dataService = new MaterialPropertiesData(uiApp, selectedElement.Id);
+            //    var window = new MaterialPropertiesView(dataService);
+            //    using (var transaction = new Transaction(doc, "修改材料属性"))
+            //    {
+            //        transaction.Start();
+            //        window.ShowDialog();
+            //        transaction.Commit();
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("错误", $"操作失败：{ex.Message}");
+            //    return Result.Failed;
+            //}
+
+            //MASS 中的8个单独工具类 如果要开发造型相关得深入研究
+            //DistanceToPanels 用于计算分割表面（Divided Surface）上的每个面板到用户指定参考点的距离，并将该距离值写入面板族实例的"Distance"参数中。需要预先选中一个族实例（FamilyInstance）作为距离测量的参考点.遍历当前Revit文档中的所有DividedSurface元素.对每个分割表面的U方向和V方向网格线进行双重循环遍历,通过IsSeedNode判断节点是否为有效种子节点（即存在面板的位置）..获取每个面板的族实例（GetTileFamilyInstance）,找到该族实例的"Distance"参数,计算面板中心点到参考点的三维欧氏距离,将距离值写入参数.
+            //DividedSurfaceByIntersects 用于演示分割表面（Divided Surface）的交集元素（Intersection Element）的动态添加与移除操作。主要功能流程:获取分割表面,通过硬编码的元素ID（31519）获取目标分割表面,如果未找到，程序会失败并提示用户打开示例族文件。准备交集元素：参考平面和标高（GetPlanes）：3个元素（ID: 1027, 1071, 1072），模型线（GetLines）：6个模型线（ID: 31170~31395）。三步操作演示：步骤1：将参考平面和标高添加为分割表面的交集元素，用于分割表面；步骤2：移除所有已添加的交集元素（清空效果）；步骤3：将模型线添加为交集元素，用不同的元素类型分割表面。 典型用途包括：根据设计条件动态调整曲面分割方案，在不同分割方式之间切换（参考元素 vs 模型线），演示API对分割表面交互式控制的支持
+            //ManipulateForm 通过API编程方式动态创建和操控放样形体（Loft Form），展示了Forms API中各种子元素操作方法。主要功能：创建放样形体，添加中间轮廓，操作轮廓上的边，分别向相反方向移动（±10单位），移动整个轮廓，演示MoveProfile方法，找到底部轮廓左下角的两个控制点，演示控制点级编辑，在顶部边和底部边之间添加一条连接边，移动新添加的边，演示子元素移动，找到中间轮廓上X坐标接近0的顶点。应用场景：参数化族创建：通过代码生成复杂几何形体，形体优化：验证F形式的API操作可行性，开发参考：演示完整的Form子元素操作API用法
+            //MeasurePanelArea 批量测量分割表面（Divided Surface）的面板面积，并根据面积范围自动更换面板类型。设置面积范围（最小值/最大值），为三个区间选择对应的面板类型（小于最小值 / 范围内 / 大于最大值）自动将面板更换为用户指定的族类型，生成文本文件记录每个面板的ID和面积，统计三个区间的面板数量
+            //NewForm 包含了所有种类体量造型方法，拉伸MakeExtrusionForm、融合MakeCapForm、旋转MakeRevolveForm、放样MakeSweptBlendForm、放样融合MakeLoftForm，以及通用方法FormUtils
+            //PanelEdgeLengthAngle 计算幕墙面板（Curtain Panel）的各边长度和相邻边夹角，并将这些几何数据写入面板族实例的参数中。面板族必须包含以下8个实例参数（否则报错）Length1~4，Angle1~4。夹角计算原理AngleBetweenEdges方法：找到两条边的公共顶点（比较端点是否重合），获取公共顶点处的切线方向(BasisX)，调整方向使夹角指向内侧，通过点积公式 acos(v1·v2) 计算角度
+            //ParameterValuesFromImage 根据图像数据设置分割表面面板的参数值，实现将灰度图像映射到建筑表皮面板上。设计意图：参数化表皮，根据图像亮度控制面板透明度、颜色或材质；图案生成 用黑白图像在建筑表皮上"绘制"；空设计    白色区域（灰度 = 0）删除面板，形成镂空效果；渐变控制    灰度值映射到0~1范围，控制参数化行为
+            //PointCurveCreation 包含了七个工具类 PointsParabola在族编辑器中创建沿抛物线弧线分布的参考点（Reference Point）在Z-X平面上生成一系列参考点，这些点遵循幂函数曲线 z = x^p 的分布规律。PointsOnCurve 在族编辑器中创建参考点，并将这些参考点约束到一条模型曲线上，参考点跟随曲线移动。PointsFromExcel 读取指定Excel文件中的X、Y、Z坐标数据，为每一行数据创建一个参考点 。PointsFromTextFile 用于从CSV/文本文件中读取逗号分隔的三维坐标数据，并在族编辑器中批量创建参考点。SineCurve 创建一条通过点集的曲线，这些点遵循余弦函数 y = 10·cos(x) 的分布规律 在族编辑器中生成一系列按余弦函数分布的点，然后通过这些点创建一条平滑曲线。CatenaryCurve 创建基于悬链线方程分布的曲线（Catenary Curve），并生成多条不同缩放因子的曲线。在族编辑器中生成一系列按双曲余弦函数（悬链线）分布的点，通过这些点创建平滑的悬链线曲线，并绘制多组不同参数的曲线。CyclicSurface 创建基于双余弦函数曲面的放样形体（Loft Form），生成周期性波动的三维曲面。在族编辑器中通过沿X方向的一系列曲线创建放样曲面，每条曲线的点遵循 z = 50·(cos(x°) + cos(y°)) 的规律分布。
+
+            //////0503 官方代码测试
+            //NewHostedSweep 主体放样构件创建工具，是用于创建屋顶檐沟、封檐板、楼板边缘等建筑装饰构件的框架代码。
+            //从Revit元素中提取几何信息（Solid实体）
+            //识别可用于放置放样构件的边缘(Edge)
+            //TrackBall用于实现3D视图的交互式旋转和缩放控制，常用于CAD/3D建模软件中的视图操控。
+            //ElementGeometry Revit元素几何线框显示类，用于将Revit元素的3D实体(Solid)转换为2D线框并在GDI+图形上下文中绘制。
+            //EdgeBinding Revit边绑定类，用于将Revit模型的边缘(Edge)转换为GDI+可绘制的2D图形，并提供交互式高亮和选择功能。
+
+            //NewRebar 钢筋相关 跳过
+            //MultiplanarRebar 钢筋相关 跳过
+
+            ////MoveLinear
+            ////Revit线性构件移动工具，主要功能：
+            ////选中验证：
+            ////检查用户是否选中了元素
+            ////确保只选中一个元素
+            ////验证选中的元素是基于线条的构件（LocationCurve）
+            ////移动操作：
+            ////获取线段的起点和终点
+            ////将起点X坐标增加100单位
+            ////将终点Y坐标增加100单位
+            ////更新线段位置实现构件移动
+            ////BUG分析：
+            ////原代码移动逻辑有问题：起点和终点被移动到了不同方向，会导致线段倾斜而不是平移
+            ////应该是整体平移而不是分别修改端点
+            //new MoveLinear(commandData);
+
+            ////ModelLines
+            ////Revit插件程序的功能，并使用C# 7.3语法和WPF MVVM模式进行改写。程序功能分析
+            ////这是一个Revit模型线创建与管理工具，主要功能：
+            ////统计功能：统计当前文档中各类模型线的数量
+            ////ModelLine（直线）、ModelArc（圆弧）、ModelEllipse（椭圆）、ModelHermiteSpline（埃尔米特样条曲线）、ModelNurbSpline（NURBS样条曲线）
+            ////创建功能：创建新的模型线
+            ////创建直线（通过起点、终点）、创建圆弧（通过起点、终点、弧上点）、创建椭圆 / 样条曲线（复制现有曲线并偏移）
+            ////辅助功能：
+            ////选择 / 创建草图平面、从现有曲线复制创建新曲线
+            //try
+            //{
+            //    var _window = new ModelLineView(uiApp);
+            //    _window.Show();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////ModelessForm_IdlingEvent 测试方法转为DoorOperator DS找错了重点，应该指执行条件不同 以后再说吧
+            ////Revit门构件交互操作工具，主要功能：门的方向调整：
+            ////Left / Right：调整门的左右开向（把手位置）
+            ////In / Out：调整门的内外开启方向
+            ////Rotate：同时翻转两个方向（相当于旋转180度）
+            ////门删除功能：删除选中的门
+            ////工作机制：
+            ////使用无模式窗体实现非阻塞UI
+            ////通过Request机制存储用户操作请求
+            ////操作基于当前选中的门执行（而非列表选择）
+            //DoorOperatorByIdleEvent doorOperatorByIdleEvent = new DoorOperatorByIdleEvent();
+            //doorOperatorByIdleEvent.Show();
+
+            ////ModelessForm_ExternalEvent 测试方法转为DoorOperator
+            ////Revit门构件交互操作工具，主要功能：门的方向调整：
+            ////Left / Right：调整门的左右开向（把手位置）
+            ////In / Out：调整门的内外开启方向
+            ////Rotate：同时翻转两个方向
+            ////门删除功能：删除选中的门
+            ////工作机制：
+            ////使用无模式窗体(Modeless Form)实现非阻塞UI
+            ////通过外部事件(External Event)机制确保线程安全
+            //try
+            //{
+            //    var _window = new DoorOperatorView(uiApp); 
+            //    _window.Show();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////MaterialQuantities 无界面 CalculateMaterialQuantities.txt生成在桌面
+            ////Revit材质工程量计算工具，主要功能：计算三类构件的材质工程量：墙体(Wall)、楼板(Floor)、屋顶(Roof)
+            ////两种计算模式：
+            ////净用量(Net)：考虑门窗洞口、开洞等切割元素的实际用量
+            ////毛用量(Gross)：删除所有切割元素后的完整用量
+            ////输出内容：
+            ////各材质的总面积(平方英尺)和体积(立方英尺); 按构件类型统计;按单个构件统计
+            ////实现原理：
+            ////通过临时删除洞口、门、窗等切割元素计算毛用量; 使用事务回滚确保不修改原模型
+            //new MaterialQuantities(doc);
+
             //////0502 官方代码测试
-            //Loads 官方荷载管理 跳过
+            //Loads 官方结构荷载计算管理相关 跳过
 
             ////LevelsProperty DisplayUnitType有问题
             ////Revit标高管理工具，用于查看、修改、添加和删除Revit项目中的标高。核心功能

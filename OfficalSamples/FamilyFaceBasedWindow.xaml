@@ -1,0 +1,57 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.FamilyFaceBasedWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="放置基于面的族实例" Height="350" Width="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 族符号选择 -->
+        <TextBlock Grid.Row="0" Text="可用族符号：" Margin="0,0,0,5"/>
+        <ComboBox Grid.Row="1" 
+                  ItemsSource="{Binding FamilySymbols}"
+                  SelectedItem="{Binding SelectedFamilySymbol}"
+                  DisplayMemberPath="DisplayName"
+                  Margin="0,0,0,15"/>
+
+        <!-- 放置方式选择 -->
+        <TextBlock Grid.Row="2" Text="放置方式：" Margin="0,0,0,5"/>
+        <GroupBox Grid.Row="3" Header="选项" Margin="0,0,0,15">
+            <StackPanel Margin="15">
+                <RadioButton Content="Default (默认)" 
+                             IsChecked="{Binding IsDefaultSelected}"
+                             Margin="0,5"/>
+                <RadioButton Content="PlaceOnFace (放置在面上)" 
+                             IsChecked="{Binding IsPlaceOnFaceSelected}"
+                             Margin="0,5"/>
+                <RadioButton Content="PlaceOnVerticalFace (垂直面上，仅平面视图)" 
+                             IsChecked="{Binding IsPlaceOnVerticalFaceSelected}"
+                             Margin="0,5"/>
+                <RadioButton Content="PlaceOnWorkPlane (放置在工作平面上)" 
+                             IsChecked="{Binding IsPlaceOnWorkPlaneSelected}"
+                             Margin="0,5"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="4" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button Content="确定" Command="{Binding OkCommand}"
+                    Width="75" Margin="5" IsDefault="True"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

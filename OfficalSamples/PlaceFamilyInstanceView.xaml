@@ -1,0 +1,101 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.PlaceFamilyInstanceView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+     Title="{Binding WindowTitle}" Height="450" Width="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 面选择 -->
+        <TextBlock Grid.Row="0" Text="选择目标面:" Margin="0,5"/>
+        <ComboBox Grid.Row="1" 
+                  ItemsSource="{Binding Faces}"
+                  SelectedItem="{Binding SelectedFace}"
+                  DisplayMemberPath="Name"
+                  Margin="0,5"/>
+
+        <!-- 族符号选择 -->
+        <TextBlock Grid.Row="2" Text="选择族类型:" Margin="0,10,0,5"/>
+        <ComboBox Grid.Row="3" 
+                  ItemsSource="{Binding FamilySymbols}"
+                  SelectedItem="{Binding SelectedFamilySymbol}"
+                  DisplayMemberPath="DisplayName"
+                  Margin="0,5"/>
+
+        <!-- 第一个点/向量 -->
+        <TextBlock Grid.Row="4" Text="{Binding FirstLabel}" Margin="0,10,0,5"/>
+        <Border Grid.Row="5" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Margin="0,5">
+            <Grid Margin="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="X:" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="1" Text="{Binding FirstPoint.X, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Column="2" Text="Y:" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                <TextBox Grid.Column="3" Text="{Binding FirstPoint.Y, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Column="4" Text="Z:" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                <TextBox Grid.Column="5" Text="{Binding FirstPoint.Z, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+            </Grid>
+        </Border>
+
+        <!-- 第二个点/向量 (Line-Based时启用) -->
+        <TextBlock Grid.Row="6" Text="{Binding SecondLabel}" Margin="0,10,0,5"/>
+        <Border Grid.Row="7" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Margin="0,5">
+            <Grid Margin="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="X:" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="1" Text="{Binding SecondPoint.X, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Column="2" Text="Y:" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                <TextBox Grid.Column="3" Text="{Binding SecondPoint.Y, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+                <TextBlock Grid.Column="4" Text="Z:" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                <TextBox Grid.Column="5" Text="{Binding SecondPoint.Z, UpdateSourceTrigger=PropertyChanged}" Margin="2"/>
+            </Grid>
+        </Border>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="8" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
+            <Button Content="创建" Command="{Binding CreateCommand}"
+                    Width="75" Margin="5" Background="LightGreen"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+
+        <!-- 处理中覆盖层 -->
+        <Border Background="#CCFFFFFF" 
+                Grid.RowSpan="9"
+                Visibility="{Binding IsCreating, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="创建中..." 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center"
+                       FontSize="16"/>
+        </Border>
+    </Grid>
+</Window>

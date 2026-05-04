@@ -1,0 +1,186 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.ModelLineView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+       Title="模型线创建工具" Height="650" Width="800"
+        WindowStartupLocation="CenterScreen"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="InputLabelStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="100"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#FF2C3E50" Padding="10" CornerRadius="5" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="📐 Revit 模型线创建工具" FontSize="16" FontWeight="Bold" Foreground="White"/>
+                <TextBlock Text="统计、创建和管理模型线（直线、圆弧、椭圆、样条曲线）" FontSize="11" Foreground="#FFBDC3C7"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 主内容区域 -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- 统计信息区域 -->
+                <GroupBox Header="📊 模型线统计" Margin="0,0,0,10">
+                    <DataGrid ItemsSource="{Binding Statistics}" AutoGenerateColumns="False" 
+                              IsReadOnly="True" Height="150">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="类型" Binding="{Binding TypeName}" Width="*"/>
+                            <DataGridTextColumn Header="数量" Binding="{Binding Count}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </GroupBox>
+
+                <!-- 创建区域 -->
+                <GroupBox Header="✏️ 创建模型线" Margin="0,0,0,10">
+                    <StackPanel>
+                        <!-- 类型选择 -->
+                        <WrapPanel Margin="5">
+                            <TextBlock Text="选择类型：" Style="{StaticResource InputLabelStyle}"/>
+                            <!--<ComboBox ItemsSource="{Binding Source={StaticResource LineTypes}}" 
+                                      SelectedItem="{Binding SelectedLineType}" Width="150" Margin="5"/>-->
+                            <ComboBox   Width="150" Margin="5"/>
+                        </WrapPanel>
+
+                        <!-- 标题 -->
+                        <TextBlock Text="{Binding CreationTitle}" FontWeight="Bold" Margin="5,10,5,5"/>
+
+                        <!-- 直线/圆弧参数 -->
+                        <StackPanel Visibility="{Binding IsLineOrArcSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <!-- 第一点 -->
+                            <!--<Border Background="#FFF8F8F8" Padding="5" Margin="5">
+                                <TextBlock Text="第一点坐标 (X, Y, Z):" FontWeight="SemiBold"/>
+                                <Grid Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding LineStart.X}" Grid.Column="0" Margin="2"/>
+                                    <TextBox Text="{Binding LineStart.Y}" Grid.Column="1" Margin="2"/>
+                                    <TextBox Text="{Binding LineStart.Z}" Grid.Column="2" Margin="2"/>
+                                </Grid>
+                            </Border>-->
+
+                            <!-- 第二点 -->
+                            <!--<Border Background="#FFF8F8F8" Padding="5" Margin="5">
+                                <TextBlock Text="第二点坐标 (X, Y, Z):" FontWeight="SemiBold"/>
+                                <Grid Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding LineEnd.X}" Grid.Column="0" Margin="2"/>
+                                    <TextBox Text="{Binding LineEnd.Y}" Grid.Column="1" Margin="2"/>
+                                    <TextBox Text="{Binding LineEnd.Z}" Grid.Column="2" Margin="2"/>
+                                </Grid>
+                            </Border>-->
+
+                            <!-- 圆弧第三点 -->
+                            <!--<Border Background="#FFF8F8F8" Padding="5" Margin="5"
+                                    Visibility="{Binding SelectedLineType, Converter={StaticResource LineTypeToVisibilityConverter}}">
+                                <TextBlock Text="弧上点坐标 (X, Y, Z):" FontWeight="SemiBold"/>
+                                <Grid Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding ArcPoint.X}" Grid.Column="0" Margin="2"/>
+                                    <TextBox Text="{Binding ArcPoint.Y}" Grid.Column="1" Margin="2"/>
+                                    <TextBox Text="{Binding ArcPoint.Z}" Grid.Column="2" Margin="2"/>
+                                </Grid>
+                            </Border>-->
+                        </StackPanel>
+
+                        <!-- 复杂曲线参数（椭圆/样条曲线） -->
+                        <StackPanel Visibility="{Binding IsComplexCurveSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <!--<Border Background="#FFF8F8F8" Padding="5" Margin="5">
+                                <TextBlock Text="源曲线选择：" FontWeight="SemiBold"/>
+                                <ComboBox ItemsSource="{Binding AvailableCurves}" 
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedItem="{Binding SelectedCurve}" 
+                                          Margin="0,5,0,0"/>
+                            </Border>
+
+                            <Border Background="#FFF8F8F8" Padding="5" Margin="5">
+                                <TextBlock Text="偏移向量 (X, Y, Z):" FontWeight="SemiBold"/>
+                                <Grid Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding OffsetVector.X}" Grid.Column="0" Margin="2"/>
+                                    <TextBox Text="{Binding OffsetVector.Y}" Grid.Column="1" Margin="2"/>
+                                    <TextBox Text="{Binding OffsetVector.Z}" Grid.Column="2" Margin="2"/>
+                                </Grid>
+                            </Border>-->
+                        </StackPanel>
+
+                        <!-- 草图平面选择 -->
+                        <Border Background="#FFF0F0F0" Padding="5" Margin="5">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="草图平面：" VerticalAlignment="Center" Margin="5"/>
+                                <ComboBox ItemsSource="{Binding SketchPlanes}" 
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedItem="{Binding SelectedSketchPlane}" 
+                                          Width="200" Margin="5"/>
+                                <Button Content="新建平面" Command="{Binding CreateSketchPlaneCommand}" 
+                                        Width="80" Margin="5"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部操作栏 -->
+        <Border Grid.Row="2" Background="#FFF5F5F5" Padding="10" Margin="0,10,0,0" CornerRadius="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="Gray"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="刷新" Command="{Binding RefreshCommand}" 
+                            Style="{StaticResource ActionButtonStyle}"/>
+                    <Button Content="创建模型线" Command="{Binding CreateModelLineCommand}" 
+                            Style="{StaticResource ActionButtonStyle}" Background="#FF5B9BD5" Foreground="White"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

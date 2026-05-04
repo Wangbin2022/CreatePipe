@@ -1,0 +1,51 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.SketchPlaneDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+    Title="创建草图平面" Height="250" Width="450"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <GroupBox Header="平面参数" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="法线向量 (Normal):" FontWeight="Bold" Margin="5"/>
+                    <Grid Margin="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding CreationParams.Normal.X}" Grid.Column="0" Margin="2"/>
+                        <TextBox Text="{Binding CreationParams.Normal.Y}" Grid.Column="1" Margin="2"/>
+                        <TextBox Text="{Binding CreationParams.Normal.Z}" Grid.Column="2" Margin="2"/>
+                    </Grid>
+
+                    <TextBlock Text="原点 (Origin):" FontWeight="Bold" Margin="5,10,5,5"/>
+                    <Grid Margin="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding CreationParams.Origin.X}" Grid.Column="0" Margin="2"/>
+                        <TextBox Text="{Binding CreationParams.Origin.Y}" Grid.Column="1" Margin="2"/>
+                        <TextBox Text="{Binding CreationParams.Origin.Z}" Grid.Column="2" Margin="2"/>
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="确定" Command="{Binding OkCommand}" Width="75" Margin="5" IsDefault="True"/>
+            <Button Content="取消" Command="{Binding CancelCommand}" Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

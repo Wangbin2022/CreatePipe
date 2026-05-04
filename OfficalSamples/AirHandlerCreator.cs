@@ -355,7 +355,7 @@ namespace CreatePipe.OfficalSamples
                 // 模式匹配：如果是Solid类型
                 if (geoObject is Solid solid)
                 {
-                    foreach (Face face in solid.Faces)
+                    foreach (Autodesk.Revit.DB.Face face in solid.Faces)
                     {
                         // 模式匹配：如果是PlanarFace
                         if (face is PlanarFace planarFace)
@@ -542,7 +542,7 @@ namespace CreatePipe.OfficalSamples
         {
             if (solid is null) yield break;
 
-            foreach (Face face in solid.Faces)
+            foreach (Autodesk.Revit.DB.Face face in solid.Faces)
             {
                 if (face is PlanarFace planarFace)
                     yield return planarFace;

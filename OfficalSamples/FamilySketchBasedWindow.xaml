@@ -1,0 +1,63 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.FamilySketchBasedWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+        Title="放置基于草图的族实例" Height="400" Width="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 族符号选择 -->
+        <TextBlock Grid.Row="0" Text="可用族符号：" Margin="0,0,0,5"/>
+        <ComboBox Grid.Row="1" 
+                  ItemsSource="{Binding FamilySymbols}"
+                  SelectedItem="{Binding SelectedFamilySymbol}"
+                  DisplayMemberPath="DisplayName"
+                  Margin="0,0,0,15"/>
+
+        <!-- 草图工具选择 -->
+        <TextBlock Grid.Row="2" Text="草图工具：" Margin="0,0,0,5"/>
+        <GroupBox Grid.Row="3" Header="工具" Margin="0,0,0,15">
+            <WrapPanel Margin="10" Width="420">
+                <RadioButton Content="直线 (Line)" 
+                             IsChecked="{Binding IsLineSelected}"
+                             Width="130" Margin="5,3"/>
+                <RadioButton Content="三点圆弧 (Arc3Point)" 
+                             IsChecked="{Binding IsArc3PointSelected}"
+                             Width="150" Margin="5,3"/>
+                <RadioButton Content="圆心-端点圆弧 (ArcCenterEnds)" 
+                             IsChecked="{Binding IsArcCenterEndsSelected}"
+                             Width="160" Margin="5,3"/>
+                <RadioButton Content="样条曲线 (Spline)" 
+                             IsChecked="{Binding IsSplineSelected}"
+                             Width="120" Margin="5,3"/>
+                <RadioButton Content="部分椭圆 (PartialEllipse)" 
+                             IsChecked="{Binding IsPartialEllipseSelected}"
+                             Width="140" Margin="5,3"/>
+                <RadioButton Content="拾取线 (PickLines)" 
+                             IsChecked="{Binding IsPickLinesSelected}"
+                             Width="120" Margin="5,3"/>
+            </WrapPanel>
+        </GroupBox>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="4" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button Content="确定" Command="{Binding OkCommand}"
+                    Width="75" Margin="5" IsDefault="True"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,84 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.PathReinforcementView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+    Title="路径钢筋编辑器" Height="450" Width="750"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize">
+
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="350"/>
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 预览区域 -->
+        <Border Grid.Row="0" Grid.Column="0" 
+                BorderBrush="Gray" BorderThickness="1" 
+                Background="White" CornerRadius="3">
+            <Image x:Name="PreviewImage" Stretch="Fill"/>
+        </Border>
+
+        <!-- 属性编辑区域 -->
+        <GroupBox Grid.Row="0" Grid.Column="2" Header="钢筋属性" Margin="10,0,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="10">
+                    <!-- 布局规则 -->
+                    <TextBlock Text="布局规则:" Margin="0,5"/>
+                    <ComboBox ItemsSource="{Binding LayoutRules}" 
+                              SelectedItem="{Binding LayoutRule}"
+                              Margin="0,0,0,10"/>
+
+                    <!-- 面位置 -->
+                    <TextBlock Text="面位置:" Margin="0,5"/>
+                    <ComboBox ItemsSource="{Binding Faces}" 
+                              SelectedItem="{Binding Face}"
+                              Margin="0,0,0,10"/>
+
+                    <!-- 钢筋数量 -->
+                    <TextBlock Text="钢筋数量:" Margin="0,5"/>
+                    <TextBox Text="{Binding NumberOfBars, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsNumberOfBarsReadOnly, Converter={StaticResource InverseBool}}"
+                             Margin="0,0,0,10"/>
+
+                    <!-- 钢筋间距 -->
+                    <TextBlock Text="钢筋间距:" Margin="0,5"/>
+                    <TextBox Text="{Binding BarSpacing, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsBarSpacingReadOnly, Converter={StaticResource InverseBool}}"
+                             Margin="0,0,0,10"/>
+
+                    <!-- 主钢筋类型 -->
+                    <TextBlock Text="主钢筋类型:" Margin="0,5"/>
+                    <ComboBox ItemsSource="{Binding BarTypes}" 
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="Id"
+                              SelectedValue="{Binding PrimaryBarType}"
+                              Margin="0,0,0,10"/>
+
+                    <!-- 主钢筋长度 -->
+                    <TextBlock Text="主钢筋长度:" Margin="0,5"/>
+                    <TextBox Text="{Binding PrimaryBarLength, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,10"/>
+                </StackPanel>
+            </ScrollViewer>
+        </GroupBox>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="1" Grid.ColumnSpan="3" 
+                    Orientation="Horizontal" HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <Button Content="确定" Command="{Binding OkCommand}"
+                    Width="75" Margin="5" IsDefault="True"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

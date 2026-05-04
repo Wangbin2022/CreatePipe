@@ -1,0 +1,33 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.OpeningCreateModelLineView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+    Title="创建X模型线选项" Height="220" Width="350"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <StackPanel Margin="15">
+        <GroupBox Header="选项：" Margin="0,0,0,15">
+            <StackPanel Margin="10">
+                <RadioButton Content="在所有洞口上创建X模型线"
+                             IsChecked="{Binding IsAllOpeningsSelected}"
+                             Margin="0,5"/>
+                <RadioButton Content="仅在竖井洞口上创建X模型线"
+                             IsChecked="{Binding IsShaftOpeningsSelected}"
+                             Margin="0,5"/>
+                <RadioButton Content="在当前显示的洞口上创建X模型线"
+                             IsChecked="{Binding IsDisplayedOpeningSelected}"
+                             Margin="0,5"/>
+            </StackPanel>
+        </GroupBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="创建" Command="{Binding CreateCommand}"
+                    Width="75" Margin="5" Background="LightGreen"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

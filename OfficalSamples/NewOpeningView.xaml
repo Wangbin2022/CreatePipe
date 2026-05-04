@@ -1,0 +1,68 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.NewOpeningView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+      Title="创建洞口" Height="550" Width="550"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <local:NewOpeningsViewModel x:Key="ViewModel"/>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 绘图区域 -->
+        <Border Grid.Row="0" 
+                BorderBrush="Gray" 
+                BorderThickness="1"
+                Background="White">
+            <Grid>
+                <Image x:Name="DrawingArea" 
+                       Stretch="Fill"
+                       MouseDown="DrawingArea_MouseDown"
+                       MouseMove="DrawingArea_MouseMove"
+                       MouseUp="DrawingArea_MouseUp"/>
+
+                <!-- 工具提示 -->
+                <TextBlock Text="{Binding CurrentToolTip}"
+                           Margin="5"
+                           VerticalAlignment="Top"
+                           HorizontalAlignment="Left"
+                           Foreground="Blue"
+                           Background="Transparent"
+                           FontWeight="Bold"/>
+
+                <!-- 中键切换工具提示 -->
+                <TextBlock Text="💡 中键点击切换工具"
+                           Margin="5"
+                           VerticalAlignment="Bottom"
+                           HorizontalAlignment="Right"
+                           Foreground="Gray"
+                           FontSize="10"
+                           Background="Transparent"/>
+            </Grid>
+        </Border>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="1" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right"
+                    Margin="0,10">
+            <Button Content="确定" 
+                    Command="{Binding OkCommand}"
+                    Width="75" Margin="5"
+                    IsDefault="True"/>
+            <Button Content="取消" 
+                    Command="{Binding CancelCommand}"
+                    Width="75" Margin="5"
+                    IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
