@@ -1,0 +1,87 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.SlabShapeEditorView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+    Title="楼板形状编辑器" 
+        Height="480" Width="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <!-- 按钮样式 -->
+        <Style x:Key="ToolButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 工具栏 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button Style="{StaticResource ToolButtonStyle}" 
+                    Command="{Binding AddVertexCommand}"
+                    ToolTip="添加顶点">
+                <!--<Image Source="/Resources/add_vertex.png" Width="24" Height="24"/>-->
+            </Button>
+
+            <Button Style="{StaticResource ToolButtonStyle}"
+                    Command="{Binding AddCreaseCommand}"
+                    ToolTip="添加折线">
+                <!--<Image Source="/Resources/add_crease.png" Width="24" Height="24"/>-->
+            </Button>
+
+            <Button Style="{StaticResource ToolButtonStyle}"
+                    Command="{Binding MoveCommand}"
+                    ToolTip="移动/旋转视图">
+                <!--<Image Source="/Resources/move.png" Width="24" Height="24"/>-->
+            </Button>
+
+            <Separator Width="10"/>
+
+            <Label Content="距离(英尺):" VerticalAlignment="Center"/>
+            <TextBox Text="{Binding DistanceValue, UpdateSourceTrigger=PropertyChanged}" 
+                     Width="60" Margin="5,0"/>
+
+            <Button Content="更新" Command="{Binding UpdateCommand}" 
+                    Margin="10,0,0,0" Padding="10,5"/>
+        </StackPanel>
+
+        <!-- 画布区域 -->
+        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" 
+                Background="White" Margin="0,0,0,10">
+            <!--<Canvas x:Name="DrawingCanvas" 
+                    Width="354" Height="280"
+                    Background="Transparent"
+                    MouseClick="Canvas_MouseClick"
+                    MouseMove="Canvas_MouseMove">               
+                <Image x:Name="SlabImage" Width="354" Height="280"/>
+            </Canvas>-->
+        </Border>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2" Margin="0,0,0,10">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="重置" Command="{Binding ResetCommand}" 
+                    Width="75" Height="25" Margin="5"/>
+            <Button Content="确定" Click="OKButton_Click" IsDefault="True"
+                    Width="75" Height="25" Margin="5"/>
+        </StackPanel>
+    </Grid>
+</Window>

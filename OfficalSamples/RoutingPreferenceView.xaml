@@ -1,0 +1,95 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.RoutingPreferenceView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+    Title="路由偏好分析" Height="400" Width="550"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+         xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 管道类型选择 -->
+        <Grid Grid.Row="0" Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="选择管道类型：" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1" 
+                      ItemsSource="{Binding PipeTypes}"
+                      SelectedItem="{Binding SelectedPipeType}"
+                      DisplayMemberPath="DisplayName"/>
+        </Grid>
+
+        <!-- 分析按钮 -->
+        <Grid Grid.Row="1" Margin="0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="150"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" 
+                    Content="检查所有路由偏好" 
+                    Command="{Binding CheckAllCommand}"
+                    Margin="0,0,10,0"
+                    Height="28"
+                    IsEnabled="{Binding CanExecute}"/>
+            <Button Grid.Column="1" 
+                    Content="检查特定尺寸" 
+                    Command="{Binding CheckSpecificSizeCommand}"
+                    Margin="0,0,10,0"
+                    Height="28"
+                    IsEnabled="{Binding CanCheckSpecificSize}"/>
+            <ComboBox Grid.Column="2" 
+                      ItemsSource="{Binding AvailableSizes}"
+                      SelectedItem="{Binding SelectedSize}"
+                      Width="100"
+                      IsEnabled="{Binding CanExecute}"/>
+        </Grid>
+
+        <!-- 输出区域 -->
+        <Label Grid.Row="2" Content="输出结果：" Margin="0,5,0,0"/>
+        <TextBox Grid.Row="3" Grid.RowSpan="2" 
+                 Text="{Binding OutputText, UpdateSourceTrigger=PropertyChanged}"
+                 IsReadOnly="True"
+                 TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 FontFamily="Consolas"
+                 FontSize="11"
+                 Margin="0,5"/>
+
+        <!-- 关闭按钮 -->
+        <Button Grid.Row="5" 
+                Content="关闭" 
+                Command="{Binding CloseCommand}"
+                Width="75" Height="28"
+                HorizontalAlignment="Right"
+                Margin="0,10,0,0"
+                IsCancel="True"/>
+
+        <!-- 处理中覆盖层 -->
+        <Border Background="#CCFFFFFF" 
+                Grid.RowSpan="6"
+                Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="分析中..." FontSize="16" FontWeight="Bold"/>
+                <ProgressBar IsIndeterminate="True" Width="200" Height="15" Margin="0,10"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

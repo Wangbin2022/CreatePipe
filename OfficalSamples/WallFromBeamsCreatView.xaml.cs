@@ -384,7 +384,7 @@ namespace CreatePipe.OfficalSamples
     /// 几何计算辅助类
     /// 使用C# 7.3的表达式体和元组
     /// </summary>
-    public static class GeometryHelper
+    public static partial class GeometryHelper
     {
         private const double PRECISION = 1e-10;
 

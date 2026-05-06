@@ -1,0 +1,104 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.TagBeamView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+     Title="梁端标记工具" Height="450" Width="550"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+         xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:EnumToBooleanConverter  x:Key="EnumToBooleanConverter"/>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+        </Style>
+
+        <Style TargetType="ListBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#FFD9D9D9"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 左侧：选中的梁列表 -->
+        <GroupBox Header="选中的梁" Grid.Row="0" Grid.Column="0">
+            <ListBox ItemsSource="{Binding SelectedBeams}" 
+                     DisplayMemberPath="DisplayName"
+                     SelectionMode="Extended"/>
+        </GroupBox>
+
+        <!-- 右侧：标记设置 -->
+        <GroupBox Header="标记设置" Grid.Row="0" Grid.Column="1">
+            <StackPanel Margin="10">
+                <!-- 标记模式 -->
+                <Label Content="标记模式:" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding TagModes}" 
+                          SelectedItem="{Binding SelectedTagMode}"
+                          Margin="0,0,0,10"/>
+
+                <!-- 标记类型 -->
+                <Label Content="标记类型:" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding CurrentTagSymbols}"
+                          SelectedItem="{Binding SelectedTagSymbol}"
+                          DisplayMemberPath="Name"
+                          Margin="0,0,0,10"/>
+
+                <!-- 标记方向 -->
+                <Label Content="标记方向:" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <RadioButton Content="水平" IsChecked="{Binding SelectedOrientation, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Horizontal}" Margin="0,0,15,0"/>
+                    <RadioButton Content="垂直" IsChecked="{Binding SelectedOrientation, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Vertical}"/>
+                </StackPanel>
+
+                <!-- 引线选项 -->
+                <CheckBox Content="带引线" IsChecked="{Binding HasLeader}" Margin="0,0,0,15"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,10,0,0">
+            <Button Content="刷新" Command="{Binding RefreshCommand}" 
+                    Width="75" Height="25" Margin="0,0,10,0"/>
+            <Button Content="创建标记" Command="{Binding CreateTagsCommand}" 
+                    Width="75" Height="25" Margin="0,0,10,0" 
+                    IsDefault="True"
+                    Background="#FF007ACC" Foreground="White"/>
+            <Button Content="取消" IsCancel="True" 
+                    Width="75" Height="25"/>
+        </StackPanel>
+
+        <!-- 加载遮罩 -->
+        <Border Background="#80FFFFFF" 
+                Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}"
+                Grid.RowSpan="3" Grid.ColumnSpan="2">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="20"/>
+                <TextBlock Text="处理中..." Margin="0,10,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

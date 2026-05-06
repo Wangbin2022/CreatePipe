@@ -1,0 +1,79 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.RotateFramingView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+      Title="旋转结构构件" Height="180" Width="280"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 旋转角度输入 -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="40"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="旋转角度：" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" Text="{Binding RotationAngle, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="5,0"/>
+            <TextBlock Grid.Column="2" Text="度" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 旋转模式选择 -->
+        <GroupBox Grid.Row="1" Header="旋转方式" Margin="0,0,0,15">
+            <StackPanel Margin="10">
+                <RadioButton Content="相对旋转 (在当前角度基础上增加)"
+                             IsChecked="{Binding IsRelativeMode}"
+                             Margin="0,5"/>
+                <RadioButton Content="绝对旋转 (设置为指定角度)"
+                             IsChecked="{Binding IsAbsoluteMode}"
+                             Margin="0,5"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- 按钮区域 -->
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button Content="旋转" Command="{Binding RotateCommand}"
+                    Width="75" Margin="5" 
+                    IsEnabled="{Binding CanExecute}"
+                    Background="LightGreen"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="75" Margin="5" IsCancel="True"/>
+        </StackPanel>
+
+        <!-- 提示文字 -->
+        <TextBlock Grid.Row="3" 
+                   Text="💡 提示：梁/支撑通过修改截面旋转参数，柱通过几何旋转"
+                   FontSize="10"
+                   Foreground="Gray"
+                   TextWrapping="Wrap"
+                   Margin="0,10,0,0"/>
+
+        <!-- 处理中覆盖层 -->
+        <Border Background="#CCFFFFFF" 
+                Grid.RowSpan="4"
+                Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="旋转中..." 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center"
+                       FontSize="16"/>
+        </Border>
+    </Grid>
+</Window>

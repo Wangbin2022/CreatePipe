@@ -2,10 +2,12 @@
 using Autodesk.Revit.Creation;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.DirectContext3D;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Fabrication;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
+using Autodesk.Revit.Exceptions;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
@@ -13,6 +15,7 @@ using CreatePipe.Form;
 using CreatePipe.MEPevent;
 using CreatePipe.OfficalSamples;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
@@ -20,6 +23,7 @@ using System.IO;
 using System.Linq;
 using System.Management.Instrumentation;
 using System.Runtime.CompilerServices;
+using System.Runtime.Remoting.Lifetime;
 using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Controls;
@@ -27,7 +31,11 @@ using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Xml;
+using System.Xml.Linq;
 using static CreatePipe.OfficalSamples.DuplicateView;
+using static CreatePipe.OfficalSamples.RoutingPreferenceView;
+using static CreatePipe.RevitOperationLogger;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 using View = Autodesk.Revit.DB.View;
 //ObserverableObject
@@ -40,7 +48,6 @@ namespace CreatePipe
     [Transaction(TransactionMode.Manual)]
     public class Test10_0818 : IExternalCommand
     {
-
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -48,8 +55,952 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //////0504 官方代码测试
+            //////0507 官方代码测试
 
+            //////0506 官方代码测试
+
+            //Viewers 基于VB开发的四个工具似乎无特殊性，暂跳过
+
+            //TypeSelector 元素类型切换工具，主要功能包括：
+            //选择元素：用户选择一个墙体或构件（FamilyInstance）
+            //获取可用类型：根据选中元素显示所有可用的类型列表
+            //切换类型：将选中元素的类型更改为用户选择的类型
+            //支持类型：墙体（Wall）和构件（FamilyInstance）
+            try
+            {
+                var uiDocument = commandData.Application.ActiveUIDocument;
+                // 创建视图模型
+                var viewModel = new TypeSelectorViewModel(uiDocument);
+                // 创建并显示WPF窗口
+                var window = new TypeSelectorView(viewModel);
+                ////// 设置Revit为所有者窗口
+                ////var revitWindow = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                ////var helper = new System.Windows.Interop.WindowInteropHelper(window)
+                ////{
+                ////    Owner = revitWindow
+                ////};
+                window.ShowDialog();
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+                return Result.Failed;
+            }
+
+
+            //Options 控件UserControl插件选项配置控件，主要功能包括：
+            //按钮可用性设置：通过ComboBox控制Revit工具栏按钮在不同专业环境下的可用性
+            //选项持久化：通过ApplicationOptions.Get()获取和应用配置
+            //恢复默认设置：提供恢复默认配置的功能
+
+            //UIAPI DragAndDrop改WPF MVVM转义测试500行不到转了近千行
+            //家具族管理工具，主要功能包括：
+            //显示已加载的家具族：在ListView中显示当前文档中已加载的家具族
+            //显示可加载的族文件：在ListBox中显示可用的家具族文件
+            //拖放功能：支持在两个列表之间拖放，实现族的加载和卸载
+            //实时更新：拖放后自动更新Revit文档内容
+            //try
+            //{
+            //    // 创建视图模型
+            //    var viewModel = new DragAndDropViewModel(commandData.Application.ActiveUIDocument);
+            //    // 创建并显示WPF窗口
+            //    var window = new DragAndDropWindow(viewModel);
+            //    //// 设置Revit为所有者窗口
+            //    //var revitWindow = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            //    //var helper = new System.Windows.Interop.WindowInteropHelper(window)
+            //    //{
+            //    //    Owner = revitWindow
+            //    //};
+            //    window.ShowDialog();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            //Units 单位换算部分跳过
+
+            ////VersionChecking
+            //try
+            //{
+            //    // 创建视图模型
+            //    var viewModel = new VersionCheckViewModel(commandData);
+            //    // 创建并显示WPF窗口
+            //    var window = new VersionCheckView(viewModel);
+            //    // 显示模态对话框
+            //    window.ShowDialog();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = $"发生错误：{ex.Message}";
+            //    return Result.Failed;
+            //}
+
+            ////ViewPrinter ViewSheetSetForm 初始化出错待查 其他PrintManager工具暂跳过
+            ////Revit打印管理工具，主要功能包括：
+            ////视图 / 图纸集管理：创建、编辑、保存、重命名、删除视图 / 图纸集
+            ////打印范围控制：选择要打印的视图和图纸
+            ////显示过滤：根据视图类型（仅视图 / 仅图纸 / 两者）过滤显示
+            ////批量选择：全选 / 全不选功能
+            //try
+            //{
+            //    var uiDocument = commandData?.Application?.ActiveUIDocument;
+            //    // 创建视图模型
+            //    var viewModel = new ViewSheetViewModel(uiDocument);
+            //    // 创建并显示WPF窗口
+            //    var window = new ViewSheetWindow
+            //    {
+            //        DataContext = viewModel
+            //    };
+            //    //// 设置Revit作为所有者窗口
+            //    //var revitWindow = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            //    //var helper = new System.Windows.Interop.WindowInteropHelper(window)
+            //    //{
+            //    //    Owner = revitWindow
+            //    //};
+            //    var result = window.ShowDialog();
+            //    return result == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            //VisibilityControl 控制视图中的类别可见性， 已实现可跳过
+            //显示所有类别：列出当前视图中所有可控制可见性的类别
+            //批量控制可见性：通过复选框批量显示 / 隐藏类别
+            //隔离元素：通过点选或框选元素，自动隔离所选元素所属的类别
+
+            ////SlabProperties Revit楼板详细属性查看工具，主要功能： Slab专指基础板
+            ////基础属性：显示楼板的标高、类型名称、跨度方向
+            ////结构层分析：显示每个结构层的详细信息
+            //try
+            //{
+            //    var service = new SlabPropertyService(commandData);
+            //    // 检查选中的楼板
+            //    var floor = service.GetSelectedFloor(out string error);
+            //    if (floor == null)
+            //    {
+            //        message = error;
+            //        return Result.Failed;
+            //    }
+            //    if (!service.IsValidFloor(floor, out error))
+            //    {
+            //        message = error;
+            //        return Result.Failed;
+            //    }
+            //    var viewModel = new SlabPropertiesViewModel(service);
+            //    var window = new SlabPropertiesWindow(viewModel);
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = $"发生错误: {ex.Message}";
+            //    return Result.Failed;
+            //}
+
+            ////StructuralLayerFunction Revit楼板结构层功能查看工具，主要功能：
+            ////选择楼板：用户选择一个楼板（Floor）
+            ////获取复合结构：读取楼板类型的复合结构层
+            ////提取层功能：获取每个结构层的功能（Function）
+            ////显示结果：在对话框中按从外到内的顺序显示各层功能
+            //try
+            //{
+            //    // 创建服务层
+            //    var service = new FloorLayerService(commandData);
+            //    // 检查是否有选中的楼板
+            //    var floor = service.GetSelectedFloor();
+            //    if (floor == null)
+            //    {
+            //        message = "请选中一个楼板";
+            //        return Result.Failed;
+            //    }
+            //    // 验证楼板有效性
+            //    if (!service.IsValidFloor(floor, out string error))
+            //    {
+            //        message = error;
+            //        return Result.Failed;
+            //    }
+            //    // 创建视图模型并显示窗口
+            //    var viewModel = new FloorLayerFunctionViewModel(service);
+            //    var window = new FloorLayerFunctionView(viewModel);
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = $"发生错误: {ex.Message}";
+            //    return Result.Failed;
+            //}
+
+            //MEPSystemTraversal 待后续增补界面和细化
+            ////TraverseSystem  Revit MEP系统遍历分析工具，支持水暖系统分析，功能：
+            ////系统识别：从选中的元素（机械系统、管道系统、设备、管件）中提取MEP系统
+            ////系统遍历：沿流向遍历整个系统，构建树形结构
+            ////数据导出：将遍历结果导出为XML文件
+            //new MEPSystemTraversal(commandData);
+
+            ////TransactionControl  Revit事务管理演示工具，主要功能：
+            ////事务组管理：演示Transaction Group的使用
+            ////事务管理：演示Start / Commit / Rollback操作
+            ////墙操作：创建、移动、删除墙
+            ////事务树显示：显示所有事务的状态 (空)
+            //try
+            //{
+            //    if (commandData?.Application?.ActiveUIDocument?.Document == null)
+            //    {
+            //        message = "无法获取有效的Revit文档";
+            //        return Result.Failed;
+            //    }
+            //    var service = new TransactionService(commandData);
+            //    var viewModel = new TransactionViewModel(service);
+            //    var window = new TransactionWindow(viewModel);
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////TestWallThickness Revit 墙厚度批量修改工具，主要功能
+            ////选择墙元素 获取用户当前选择的元素
+            ////过滤墙类型 只处理 Wall 类型的元素
+            ////修改墙厚度 将墙的每一层厚度乘以 10 倍
+            ////事务管理    使用 Transaction 确保修改可撤销
+            //// 获取Revit应用程序和文档对象
+            //UIApplication application = commandData.Application;
+            //UIDocument document = application.ActiveUIDocument;
+            //// 标记是否选中了墙元素
+            //bool selectWalls = false;
+            //// 启动事务 - 所有修改将在一个事务中完成，支持撤销
+            //Transaction tran = new Transaction(document.Document, "测试墙厚度修改");
+            //tran.Start();
+            //// 遍历用户当前选中的所有元素
+            //foreach (ElementId elementId in document.Selection.GetElementIds())
+            //{
+            //    // 根据ID获取元素实例
+            //    Element element = document.Document.GetElement(elementId);
+            //    // 检查元素是否为墙类型
+            //    if (element is Wall)
+            //    {
+            //        Wall wall = (Wall)element;
+            //        selectWalls = true;  // 标记已选中墙
+            //        try
+            //        {
+            //            // 获取墙类型的复合结构（包含各层材料、厚度、功能等信息）
+            //            CompoundStructure cs = wall.WallType.GetCompoundStructure();
+            //            // 遍历复合结构的每一层
+            //            for (int ii = 0; ii < cs.LayerCount; ii++)
+            //            {
+            //                // 获取当前层厚度并乘以10
+            //                double currentWidth = cs.GetLayerWidth(ii);
+            //                double newWidth = currentWidth * 10;
+
+            //                // 设置新的层厚度
+            //                cs.SetLayerWidth(ii, newWidth);
+            //            }
+            //            // 将修改后的复合结构应用回墙类型
+            //            // 注意：这会修改墙类型，影响所有使用该类型的墙实例
+            //            wall.WallType.SetCompoundStructure(cs);
+            //            // 强制重新生成文档以更新显示
+            //            document.Document.Regenerate();
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            // 遇到错误跳过当前墙，继续处理下一个
+            //            // 不抛出异常，避免中断整个批处理流程
+            //            continue;
+            //        }
+            //    }
+            //}
+            //// 根据是否选中墙决定事务提交或回滚
+            //if (selectWalls)
+            //{
+            //    // 提交事务 - 保存所有修改
+            //    tran.Commit();
+            //    return Result.Succeeded;
+            //}
+            //else
+            //{
+            //    // 未选中任何墙，设置提示消息
+            //    message = "请至少选择一个墙。";
+            //    // 回滚事务 - 撤销所有修改
+            //    tran.RollBack();
+            //    return Result.Cancelled;
+            //}
+
+            ////TestFloorThickness Revit楼板厚度批量修改工具，主要功能：
+            ////选择楼板：用户选择一个或多个楼板
+            ////获取复合结构：读取楼板类型的复合结构（CompoundStructure）
+            ////修改层厚度：将每个结构层的厚度乘以10
+            ////应用修改：将修改后的复合结构应用回楼板类型
+            //try
+            //{
+            //    // 验证命令数据
+            //    if (commandData?.Application?.ActiveUIDocument?.Document == null)
+            //    {
+            //        message = "无法获取有效的Revit文档";
+            //        return Result.Failed;
+            //    }
+            //    // 检查是否有选中的楼板
+            //    var service = new FloorThicknessService(commandData);
+            //    var floors = service.GetSelectedFloors();
+            //    if (floors.Count == 0)
+            //    {
+            //        TaskDialog.Show("提示", "请至少选中一个楼板");
+            //        return Result.Cancelled;
+            //    }
+            //    // 创建视图模型并显示窗口
+            //    var viewModel = new FloorThicknessViewModel(service);
+            //    var window = new FloorThicknessView(viewModel);
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = $"发生错误: {ex.Message}";
+            //    return Result.Failed;
+            //}
+
+            //TagBeam Revit结构构件标注工具集，包含三个主要功能： 标注梁可用，钢筋有增补代码未测试
+            //1.TagBeam - 梁端部标注
+            //选中梁后，在梁的两端自动添加标记
+            //支持多种标记类型：结构框架标记、材质标记、多类别标记
+            //可设置标记方向、是否带引线
+            //2.TagRebar - 钢筋标记
+            //为选中的钢筋添加标记
+            //在钢筋的第一个端点放置标记
+            //3.CreateText - 创建文字注释
+            //为选中的钢筋创建文字注释
+            //显示钢筋的类别和名称
+            ///// <summary>
+            ///// 钢筋标记命令
+            ///// </summary>
+            //try
+            //{
+            //    var service = new TaggingService(commandData);
+            //    // 检查是否有选中的钢筋
+            //    var rebars = service.GetSelectedRebars();
+            //    if (rebars.Count == 0)
+            //    {
+            //        message = "请至少选中一个钢筋";
+            //        return Result.Failed;
+            //    }
+            //    var viewModel = new TagRebarViewModel(service);
+            //    var window = new TagRebarView(viewModel);
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+            ///// <summary>
+            ///// 梁端标记命令
+            ///// </summary>
+            //try
+            //{
+            //    var service = new TaggingService(commandData);
+            //    // 检查是否有选中的梁
+            //    var beams = service.GetSelectedBeams();
+            //    if (beams.Count == 0)
+            //    {
+            //        message = "请至少选中一个梁";
+            //        return Result.Failed;
+            //    }
+            //    var viewModel = new TagBeamViewModel(service);
+            //    var window = new TagBeamView(viewModel);
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+            ///// <summary>
+            ///// 钢筋文字注释命令（简化版，直接执行）
+            ///// </summary>
+            //try
+            //{
+            //    var service = new TaggingService(commandData);
+            //    var rebars = service.GetSelectedRebars();
+            //    if (rebars.Count == 0)
+            //    {
+            //        message = "请至少选中一个钢筋";
+            //        return Result.Failed;
+            //    }
+            //    int successCount = 0;
+            //    foreach (var rebarInfo in rebars)
+            //    {
+            //        if (service.CreateRebarTextNote(rebarInfo.Rebar))
+            //            successCount++;
+            //    }
+            //    TaskDialog.Show("完成", $"成功创建了 {successCount} 个文字注释");
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////StructSample Revit沿墙布置结构柱工具。逻辑似无问题，柱墙均应编码，后续待研究组合 主要功能：
+            ////选择墙：用户选择需要布置柱的墙
+            ////过滤墙：过滤出有顶部和底部约束的有效墙
+            ////加载柱族：查找指定的柱族类型（木柱 191x292mm）
+            ////计算位置：根据墙的长度和间距（5英尺）计算柱的位置
+            ////放置柱：沿墙方向等间距放置柱，包括起点和终点
+            //new CreateColumnByWall(commandData);
+
+            ////Revit点标注(SpotDimension)信息查看工具，主要功能：
+            ////视图筛选：按视图筛选显示点标注
+            ////点标注列表：显示选中视图中所有点标注
+            ////参数信息展示：显示选中点标注的详细参数（包括类型参数和实例参数）
+            ////高亮显示：选中点标注后在Revit中高亮显示
+            //try
+            //{
+            //    // 创建服务层
+            //    var service = new SpotDimensionService(commandData);
+            //    // 创建视图模型
+            //    var viewModel = new SpotDimensionAnalyzerViewModel(commandData, service);
+            //    // 创建并显示窗口
+            //    var window = new SpotDimensionAnalyzerView(viewModel);
+            //    // 显示对话框
+            //    bool? result = window.ShowDialog();
+            //    return result == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = $"发生错误: {ex.Message}\n{ex.StackTrace}";
+            //    return Result.Failed;
+            //}
+
+            ////SpanDirection Revit楼板跨度方向分析工具，基本可用。。主要功能：
+            ////用户选择一个楼板(Slab / Floor)
+            ////获取楼板的跨度方向角度(SpanDirectionAngle)
+            ////获取楼板的所有跨度方向符号(SpanDirectionSymbols)
+            ////在对话框中显示这些信息
+            //// 初始化文档引用
+            //try
+            //{
+            //    // 获取用户选中的元素ID集合
+            //    Floor selectedFloor = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "sth")) as Floor;
+            //    // 验证是否选中了元素
+            //    if (selectedFloor == null)
+            //    {
+            //        TaskDialog.Show("tt", "请先选择一个楼板");
+            //        return Result.Cancelled;
+            //    }
+            //    // 处理选中的楼板元素
+            //    new FloorSpanDirectionProcess(selectedFloor);
+            //}
+            //catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
+            //{
+            //    // 使用异常过滤器，仅捕获特定的预期异常
+            //    message = $"操作错误: {ex.Message}";
+            //    return Result.Failed;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = $"未预期的错误: {ex}\n{ex.StackTrace}";
+            //    return Result.Failed;
+            //}
+
+            //SolidSolidCut 待后续研究
+            //Cut命令：使用一个实体（球体）切割另一个实体（立方体），演示SolidSolidCutUtils.AddCutBetweenSolids API
+            //Uncut命令：移除两个实体之间的切割关系，恢复原始形状，演示SolidSolidCutUtils.RemoveCutBetweenSolids API
+
+            ////SlabShapeEditing 转义基本完整但有重复MathTool和View比较臃肿问题
+            ////选中楼板后在WinForm窗口中显示2D轮廓
+            ////支持添加顶点（Vertex）和折线（Crease）
+            ////支持移动和旋转视角
+            ////支持重置形状和更新操作
+            //Floor selectedFloor = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "sth")) as Floor;
+            //try
+            //{
+            //    // 创建服务层
+            //    var profileService = new SlabProfileService(commandData, selectedFloor);
+            //    // 创建ViewModel
+            //    var viewModel = new SlabShapeEditorViewModel(profileService);
+            //    // 创建并显示WPF窗口
+            //    var window = new SlabShapeEditorView(viewModel);
+            //    //window.Owner = System.Windows.Application.Current.MainWindow;
+            //    return window.ShowDialog() == true ? Result.Succeeded : Result.Cancelled;
+            //}
+            //catch (System.Exception ex)
+            //{
+            //    message = $"错误: {ex.Message}";
+            //    return Result.Failed;
+            //}
+
+            //0505 官方代码测试
+            ////SinePlotter 沿正弦曲线批量放置族实例，生成由族实例构成的波形图案。
+            ////查找指定名称的族符号（FamilySymbol）
+            ////根据分区数计算角度增量 θ = 2π / partitions
+            ////循环计算每个点的位置(x, y)
+            ////在计算出的位置上放置族实例
+            //    try
+            //    {
+            //        //Application 为自定义，部分逻辑在那里
+            //        var fsName = Application2.GetFamilySymbolName();
+            //        // 查找指定名称的族符号
+            //        var familySymbol = FindFamilySymbol(doc, fsName);
+            //        if (familySymbol == null)
+            //        {
+            //            TaskDialog.Show("族符号加载错误", "项目中未加载指定的族符号。");
+            //            return Result.Failed;
+            //        }
+            //        // 激活族符号
+            //        if (!familySymbol.IsActive)
+            //        {
+            //            familySymbol.Activate();
+            //        }
+            //        // 获取绘制参数
+            //        var plotter = new FamilyInstancePlotter(familySymbol, doc);
+            //        var parameters = Application2.GetPlottingParameters();
+            //        // 沿曲线放置实例
+            //        plotter.PlaceInstancesOnCurve(
+            //            parameters.partitions,
+            //            parameters.period,
+            //            parameters.amplitude,
+            //            parameters.numOfCircles);
+            //        return Result.Succeeded;
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        message = ex.Message;
+            //        return Result.Failed;
+            //    }
+            ///// <summary>
+            ///// 查找族符号 - 使用LINQ和模式匹配
+            ///// </summary>
+            //private static FamilySymbol FindFamilySymbol(Document doc, string symbolName)
+            //{
+            //    var collector = new FilteredElementCollector(doc);
+            //    return collector.OfClass(typeof(FamilySymbol))
+            //        .Cast<FamilySymbol>()
+            //        .FirstOrDefault(s => s.Name == symbolName);
+            //}
+
+            ////SharedCoordinateSystem Revit 共享坐标系统示例程序的功能 跟预想差异较大 没啥深究必要 界面可看一下
+            ////CoordinateSystemData 数据层 -管理项目位置、偏移量、经纬度等核心数据
+            ////CoordinateSystemDataForm    表现层(WinForms) - 位置列表、偏移量编辑、城市选择、时区设置
+            ////DuplicateForm   复制位置对话框（未提供代码）
+            //try
+            //{
+            //    CoordinateSystemView window = new CoordinateSystemView(commandData);
+            //    // 使用ShowDialog模态显示，确保Revit事务正确管理
+            //    bool? result = window.ShowDialog();
+            //    if (result == true)
+            //    {
+            //        return Result.Succeeded;
+            //    }
+            //    else
+            //    {
+            //        return Result.Cancelled;
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            //////ShaftHolePuncher 在墙、楼板、梁或自由空间中创建竖井洞口（Shaft Opening），用户可以在2D预览区域绘制任意形状的曲线。
+            //////几何部分命令与已有重复ITool，RectangleTool、LineTool、MathTools等，代码量太长只有核心逻辑缺失太多
+            //////Revit 3D世界坐标
+            //////↓ To2DMatrix（投影到平面）
+            //////↓ MoveToCenterMatrix（居中）
+            //////↓ ScaleMatrix（缩放适配PictureBox）
+            //////↓ TransformPoints（屏幕坐标偏移）
+            //////→ 2D屏幕坐标
+            ////var selectedIds = uiDoc.Selection.GetElementIds();
+            ////Profile3 profile;
+            ////if (selectedIds.Count == 0)
+            ////{
+            ////    profile = new ProfileNull(commandData);
+            ////}
+            ////else if (selectedIds.Count == 1)
+            ////{
+            ////    var element = uiDoc.Document.GetElement(selectedIds.First());
+            ////    if (element is Wall)
+            ////    {
+            ////        var wall = (Wall)element;
+            ////        profile = new ProfileWall(wall, commandData);
+            ////    }
+            ////    else if (element is Floor)
+            ////    {
+            ////        var floor = (Floor)element;
+            ////        profile = new ProfileFloor(floor, commandData);
+            ////    }
+            ////    else if (element is FamilyInstance)
+            ////    {
+            ////        var fi = (FamilyInstance)element;
+            ////        if (fi.StructuralType == Structure.StructuralType.Beam)
+            ////        {
+            ////            profile = new ProfileBeam(fi, commandData);
+            ////        }
+            ////        else
+            ////        {
+            ////            throw new Exception("请选择一个墙、楼板或梁来创建洞口，或取消选择以创建自由竖井洞口。");
+            ////        }
+            ////    }
+            ////    else
+            ////    {
+            ////        throw new Exception("请选择一个墙、楼板或梁来创建洞口，或取消选择以创建自由竖井洞口。");
+            ////    }
+            ////}
+            ////else
+            ////{
+            ////    message = "请仅选择一个元素，或取消选择以创建自由竖井洞口。";
+            ////    return Result.Failed;
+            ////}
+            ////var viewModel = new ShaftHolePuncherViewModel(profile, commandData);
+            //var viewModel = new ShaftHolePuncherViewModel(new ProfileNull(commandData), commandData);
+            //var window = new ShaftHolePuncherView { DataContext = viewModel };
+            //viewModel.CloseWindow = window.Close;
+            //window.ShowDialog();
+
+
+            ////Selections 似乎也有VB版 多种图形交互选择功能，包括元素选择、面选择、点选择、移动元素、放置窗体和创建圆形等。
+            ////整体逻辑有问题，几个执行命令是独立的没有放到VM中。
+            ////PickforDeletion 多选元素并删除
+            ////PlaceAtPointOnWallFace 在墙面点上放置固定尺寸窗户
+            ////PlaceAtPickedFaceWorkplane 选择平面→设工作平面→拾取圆心→画圆
+            ////SelectionDialog 拾取元素→拾取点→移动元素到点
+            //try
+            //{
+            //    var viewModel = new SelectionDialogViewModel(commandData);
+            //    var window = new SelectionDialogView { DataContext = viewModel };
+            //    viewModel.CloseWindow = window.Close;
+            //    window.ShowDialog();
+
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////ScheduleToHTML 将当前活动的明细表（Schedule）导出为HTML文件，支持单元格合并、背景色、字体样式等格式保留。
+            ////TableSectionData 获取明细表的分区数据（表头 / 主体）
+            ////HtmlTextWriter.NET HTML写入器，简化标签生成
+            ////合并单元格处理 通过TableMergedCell获取合并范围，设置colspan / rowspan
+            ////写html部分需要引用using System.Web.UI; 可能有nuget引入库问题
+            //if (!(activeView is ViewSchedule schedule))
+            //{
+            //    TaskDialog.Show("无法继续", "活动视图必须是明细表。");
+            //    return Result.Cancelled;
+            //}
+            //var exporter = new ScheduleHtmlExporter(schedule);
+            //exporter.ExportToHtml();
+
+            ////ScheduleCreation 自动创建墙体明细表并添加到图纸，同时对明细表进行格式化和过滤设置。
+            ////ScheduleCreationUtility	明细表创建工具类，封装创建、格式化、添加到图纸的逻辑
+            ////new ScheduleCreatorCommand(commandData);
+            //try
+            //{
+            //    var utility = new ScheduleCreatorCommand(commandData);
+            //    utility.CreateAndAddSchedules(uiDoc);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////ScheduleAutomaticFormatter 自动格式化明细表（Schedule）的列背景色，并在明细表变化时自动更新格式。
+            ////ScheduleFormatterCommand 外部命令，对选中的明细表应用格式并注册更新器
+            ////ScheduleFormatter   格式化器，实现IUpdater接口，监听明细表变化
+            ////用户选择明细表 → 执行命令..应用格式：为明细表列设置交替背景色..添加标记：使用ExtensibleStorage在明细表上添加"Formatted"标记..注册更新器：监听所有带标记的明细表，变化时自动重新格式化
+            //new ScheduleFormatterCommand(commandData);
+
+            //RvtSamples 示例项数据模型类，用于存储Revit插件菜单中每个示例项的配置信息。作为数据容器，存储一个菜单项的完整配置信息，供Ribbon菜单生成时使用。
+
+            ////RoutingPreferenceAnalysis 分析管道的路由偏好设置，检查管段（Segments）和管件（Fittings）的配置问题，并以XML格式输出结果。 Builder近千行，后面几个命令相对独立没有从窗体调用
+            ////WPF窗口，提供管道类型选择、尺寸选择、分析功能
+            ////Analyzer    分析器（未完整显示），检查路由偏好规则
+            ////PartIdInfo  存储管段 / 管件的ID和分组类型信息
+            ////Validation 验证辅助类（未完整显示），检查MEP模块和管道定义
+            ////FindFolderUtility	查找Revit安装目录中的族文件，支持用户自定义路径
+            ////RoutingPreferenceDataException 自定义异常类
+            ////SchemaValidationHelper 验证XML文档是否符合预定义的XSD架构
+            ////CommandReadPreferences 从XML文件读取路由偏好配置数据，并在文档中创建管道类型、管段、尺寸和路由偏好规则。
+            ////CommandWritePreferences  将当前文档中的路由偏好配置导出为XML文件，供CommandReadPreferences命令后续导入使用。
+            ////RoutingPreferenceBuilder 从XML读取路由偏好配置并在Revit中创建完整的管道系统，以及将现有管道配置导出为XML。主要功能： 从 XML 导入管道系统配置 - 读取 XML 文件，创建 / 加载管道族、管段、管径、管件、路由偏好规则..导出管道系统配置到 XML - 将当前文档中的管道配置序列化为 XML..管理管道系统的各种类型 - 管段(Segment)、管件(Fitting)、材质(Material)、管程类型(Schedule)、管类型(PipeType)..路由偏好管理 - 控制管道自动布线时优先使用的管件类型（弯头、三通、变径等）
+            //// 验证管道定义
+            //if (!new FilteredElementCollector(doc).OfClass(typeof(PipeType)).Any())
+            //{
+            //    TaskDialog.Show("路由偏好分析", "文档中没有定义管道类型。");
+            //    return Result.Cancelled;
+            //}
+            //var viewModel = new RoutingPreferenceViewModel(commandData.Application);
+            //var window = new RoutingPreferenceView { DataContext = viewModel };
+            //viewModel.CloseWindow = window.Close;
+            //window.ShowDialog();
+
+            ////RotateFramingObjects 旋转选中的结构构件（梁、支撑、柱），支持绝对旋转和相对旋转两种模式。
+            //// 验证选中元素
+            //var selectedIds = uiApp.ActiveUIDocument.Selection.GetElementIds();
+            //if (selectedIds.Count == 0)
+            //{
+            //    message = "请选中需要旋转的梁、支撑或柱。";
+            //    return Result.Failed;
+            //}
+            ////// 验证选中元素是否为有效的结构构件
+            ////var invalidElements = selectedIds
+            ////    .Select(id => doc.GetElement(id))
+            ////    .Where(e => !IsValidStructuralElement(e))
+            ////    .ToList();
+            ////if (invalidElements.Any())
+            ////{
+            ////    message = "选中的元素中包含非梁/支撑/柱的构件。";
+            ////    foreach (var elem in invalidElements)
+            ////        elements.Insert(elem);
+            ////    return Result.Failed;
+            ////}
+            ////    /// <summary>
+            ////    /// 判断是否为有效的结构构件
+            ////    /// </summary>
+            ////private static bool IsValidStructuralElement(Element element)
+            ////{
+            ////    return element is FamilyInstance instance &&
+            ////           (instance.StructuralType == StructuralType.Beam ||
+            ////            instance.StructuralType == StructuralType.Brace ||
+            ////            instance.StructuralType == StructuralType.Column);
+            ////}
+            //// 显示旋转对话框
+            //var viewModel = new RotateFramingViewModel(uiApp);
+            //var window = new RotateFramingView { DataContext = viewModel };
+            //viewModel.CloseWindow = window.Close;
+            ////// 如果是单个梁/支撑，尝试获取当前旋转值并填入
+            ////if (selectedIds.Count == 1)
+            ////{
+            ////    var element = doc.GetElement(selectedIds.First());
+            ////    if (element is FamilyInstance instance)
+            ////    {
+            ////        var currentAngle = GetCurrentRotationAngle(instance);
+            ////        if (currentAngle.HasValue)
+            ////            viewModel.RotationAngle = currentAngle.Value;
+            ////    }
+            ////}
+            ////    /// <summary>
+            ////    /// 获取构件当前的旋转角度（度数）
+            ////    /// </summary>
+            ////private static double? GetCurrentRotationAngle(FamilyInstance instance)
+            ////{
+            ////    const string paramName = "Cross-Section Rotation";
+            ////    if (instance.StructuralType == StructuralType.Beam ||
+            ////        instance.StructuralType == StructuralType.Brace)
+            ////    {
+            ////        var param = instance.LookupParameter(paramName);
+            ////        if (param != null && param.StorageType == StorageType.Double)
+            ////        {
+            ////            return Math.Round(param.AsDouble() * 180 / Math.PI, 3);
+            ////        }
+            ////    }
+            ////    else if (instance.StructuralType == StructuralType.Column)
+            ////    {
+            ////        var location = instance.Location as LocationPoint;
+            ////        if (location != null)
+            ////        {
+            ////            return Math.Round(location.Rotation * 180 / Math.PI, 3);
+            ////        }
+            ////    }
+            ////    return null;
+            ////}
+            //window.ShowDialog();
+
+            ////RoomSchedule 从Excel文件导入房间数据并在Revit中创建房间，支持房间数据的双向同步。
+            ////RoomScheduleForm WinForm窗体，显示Excel数据源和Revit房间列表
+            ////RoomsData 改分布类  Revit房间数据管理类，获取房间参数、判断共享参数
+            ////XlsDBConnector  Excel数据源连接器，读取 / 更新.xls文件
+            //try
+            //{
+            //    using (var transaction = new Transaction(commandData.Application.ActiveUIDocument.Document, "房间调度"))
+            //    {
+            //        transaction.Start();
+
+            //        var viewModel = new RoomScheduleViewModel(commandData);
+            //        var window = new RoomScheduleView { DataContext = viewModel };
+            //        viewModel.CloseWindow = window.Close;
+            //        window.ShowDialog();
+
+            //        transaction.Commit();
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            //////Rooms 房间管理实现，包括房间标记、编号排序、部门面积统计和导出功能。基本可用
+            //////RoomsData 核心数据类，管理房间数据、标记、部门统计
+            //////roomsInformationForm    WinForm窗体，显示房间列表和部门信息
+            //try
+            //{
+            //    using (var transaction = new Transaction(commandData.Application.ActiveUIDocument.Document, "房间管理"))
+            //    {
+            //        transaction.Start();
+            //        var viewModel = new RoomManagerOffViewModel(commandData);
+            //        var window = new RoomManagerOffView { DataContext = viewModel };
+            //        viewModel.CloseWindow = window.Close;
+            //        window.ShowDialog();
+            //        transaction.Commit();
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////RoofsRooms RoomRoofBoundaryChecker检查房间与屋顶的几何关系，判断哪些房间有边界屋顶，哪些房间缺少边界屋顶。 逻辑似乎有问题 待修复
+            ////获取所有房间 / 空间   从文档中获取所有Room和Space元素
+            ////计算房间几何  使用SpatialElementGeometryCalculator计算房间的几何体
+            ////分析边界子面  检查房间每个面的边界子面，判断是否与屋顶相交
+            ////分类记录    将有屋顶和无屋顶的房间分别记录
+            ////输出结果    将结果写入日志文件并显示在TaskDialog中
+            //new RoomRoofBoundaryChecker(commandData, elements);
+
+            //Ribbon创建自定义Ribbon选项卡和面板，提供创建墙体的各种UI控件。 可跳过
+
+            //LibraryPath 管理Revit的库路径（Library Paths）设置。应该是API已过期但不报错
+            //LoadFamily 加载族文件（Family）和族类型（Family Symbol）。获取Revit的库路径配置，递归搜索族文件
+            //RvtUtils 静态方法用于提取和显示元素的信息，包括参数、几何体和位置。报告属性参数和几何体信息，MsgBox对话框
+            //Selection 获取当前选中的元素并显示其基本信息。基本信息较简单 跳过
+            ////ShowElementData VB转C# 显示选中元素的详细信息，包括类型、位置、几何体和参数。
+            //// 获取选中的元素
+            //var selectedElements = GetSelectedElements(doc, uiDoc.Selection.GetElementIds());
+            //// 显示选中数量
+            //ShowMessage($"选中元素数量: {selectedElements.Count}");
+            //// 遍历每个选中元素
+            //foreach (var element in selectedElements)
+            //{
+            //    ShowElementType(element);
+            //    ShowElementLocation(element);
+            //    ShowElementGeometry(uiApp.Application, element);
+            //    ShowElementParameters(element);
+            //    ShowSeparator();
+            //}
+
+            //Reinforcement 快速为混凝土结构梁/柱添加配筋 跳过 有的几何方法需要和已转移的Reinforcement相关类对比
+
+            ////ReferencePlane 参照平面管理 难得基本可用
+            ////在选中的墙或楼板上创建参考平面（Reference Plane），并提供现有参考平面的列表查看功能。
+            ////参考平面列表显示：在DataGridView中显示文档中所有参考平面的ID、端点、法线信息
+            //var viewModel = new ReferencePlaneMgrViewModel(uiDoc);
+            //var window = new ReferencePlaneMgrView { DataContext = viewModel };
+            //viewModel.CloseWindow = window.Close;
+            //window.ShowDialog();
+
+            //RebarContainerAnyShapeType 为选中的混凝土梁或柱自动创建钢筋（Rebar）。跳过
+            //FrameReinMakerFactory 工厂类，根据选中元素类型创建对应的钢筋生成器
+            //FrameReinMaker  钢筋生成器基类 / 接口，具体实现梁 / 柱的钢筋创建逻辑
+
+            ////ReadonlySharedParameters 只读共享参数 管理只读共享参数，支持批量设置参数值并将参数绑定到文档。
+            ////有多个入口方法类，尝试增加WPF窗口统一进入
+            ////SetReadonlyCost1 / 2  设置"ReadonlyCost"参数（基于ID / 增量计算）
+            ////SetReadonlyId1 / 2    设置"ReadonlyId"参数（基于UniqueId / 类型名 + ID）
+            ////BindNewReadonlySharedParametersToDocument 创建并绑定两个只读共享参数到文档
+            ////ReadonlyCostSetter 成本参数设置逻辑
+            ////ReadonlyIdSetter ID参数设置逻辑
+            ////SharedParameterBindingManager 共享参数绑定管理器（定义、类别、绑定）
+            //var viewModel = new ReadonlySharedParametersViewModel(doc);
+            //var window = new ReadonlySharedParametersView { DataContext = viewModel };
+            //viewModel.CloseWindow = window.Close;
+            //window.ShowDialog();
+
+            ////ProjectInfo 查看和编辑项目信息（Project Information），并提供了丰富的gbXML导出相关配置数据。
+            ////ProjectInfoWrapper	项目信息的PropertyGrid包装类 还有一堆专用的converter
+            ////原先的一些项目属性被移除了，wpf莫名增加了一种propGrid控件，没啥必要深究这部分
+            //// 初始化全局信息
+            ////RevitStartInfo.RevitApp = commandData.Application.Application;
+            //RevitStartInfo.RevitDoc = doc;
+            //RevitStartInfo.RevitProduct = commandData.Application.Application.Product;
+            //var viewModel = new ProjectInfoViewModel(doc);
+            //var window = new ProjectInfoView{ DataContext = viewModel };
+            //bool? shouldSave = null;
+            ////viewModel.CloseRequested = save =>
+            ////{
+            ////    shouldSave = save;
+            ////    window.Close();
+            ////};
+            //window.ShowDialog();
+            //if (shouldSave == true)
+            //{
+            //    using (var transaction = new Transaction(doc, "更新项目信息"))
+            //    {
+            //        transaction.Start();
+            //        transaction.Commit();
+            //    }
+            //    return Result.Succeeded;
+            //}
+
+            //PowerCircuit 电气电路插件的核心数据类，负责：
+            //收集连接器信息：验证选中设备是否有可用的电气连接器
+            //收集电路信息：找出所有选中设备共用的电路
+            //执行操作：创建电路、编辑电路、选择 / 断开配电盘
+            //结构有点复杂，但ElectricalSystemSet在2021版已被废掉，还有无必要深入
+            //try
+            //{
+            //    // 验证是否有选中的元素
+            //    var selectedIds = commandData.Application.ActiveUIDocument.Selection.GetElementIds();
+            //    if (selectedIds.Count == 0)
+            //    {
+            //        message = "请选中需要操作的电气设备（如灯具）。";
+            //        return Result.Failed;
+            //    }
+            //    // 创建操作数据对象
+            //    var operationData = new CircuitOperationData(commandData);
+            //    // 显示主操作窗口
+            //    var mainVm = new CircuitOperationViewModel(operationData);
+            //    OfficalSamples.OperationType? selectedOperation = null;
+            //    mainVm.OperationSelected += op => selectedOperation = op;
+            //    var mainWindow = new CircuitOperationView { DataContext = mainVm };
+            //    mainVm.CloseWindow = () => mainWindow.Close();
+            //    mainWindow.ShowDialog();
+            //    if (!selectedOperation.HasValue) return Result.Cancelled;
+            //    // 处理编辑电路子操作
+            //    if (selectedOperation == OfficalSamples.OperationType.EditCircuit)
+            //    {
+            //        // 如果有多个电路，已在主VM中处理选择
+            //        var editVm = new EditCircuitViewModel();
+            //        EditOptionType? editOption = null;
+            //        editVm.EditOptionConfirmed += opt => editOption = opt;
+            //        var editWindow = new CircuitEditWindow { DataContext = editVm };
+            //        editVm.CloseWindow = () => editWindow.Close();
+            //        editWindow.ShowDialog();
+            //        if (editOption.HasValue)
+            //        {
+            //            operationData.EditOption = editOption.Value;
+            //        }
+            //        else
+            //        {
+            //            return Result.Cancelled;
+            //        }
+            //    }
+            //    // 执行操作
+            //    operationData.Operation = selectedOperation.Value;
+            //    operationData.Operate();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.ToString();
+            //    return Result.Failed;
+            //}
+
+            //////0505 官方代码测试
             //PostCommandWorkflow监控文档保存操作，在保存前检查是否已添加修订（Revision），并引导用户完成修订流程。
             //目前执行缺乏反馈，待重修
             //PostCommandRevisionMonitor 核心监控类，订阅DocumentSaving事件，处理修订检查逻辑

@@ -1,0 +1,134 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.RoomScheduleView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+       Title="房间调度器" Height="700" Width="950"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        xmlns:conv="clr-namespace:CreatePipe.Form.Converters">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:CountToBoolConverter x:Key="CountToBoolConverter"/>
+        <Style TargetType="DataGrid" x:Key="RoomDataGrid">
+            <Setter Property="AutoGenerateColumns" Value="True"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="MaxHeight" Value="200"/>
+            <Setter Property="Margin" Value="0,5"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Excel数据区域 -->
+        <GroupBox Grid.Row="0" Header="Excel房间数据" Margin="0,0,0,10">
+            <StackPanel>
+                <Grid Margin="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Excel文件：" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding ExcelFilePath}" 
+                               VerticalAlignment="Center" Margin="10,0"/>
+                    <Button Grid.Column="2" Content="导入Excel..." 
+                            Command="{Binding ImportExcelCommand}" 
+                            Width="100" Padding="5,3"/>
+                </Grid>
+                <Grid Margin="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="200"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="工作表：" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Worksheets}" 
+                              SelectedItem="{Binding SelectedWorksheet}"
+                              IsEnabled="{Binding Worksheets.Count, Converter={StaticResource CountToBoolConverter}}"/>
+                </Grid>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Excel房间列表 -->
+        <DataGrid Grid.Row="1" Style="{StaticResource RoomDataGrid}"
+                  ItemsSource="{Binding ExcelRooms}"/>
+
+        <!-- 创建房间按钮 -->
+        <Button Grid.Row="2" 
+                Content="创建未放置房间" 
+                Command="{Binding CreateRoomsCommand}"
+                Width="150" Height="30"
+                HorizontalAlignment="Center"
+                Margin="0,10"
+                IsEnabled="{Binding CanExecute}"/>
+
+        <!-- Revit房间区域 -->
+        <GroupBox Grid.Row="3" Header="Revit房间" Margin="0,0,0,10">
+            <StackPanel>
+                <Grid Margin="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="按楼层筛选：" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Levels}" 
+                              SelectedItem="{Binding SelectedLevel}" 
+                              DisplayMemberPath="Name"/>
+                    <CheckBox Grid.Column="3" Content="显示所有房间" 
+                              IsChecked="{Binding ShowAllRooms}" 
+                              VerticalAlignment="Center" Margin="10,0"/>
+                    <Button Grid.Column="5" Content="清除外部ID" 
+                            Command="{Binding ClearExternalIdCommand}" 
+                            Width="100" Padding="5,3"/>
+                </Grid>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Revit房间列表（支持多选） -->
+        <DataGrid Grid.Row="4" Style="{StaticResource RoomDataGrid}"
+                  ItemsSource="{Binding RevitRooms}"
+                  SelectionMode="Extended"
+                  SelectionUnit="FullRow">
+            <DataGrid.Resources>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                </Style>
+            </DataGrid.Resources>
+        </DataGrid>
+
+        <!-- 关闭按钮 -->
+        <Button Grid.Row="6" 
+                Content="关闭" 
+                Command="{Binding CloseCommand}"
+                Width="75" Height="28"
+                HorizontalAlignment="Right"
+                Margin="0,10,0,0"
+                IsCancel="True"/>
+
+        <!-- 处理中覆盖层 -->
+        <Border Background="#CCFFFFFF" 
+                Grid.RowSpan="7"
+                Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="处理中..." FontSize="16" FontWeight="Bold"/>
+                <ProgressBar IsIndeterminate="True" Width="200" Height="15" Margin="0,10"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

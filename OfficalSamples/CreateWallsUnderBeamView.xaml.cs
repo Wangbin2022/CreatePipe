@@ -513,36 +513,36 @@ namespace CreatePipe.OfficalSamples
         }
     }
 
-    /// <summary>
-    /// 梁信息模型
-    /// </summary>
-    public class BeamInfo : ObserverableObject
-    {
-        private FamilyInstance _beam;
-        private double _length;
-        private string _status;
+    ///// <summary>
+    ///// 梁信息模型
+    ///// </summary>
+    //public class BeamInfo : ObserverableObject
+    //{
+    //    private FamilyInstance _beam;
+    //    private double _length;
+    //    private string _status;
 
-        public FamilyInstance Beam
-        {
-            get => _beam;
-            set => SetProperty(ref _beam, value);
-        }
+    //    public FamilyInstance Beam
+    //    {
+    //        get => _beam;
+    //        set => SetProperty(ref _beam, value);
+    //    }
 
-        public double Length
-        {
-            get => _length;
-            set => SetProperty(ref _length, value);
-        }
+    //    public double Length
+    //    {
+    //        get => _length;
+    //        set => SetProperty(ref _length, value);
+    //    }
 
-        public string Status
-        {
-            get => _status;
-            set => SetProperty(ref _status, value);
-        }
+    //    public string Status
+    //    {
+    //        get => _status;
+    //        set => SetProperty(ref _status, value);
+    //    }
 
-        public string Name => Beam?.Name ?? "未知";
-        public string Id => Beam?.Id.IntegerValue.ToString() ?? "N/A";
-    }
+    //    public string Name => Beam?.Name ?? "未知";
+    //    public string Id => Beam?.Id.IntegerValue.ToString() ?? "N/A";
+    //}
 
     /// <summary>
     /// 墙体创建结果

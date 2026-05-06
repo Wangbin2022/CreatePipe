@@ -97,6 +97,7 @@
     <Compile Include="filter\ReferencePlaneSelectionFilter.cs" />
     <Compile Include="filter\RoofFilter.cs" />
     <Compile Include="filter\StructuralConnectionSelectionFilter.cs" />
+    <Compile Include="filter\WallFaceFilter.cs" />
     <Compile Include="filter\XReferenceSelectionFilter.cs" />
     <Compile Include="Form\Behaviors\NumericInputBehavior.cs" />
     <Compile Include="Form\CableTraySystemManagerView.xaml.cs">
@@ -128,6 +129,7 @@
     <Compile Include="Form\Converters\ColorConverter.cs" />
     <Compile Include="Form\Converters\ColorToNameConverter.cs" />
     <Compile Include="Form\Converters\ContentTemplateSelector.cs" />
+    <Compile Include="Form\Converters\CountToBoolConverter.cs" />
     <Compile Include="Form\Converters\EnumToBooleanConverter.cs" />
     <Compile Include="Form\Converters\FileSizeConverter.cs" />
     <Compile Include="Form\Converters\IntToStringConverter.cs" />
@@ -282,7 +284,23 @@
     <Compile Include="OfficalSamples\AutoTagRoomsWindow.xaml.cs">
       <DependentUpon>AutoTagRoomsWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\CircuitEditWindow.xaml.cs">
+      <DependentUpon>CircuitEditWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CircuitOperationView.xaml.cs">
+      <DependentUpon>CircuitOperationView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CircuitSelectWindow.xaml.cs">
+      <DependentUpon>CircuitSelectWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\CommandDisabler.cs" />
+    <Compile Include="OfficalSamples\CoordinateSystemInputDialog.xaml.cs">
+      <DependentUpon>CoordinateSystemInputDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CoordinateSystemView.xaml.cs">
+      <DependentUpon>CoordinateSystemView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\CreateColumnByWall.cs" />
     <Compile Include="OfficalSamples\CreateCurtainWallView.xaml.cs">
       <DependentUpon>CreateCurtainWallView.xaml</DependentUpon>
     </Compile>
@@ -323,6 +341,9 @@
     <Compile Include="OfficalSamples\DoorOperatorView.xaml.cs">
       <DependentUpon>DoorOperatorView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\DragAndDropWindow.xaml.cs">
+      <DependentUpon>DragAndDropWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\DuctSystemWindow.xaml.cs">
       <DependentUpon>DuctSystemWindow.xaml</DependentUpon>
     </Compile>
@@ -344,6 +365,7 @@
     <Compile Include="OfficalSamples\FamilyFaceBasedWindow.xaml.cs">
       <DependentUpon>FamilyFaceBasedWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\FamilyInstancePlotter.cs" />
     <Compile Include="OfficalSamples\FamilySketchBasedWindow.xaml.cs">
       <DependentUpon>FamilySketchBasedWindow.xaml</DependentUpon>
     </Compile>
@@ -353,6 +375,13 @@
     <Compile Include="OfficalSamples\FindSouthFacingWalls.cs" />
     <Compile Include="OfficalSamples\FireRatingManagerView.xaml.cs">
       <DependentUpon>FireRatingManagerView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\FloorLayerFunctionView.xaml.cs">
+      <DependentUpon>FloorLayerFunctionView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\FloorSpanDirectionProcess.cs" />
+    <Compile Include="OfficalSamples\FloorThicknessView.xaml.cs">
+      <DependentUpon>FloorThicknessView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\FormatStatusExtensions.cs" />
     <Compile Include="OfficalSamples\FoundationSlabView.xaml.cs">
@@ -384,6 +413,7 @@
     <Compile Include="OfficalSamples\MaterialQuantities.cs" />
     <Compile Include="OfficalSamples\MathTools.cs" />
     <Compile Include="OfficalSamples\DimensionMoveToPickedPoint.cs" />
+    <Compile Include="OfficalSamples\MEPSystemTraversal.cs" />
     <Compile Include="OfficalSamples\ModelLineView.xaml.cs">
       <DependentUpon>ModelLineView.xaml</DependentUpon>
     </Compile>
@@ -441,29 +471,88 @@
     <Compile Include="OfficalSamples\PrintMonitorWindow.xaml.cs">
       <DependentUpon>PrintMonitorWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\ProjectInfoView.xaml.cs">
+      <DependentUpon>ProjectInfoView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ReadonlySharedParametersView.xaml.cs">
+      <DependentUpon>ReadonlySharedParametersView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ReferencePlaneMgrView.xaml.cs">
+      <DependentUpon>ReferencePlaneMgrView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\RevitBeamSystemCreatorView.xaml.cs">
       <DependentUpon>RevitBeamSystemCreatorView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\RevitCSGGenerator.cs" />
     <Compile Include="OfficalSamples\RoofsManager.cs" />
+    <Compile Include="OfficalSamples\RoomManagerOffView.xaml.cs">
+      <DependentUpon>RoomManagerOffView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\RoomScheduleView.xaml.cs">
+      <DependentUpon>RoomScheduleView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\RotateFramingView.xaml.cs">
+      <DependentUpon>RotateFramingView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\RoutingPreferenceView.xaml.cs">
+      <DependentUpon>RoutingPreferenceView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ScheduleCreatorCommand.cs" />
+    <Compile Include="OfficalSamples\ScheduleFormatterCommand.cs" />
+    <Compile Include="OfficalSamples\ScheduleHtmlExporter.cs" />
     <Compile Include="OfficalSamples\SchemaWrapper.cs" />
     <Compile Include="OfficalSamples\SectionViewCreator.cs" />
+    <Compile Include="OfficalSamples\SelectionDialogView.xaml.cs">
+      <DependentUpon>SelectionDialogView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\SetSharedParameterCommand.cs" />
+    <Compile Include="OfficalSamples\ShaftHolePuncherView.xaml.cs">
+      <DependentUpon>ShaftHolePuncherView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ShowElementData.cs" />
     <Compile Include="OfficalSamples\SketchPlaneDialog.xaml.cs">
       <DependentUpon>SketchPlaneDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\SlabPropertiesWindow.xaml.cs">
+      <DependentUpon>SlabPropertiesWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\SlabShapeEditorView.xaml.cs">
+      <DependentUpon>SlabShapeEditorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\SolidSolidCut.cs" />
     <Compile Include="OfficalSamples\SortFamilyParametersView.xaml.cs">
       <DependentUpon>SortFamilyParametersView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\SpotDimensionAnalyzerView.xaml.cs">
+      <DependentUpon>SpotDimensionAnalyzerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\StructuralFrameBuilderView.xaml.cs">
       <DependentUpon>StructuralFrameBuilderView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="OfficalSamples\TagBeamView.xaml.cs">
+      <DependentUpon>TagBeamView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\TagRebarView.xaml.cs">
+      <DependentUpon>TagRebarView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\TransactionWindow.xaml.cs">
+      <DependentUpon>TransactionWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\TrussCreator.cs" />
+    <Compile Include="OfficalSamples\TypeSelectorView.xaml.cs">
+      <DependentUpon>TypeSelectorView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\UniqueIdManagerWindow.xaml.cs">
       <DependentUpon>UniqueIdManagerWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="OfficalSamples\Validation.cs" />
     <Compile Include="OfficalSamples\Vector4.cs" />
+    <Compile Include="OfficalSamples\VersionCheckView.xaml.cs">
+      <DependentUpon>VersionCheckView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="OfficalSamples\ViewSheetWindow.xaml.cs">
+      <DependentUpon>ViewSheetWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="OfficalSamples\WallCompoundStructureCommand.cs" />
     <Compile Include="OfficalSamples\WallDimensionDemo.cs" />
     <Compile Include="OfficalSamples\WallFromBeamsCreatView.xaml.cs">
@@ -480,6 +569,7 @@
     <Compile Include="Form\RevitStylePopup\ToastWindow.xaml.cs">
       <DependentUpon>ToastWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="RoomRoofBoundaryChecker.cs" />
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
     <Compile Include="cmd\RevitContext.cs" />
@@ -1265,6 +1355,26 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\CircuitEditWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CircuitOperationView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CircuitSelectWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CoordinateSystemInputDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\CoordinateSystemView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\CreateCurtainWallView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1313,6 +1423,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\DragAndDropWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\DuctSystemWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -1342,6 +1456,14 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="OfficalSamples\FireRatingManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\FloorLayerFunctionView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\FloorThicknessView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1445,7 +1567,43 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\ProjectInfoView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ReadonlySharedParametersView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ReferencePlaneMgrView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\RevitBeamSystemCreatorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\RoomManagerOffView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\RoomScheduleView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\RotateFramingView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\RoutingPreferenceView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\SelectionDialogView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ShaftHolePuncherView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1453,7 +1611,19 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\SlabPropertiesWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\SlabShapeEditorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\SortFamilyParametersView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\SpotDimensionAnalyzerView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1461,7 +1631,31 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="OfficalSamples\TagBeamView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\TagRebarView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\TransactionWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\TypeSelectorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="OfficalSamples\UniqueIdManagerWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\VersionCheckView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="OfficalSamples\ViewSheetWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

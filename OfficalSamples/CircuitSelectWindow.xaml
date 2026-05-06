@@ -1,0 +1,41 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.CircuitSelectWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+    Title="选择电路" Height="300" Width="400"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="找到多个包含选中设备的电路，请选择要操作的电路：" 
+                   Margin="0,0,0,10"/>
+
+        <ListView Grid.Row="1" 
+                  ItemsSource="{Binding Circuits}"
+                  SelectedItem="{Binding SelectedCircuit}"
+                  Margin="0,0,0,10">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="电路名称" DisplayMemberBinding="{Binding Name}" Width="200"/>
+                    <GridViewColumn Header="电路ID" DisplayMemberBinding="{Binding Id.Value}" Width="80"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="显示电路" Command="{Binding ShowCircuitCommand}"
+                    Width="80" Margin="5" IsEnabled="{Binding CanConfirm}"/>
+            <Button Content="确定" Command="{Binding ConfirmCommand}"
+                    Width="60" Margin="5" IsDefault="True"/>
+            <Button Content="取消" Command="{Binding CancelCommand}"
+                    Width="60" Margin="5" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

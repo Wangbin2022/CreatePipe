@@ -1,0 +1,135 @@
+﻿<Window x:Class="CreatePipe.OfficalSamples.CoordinateSystemView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.OfficalSamples"
+     Title="共享坐标系统管理" Height="500" Width="650"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip">
+    <Window.Resources>
+        <!-- 当前位置高亮样式 -->
+        <Style x:Key="CurrentLocationStyle" TargetType="ListBoxItem">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                    <Setter Property="Background" Value="#E3F2FD"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="项目位置管理" FontSize="16" FontWeight="Bold"
+                   Margin="0,0,0,10"/>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：位置列表 -->
+            <Border Grid.Column="0" BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,10,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="位置列表" FontWeight="Bold"
+                               Background="#F0F0F0" Padding="5"/>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="5">
+                        <Button Content="设为当前" Width="80" Margin="0,0,5,0"
+                                Command="{Binding MakeCurrentCommand}"
+                                IsEnabled="{Binding CanMakeCurrent}"/>
+                        <Button Content="复制" Width="60"
+                                Command="{Binding DuplicateCommand}"/>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Locations}"
+                             SelectedItem="{Binding SelectedLocation, Mode=TwoWay}"
+                             DisplayMemberPath="DisplayName"
+                             ItemContainerStyle="{StaticResource CurrentLocationStyle}"
+                             Margin="5"/>
+                </DockPanel>
+            </Border>
+
+            <!-- 右侧：偏移量编辑 -->
+            <Border Grid.Column="1" BorderBrush="#CCCCCC" BorderThickness="1">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="位置偏移量" FontWeight="Bold"
+                               Background="#F0F0F0" Padding="5"/>
+                    <Grid DockPanel.Dock="Top" Margin="15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 角度 -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="真北偏角：" VerticalAlignment="Center" Margin="0,5"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding EditAngle, Mode=TwoWay}"
+                                 VerticalAlignment="Center" Margin="0,5"/>
+
+                        <!-- 东西偏移 -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="东西偏移：" VerticalAlignment="Center" Margin="0,5"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EditEastWest, Mode=TwoWay}"
+                                 VerticalAlignment="Center" Margin="0,5"/>
+
+                        <!-- 南北偏移 -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="南北偏移：" VerticalAlignment="Center" Margin="0,5"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditNorthSouth, Mode=TwoWay}"
+                                 VerticalAlignment="Center" Margin="0,5"/>
+
+                        <!-- 高程 -->
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="高程：" VerticalAlignment="Center" Margin="0,5"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EditElevation, Mode=TwoWay}"
+                                 VerticalAlignment="Center" Margin="0,5"/>
+                    </Grid>
+
+                    <!-- 场地位置信息（简化版，原WinForm的城市选择功能） -->
+                    <GroupBox Header="场地位置" Margin="10" DockPanel.Dock="Top">
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="纬度：" Margin="0,3"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedLocation.Name}"
+                                       Margin="0,3" FontStyle="Italic"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="经度：" Margin="0,3"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="（从Revit场地获取）"
+                                       Margin="0,3" FontStyle="Italic" Foreground="Gray"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="时区：" Margin="0,3"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="（从Revit场地获取）"
+                                       Margin="0,3" FontStyle="Italic" Foreground="Gray"/>
+                        </Grid>
+                    </GroupBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="保存修改" Width="100" Height="30" Margin="0,0,10,0"
+                    Command="{Binding SaveCommand}"/>
+            <Button Content="取消" Width="80" Height="30"
+                    Command="{Binding CancelCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>
