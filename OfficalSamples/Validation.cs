@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Resources;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CreatePipe.OfficalSamples
+﻿namespace CreatePipe.OfficalSamples
 {
     ///// <summary>
     ///// 输入验证类 - 使用C# 7.3特性重构
@@ -27,7 +19,7 @@ namespace CreatePipe.OfficalSamples
 
     //    //// 验证结果元组类型别名
     //    //private ValidationResult = (bool IsValid, string ErrorKey);
-        
+
     //    /// <summary>
     //    /// 验证两个数字（使用元组语法简化返回）
     //    /// </summary>

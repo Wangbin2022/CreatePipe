@@ -3,22 +3,13 @@ using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.Utils;
 using CreatePipe.Utils.Interfaces;
-using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Management.Instrumentation;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Forms;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 
 namespace CreatePipe.Form

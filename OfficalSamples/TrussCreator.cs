@@ -3,11 +3,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Document = Autodesk.Revit.DB.Document;
 
 namespace CreatePipe.OfficalSamples
 {

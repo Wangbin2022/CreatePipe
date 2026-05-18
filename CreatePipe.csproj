@@ -80,6 +80,9 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BasePointMover.xaml.cs">
+      <DependentUpon>BasePointMover.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ConnectorService.cs" />
     <Compile Include="ErrorHandling.cs" />
     <Compile Include="ExportParameters.cs" />
@@ -854,6 +857,7 @@
     <Compile Include="Utils\Interfaces\IQueryViewModelWithDelete.cs" />
     <Compile Include="Utils\JsonHelper.cs" />
     <Compile Include="Utils\JsonHelperSystem.cs" />
+    <Compile Include="Utils\MEPAnalysisExtension.cs" />
     <Compile Include="Utils\MEPSlopeHelper.cs" />
     <Compile Include="Utils\ProgressBarDialog.xaml.cs">
       <DependentUpon>ProgressBarDialog.xaml</DependentUpon>
@@ -931,6 +935,10 @@
     <Compile Include="VocabularyReverse.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="BasePointMover.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="CableConduitCreator\CableTrayPathForm.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

@@ -1,13 +1,4 @@
-﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CreatePipe.OfficalSamples
+﻿namespace CreatePipe.OfficalSamples
 {
     ///// <summary>
     ///// 实体切割工具 - 使用一个实体切割另一个实体

@@ -2,11 +2,7 @@
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -20,7 +16,7 @@ namespace CreatePipe.OfficalSamples
             string message = string.Empty;
             if (viewSchedule == null)
             {
-                message = "请选中一个明细表视图。";               return ;
+                message = "请选中一个明细表视图。"; return;
             }
             var formatter = GetFormatter(commandData);
             var schema = GetOrCreateSchema();

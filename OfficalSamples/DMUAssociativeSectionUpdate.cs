@@ -5,9 +5,6 @@ using Autodesk.Revit.UI.Selection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -44,20 +41,20 @@ namespace CreatePipe.OfficalSamples
                 var windowElement = PickWindow(uiDoc);
                 if (windowElement == null)
                 {
-                    return  ;
+                    return;
                 }
                 // 查找真正的 ViewSection 对象
                 var viewSectionId = FindViewSection(document, sectionElement.Name);
                 if (viewSectionId == ElementId.InvalidElementId)
                 {
                     message = $"找不到名为 \"{sectionElement.Name}\" 的剖面视图";
-                    return  ;
+                    return;
                 }
                 // 建立关联关系
                 var result = AssociateSectionToWindow(document, windowElement.Id,
                     viewSectionId, sectionElement);
                 // 注册文档关闭事件，在关闭时清理更新器
-                document.DocumentClosing += OnDocumentClosing; 
+                document.DocumentClosing += OnDocumentClosing;
             }
             catch (OperationCanceledException)
             {

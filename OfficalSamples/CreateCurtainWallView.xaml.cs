@@ -5,12 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Point = Autodesk.Revit.DB.Point;
@@ -225,7 +220,7 @@ namespace CreatePipe.OfficalSamples
                 foreach (var line in _gridGeometry.VGridLines2D)
                 {
                     var start = new System.Windows.Point(line.StartPoint.Coord.X, line.StartPoint.Coord.Y);
-                    var end = new System.Windows.Point(line.EndPoint.Coord.X, line.EndPoint.Coord.Y); 
+                    var end = new System.Windows.Point(line.EndPoint.Coord.X, line.EndPoint.Coord.Y);
                     //var start = new System.Windows.Point(line.StartPoint.X, line.StartPoint.Y);
                     //var end = new System.Windows.Point(line.EndPoint.X, line.EndPoint.Y);
                     dc.DrawLine(pen, start, end);

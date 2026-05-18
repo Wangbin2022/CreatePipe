@@ -1,0 +1,31 @@
+﻿<Window x:Class="CreatePipe.BasePointMover"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe"
+        mc:Ignorable="d"
+        Title="BasePointMover" Height="360" Width="240">
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <Button Grid.Row="0" Margin="5" Content="选取坐标清单csv">
+            
+        </Button>
+        <ComboBox Grid.Row="1" Margin="5"
+                  x:Name="CoordList">
+            
+        </ComboBox>
+        <TextBlock Grid.Row="2" 
+            Text="注意事项：建议提前检查原始测量点和项目基点坐标是否与1-A轴重合" TextWrapping="Wrap" Margin="5"/>
+        <DockPanel Grid.Row="3" Margin="0,5,5,5">
+            <Button  Content="查找并高亮显示" Command="{Binding DrawTableCommand}"
+                     HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+
+    </Grid>
+</Window>

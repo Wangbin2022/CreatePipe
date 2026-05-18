@@ -5,16 +5,10 @@ using CreatePipe.cmd;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 //using Color = Autodesk.Revit.DB.Color;
@@ -55,7 +49,7 @@ namespace CreatePipe.OfficalSamples
             // 初始化命令
             CreateCommand = new BaseBindingCommand(ExecuteCreate);
             SelectAllCommand = new BaseBindingCommand(_ => SetAllSelected(true));
-            ClearAllCommand = new BaseBindingCommand(_=> SetAllSelected(false));
+            ClearAllCommand = new BaseBindingCommand(_ => SetAllSelected(false));
             RefreshCommand = new BaseBindingCommand(ExecuteRefresh);
 
             // 加载数据
@@ -449,8 +443,8 @@ namespace CreatePipe.OfficalSamples
             graphics.Transform = transform;
             graphics.SmoothingMode = SmoothingMode.HighQuality;
 
-             var profilePen = new Pen(Color.Yellow, 0.05f);
-             var selectedPen = new Pen(Color.Green, 0.2f);
+            var profilePen = new Pen(Color.Yellow, 0.05f);
+            var selectedPen = new Pen(Color.Green, 0.2f);
 
             foreach (var slab in slabs)
             {

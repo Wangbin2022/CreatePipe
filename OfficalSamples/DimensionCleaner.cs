@@ -3,9 +3,6 @@ using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -27,7 +24,7 @@ namespace CreatePipe.OfficalSamples
                 if (selectedElementIds == null || selectedElementIds.Count == 0)
                 {
                     message = NO_SELECTION_MESSAGE;
-                    return ;
+                    return;
                 }
 
                 // 使用LINQ筛选未固定的尺寸标注
@@ -41,7 +38,7 @@ namespace CreatePipe.OfficalSamples
                 if (!unpinnedDimensions.Any())
                 {
                     message = NO_UNPINNED_DIMENSIONS_MESSAGE;
-                    return ;
+                    return;
                 }
 
                 // 执行删除操作
@@ -53,7 +50,7 @@ namespace CreatePipe.OfficalSamples
             catch (Exception ex)
             {
                 message = $"执行失败：{ex.Message}";
-                return ;
+                return;
             }
         }
         private const string SUCCESS_MESSAGE = "成功删除 {0} 个未固定的尺寸标注";

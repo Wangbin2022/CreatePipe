@@ -1,12 +1,7 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -27,12 +22,12 @@ namespace CreatePipe.OfficalSamples
             string message = string.Empty;
             // 验证输入
             if (!TryValidateCommandData(commandData, ref message, out var document, out var app))
-                return ;
+                return;
             // 设置共享参数文件路径
-            if (!TrySetSharedParameterFilePath(app, out var paramFilePath, ref message))                return ;
+            if (!TrySetSharedParameterFilePath(app, out var paramFilePath, ref message)) return;
             // 打开共享参数文件
             if (!TryOpenSharedParameterFile(app, paramFilePath, out var definitionFile, ref message))
-                return ;
+                return;
             // 执行事务：创建参数并绑定
             CreateAndBindSharedParameter(document, app, definitionFile, ref message);
         }

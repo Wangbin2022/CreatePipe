@@ -1,15 +1,10 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Plumbing;
-using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using CreatePipe.Form;
 using CreatePipe.Utils;
-using Newtonsoft.Json.Linq;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace CreatePipe.models
@@ -44,7 +39,7 @@ namespace CreatePipe.models
                     canClear = true;
                 }
                 _material = Document.GetElement(pipingSystem.MaterialId) as Material;
-                _materialName=_material.Name;
+                _materialName = _material.Name;
 
                 dNList = getDNList(pipingSystem);
                 UpdateColorName();
@@ -114,7 +109,7 @@ namespace CreatePipe.models
             {
                 if (_materialName != value)
                 {
-                    var AllMaterials = new FilteredElementCollector(Document).OfClass(typeof(Material)).Cast<Material>().ToList(); 
+                    var AllMaterials = new FilteredElementCollector(Document).OfClass(typeof(Material)).Cast<Material>().ToList();
                     Dictionary<string, Material> _nameToMaterialMap = AllMaterials.ToDictionary(m => m.Name, m => m);
                     // 获取对应的材质对象以获取 ID
                     var material = _nameToMaterialMap[value];

@@ -40,37 +40,7 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem Header="喷头替换">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="50"/>
-                        <RowDefinition Height="35"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Margin="5">
-                        <TextBlock Text="上喷喷头选型："
-                       Margin="5"/>
-                        <ComboBox ItemsSource="{Binding UpSprinklerType}"
-                      DisplayMemberPath="Name"
-                      SelectedItem="{Binding SelectedUpSp, UpdateSourceTrigger=PropertyChanged}"
-                      Margin="5" />
-                        <TextBlock Text="下喷喷头选型：" 
-                       Margin="5"/>
-                        <ComboBox ItemsSource="{Binding DownSprinklerType}"
-                      DisplayMemberPath="Name"
-                      SelectedItem="{Binding SelectedDownSp, UpdateSourceTrigger=PropertyChanged}"
-                      Margin="5" />
-                    </StackPanel>
-                    <TextBlock Grid.Row="1" Text="注意：请提前在文档中加载新喷头实例，暂不支持侧喷喷头替换。"
-           HorizontalAlignment="Center" Foreground="DarkRed"
-           VerticalAlignment="Center" TextWrapping="Wrap"
-           Grid.ColumnSpan="2" Margin="5"/>
-                    <Button Grid.Row="2" Content="选择并替换" x:Name="btn_OK" 
-                Command="{Binding SwitchSprinklerCommand}"
-                Click="Button_Click" Margin="5" Grid.ColumnSpan="2"/>
-                </Grid>
-            </TabItem>
-            <TabItem Header="喷头数据统计">
+             <TabItem Header="喷头数据统计">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -102,29 +72,6 @@
                             Click="Button_Click" Grid.Row="1" Margin="5"/>
                     <Button Content="选择未连接的下喷头" Command="{Binding SelectUnconnctedDownCommand}"
                             Click="Button_Click" Grid.Row="2" Margin="5"/>
-                </Grid>
-            </TabItem>
-            <TabItem Header="喷头修复">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="35"/>
-                        <RowDefinition Height="35"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel>
-                        <Button Content="选择喷头断开" 
-                            Command="{Binding DisconnectSpCommand}"
-                            Click="Button_Click" 
-                            Height="25" Margin="5"/>
-                        <Button Content="选择喷头连接到管网" 
-                            Command="{Binding ConnectSpCommand}"
-                            Click="Button_Click" 
-                            Height="25" Margin="5"/>
-                        <Button Content="修复连接喷头的非垂直立管" 
-                            Command="{Binding FixVerticalPipeCommand}"
-                            Click="Button_Click"  
-                            Height="25" Margin="5"/>
-                    </StackPanel>
                 </Grid>
             </TabItem>
         </TabControl>

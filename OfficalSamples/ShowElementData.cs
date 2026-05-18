@@ -3,8 +3,6 @@ using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -173,7 +171,7 @@ namespace CreatePipe.OfficalSamples
         private static void ShowMessage(string msg) => TaskDialog.Show("tt", msg);
         public ShowElementData()
         {
-            
+
         }
     }
 }

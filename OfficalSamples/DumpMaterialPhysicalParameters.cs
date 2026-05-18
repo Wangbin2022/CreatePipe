@@ -3,9 +3,6 @@ using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -31,19 +28,19 @@ namespace CreatePipe.OfficalSamples
                 var selectedIds = uidoc.Selection.GetElementIds();
                 if (selectedIds.Count != 1)
                 {
-                    message = "请仅选中一个结构构件（梁、柱或支撑）。";  return;
+                    message = "请仅选中一个结构构件（梁、柱或支撑）。"; return;
                 }
                 var selectedElement = uidoc.Document.GetElement(selectedIds.First());
                 // 验证元素类型 - 使用模式匹配
                 if (!(selectedElement is FamilyInstance familyInstance))
                 {
-                    TaskDialog.Show("Revit", "选中的元素不是族实例。");  return  ;
+                    TaskDialog.Show("Revit", "选中的元素不是族实例。"); return;
                 }
                 // 获取材料元素 - 使用LINQ和条件运算符
                 var material = GetMaterialFromFamilyInstance(familyInstance, uidoc.Document);
                 if (material == null)
                 {
-                    TaskDialog.Show("Revit", "选中的构件没有关联的结构材料。");  return  ;
+                    TaskDialog.Show("Revit", "选中的构件没有关联的结构材料。"); return;
                 }
                 // 构建属性字符串
                 var resultText = BuildMaterialPropertiesReport(material);
@@ -52,7 +49,7 @@ namespace CreatePipe.OfficalSamples
             }
             catch (Exception ex)
             {
-                message = ex.Message;   return ;
+                message = ex.Message; return;
             }
         }
         /// <summary>

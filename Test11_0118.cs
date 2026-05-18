@@ -1,8 +1,6 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
-using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
@@ -10,16 +8,12 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
-using CreatePipe.models;
-using CreatePipe.OfficalSamples;
 using CreatePipe.Utils;
+using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Controls;
 
@@ -32,102 +26,6 @@ namespace CreatePipe
     public class Test11_0118 : Decorator, IExternalCommand
     {
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        //0206 应与PipeJoinHorizon合并考虑
-        ///// <summary>
-        ///// 从风管管件的连接器出发，获取其“外部相邻”的两个端点连接器（不返回管件自身连接器）。
-        ///// 只返回两端连接场景（例如：弯头/直接头/变径等）。三通等会返回 !=2 从而被跳过。
-        ///// </summary>
-        //private List<Connector> GetTwoEndNeighborConnectors(FamilyInstance fitting)
-        //{
-        //    var result = new List<Connector>();
-        //    if (fitting?.MEPModel?.ConnectorManager == null) return result;
-        //    ConnectorSet fitConns = fitting.MEPModel.ConnectorManager.Connectors;
-        //    if (fitConns == null) return result;
-        //    // 用于去重：同一 owner + connector id
-        //    var seen = new HashSet<string>();
-        //    foreach (Connector fitConn in fitConns)
-        //    {
-        //        if (fitConn == null || !fitConn.IsConnected) continue;
-        //        foreach (Connector refConn in fitConn.AllRefs)
-        //        {
-        //            if (refConn == null) continue;
-        //            // 排除引用到自己（防御）
-        //            if (refConn.Owner != null && refConn.Owner.Id == fitting.Id) continue;
-        //            // 只接受 MEP 连接器（End/Curve 等；这里不过度限制 Domain，避免附件/设备遗漏）
-        //            if (refConn.Owner == null || refConn.Owner.Category == null) continue;
-        //            string key = $"{refConn.Owner.Id.IntegerValue}:{refConn.Id}";
-        //            if (seen.Add(key))
-        //                result.Add(refConn);
-        //        }
-        //    }
-        //    // 仅两端
-        //    return result;
-        //}
-        ///// <summary>
-        ///// 尝试 cFrom.ConnectTo(cTo)，并通过 AllRefs/IsConnected 验证两者是否真正互相引用。
-        ///// </summary>
-        //private bool TryConnectAndVerify(Connector cFrom, Connector cTo, Document doc)
-        //{
-        //    if (cFrom == null || cTo == null) return false;
-        //    // 先短路：如果已经互相连接，则认为成功
-        //    if (IsActuallyConnected(cFrom, cTo)) return true;
-        //    // ConnectTo 可能抛异常（距离太远/系统不兼容/几何不满足等）
-        //    cFrom.ConnectTo(cTo);
-        //    doc.Regenerate();
-        //    return IsActuallyConnected(cFrom, cTo);
-        //}
-        ///// <summary>
-        ///// 严格判断：c1 的 AllRefs 中是否包含 c2（ownerId + connectorId 匹配）
-        ///// </summary>
-        //private bool IsActuallyConnected(Connector c1, Connector c2)
-        //{
-        //    if (c1 == null || c2 == null) return false;
-        //    if (!c1.IsConnected || !c2.IsConnected) return false;
-        //    int owner2 = c2.Owner?.Id.IntegerValue ?? -1;
-        //    int cid2 = c2.Id;
-        //    foreach (Connector r in c1.AllRefs)
-        //    {
-        //        if (r?.Owner == null) continue;
-        //        if (r.Owner.Id.IntegerValue == owner2 && r.Id == cid2)
-        //            return true;
-        //    }
-        //    return false;
-        //}
-        //private bool IsPhysicallyConnected(Connector c1, Connector c2)
-        //{
-        //    if (!c1.IsConnected || !c2.IsConnected) return false;
-        //    foreach (Connector r in c1.AllRefs)
-        //    {
-        //        if (r.Owner?.Category?.Id.IntegerValue ==
-        //            (int)BuiltInCategory.OST_DuctFitting)
-        //            return true;
-        //    }
-        //    return false;
-        //}
-        //private bool TryCreateFitting(Connector c1, Connector c2, Document doc)
-        //{
-        //    if (c1 == null || c2 == null) return false;
-        //    try
-        //    {
-        //        // 如果已经是物理连接，直接返回成功
-        //        if (IsPhysicallyConnected(c1, c2))
-        //            return true;
-        //        // ✅ 强制创建风管管件（弯头/变径/直接头）
-        //        FamilyInstance newFitting =
-        //            MechanicalUtils.CreateDuctFitting(doc, c1, c2);
-        //        doc.Regenerate();
-        //        return newFitting != null;
-        //    }
-        //    catch
-        //    {
-        //        return false;
-        //    }
-        //}
-        //private string SafeCatName(Element owner)
-        //{
-        //    try { return owner?.Category?.Name ?? owner?.GetType().Name ?? "<null>"; }
-        //    catch { return "<unknown>"; }
-        //}
         private void CheckMEPCurveSlope(Document document, List<ElementId> ids, double angle)
         {
             foreach (ElementId id in ids)
@@ -165,22 +63,6 @@ namespace CreatePipe
                         break;
                 }
             }
-        }
-        public void TestTemporaryMovement(Document doc, ElementId wallId)
-        {
-            bool isColliding = false;
-            // 开启测试事务，设置 rollback: true，无论成功失败最后必定回滚
-            doc.NewTransaction(() =>
-            {
-                // 1. 将墙临时偏移 500mm
-                ElementTransformUtils.MoveElement(doc, wallId, new XYZ(500 / 304.8, 0, 0));
-                // 2. 重新生成文档以获取最新的几何图形
-                doc.Regenerate();
-                // 3. 执行干涉检查逻辑，把结果存到外部变量 isColliding 中
-                // isColliding = CheckCollision(...);
-            }, "临时干涉检查", true); // <--- 注意这里的 true 代表强制回滚
-            // 执行到这里时，墙已经恢复到了原来的位置，但你拿到了干涉结果 isColliding
-            TaskDialog.Show("检查结果", isColliding ? "发生碰撞" : "未发生碰撞");
         }
         private Category GetElectricalEquipmentCategory(Document doc)
         {
@@ -768,195 +650,7 @@ namespace CreatePipe
         //    return room.IsPointInRoom(centerPoint);
         //}
 
-        //private void CreatePipe(Document doc, Connector connector, double length,)
-        //{
-        //    // 创建管道
-        //    Pipe pipe = Pipe.Create(doc, connector., connector.Origin, length, connector.Direction);
-        //    pipe.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
-        //}
-        //private void CreateDuct(Document doc, Connector connector, double length)
-        //{
-        //    // 创建风管
-        //    Duct duct = Duct.Create(doc, connector.Level.Id, connector.Origin, length, connector.Direction);
-        //    duct.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
-        //}
-        //private void CreateCableTray(Document doc, Connector connector, double length)
-        //{
-        //    // 创建电缆桥架
-        //    CableTray cableTray = CableTray.Create(doc, connector.Level.Id, connector.Origin, length, connector.Direction);
-        //    cableTray.LookupParameter("系统类型").Set(connector.MEPSystem.TypeId);
-        //}
-        // 在指定点查找MEP曲线
-        private MEPCurve FindMEPCurveAtPoint(UIDocument uiDoc, double offsetHeight, XYZ point)
-        {
-            MEPCurve result = null;
-            try
-            {
-                Document doc = uiDoc.Document;
-                // 获取当前视图的标高
-                View activeView = doc.ActiveView;
-                Level currentLevel = doc.GetElement(activeView.GenLevel.Id) as Level;
-                if (currentLevel == null)
-                {
-                    TaskDialog.Show("错误", "无法获取当前视图的标高");
-                    return null;
-                }
-                // 计算目标高度（当前标高 + 2000mm）
-                double targetElevation = currentLevel.Elevation + offsetHeight;
-                // 收集所有MEP曲线
-                FilteredElementCollector collector = new FilteredElementCollector(doc)
-                    .OfClass(typeof(MEPCurve));
-                // 遍历所有MEP曲线，检查是否符合条件
-                foreach (MEPCurve mepCurve in collector)
-                {
-                    // 检查MEP曲线的标高
-                    Parameter levelParam = mepCurve.get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM);
-                    if (levelParam == null) continue;
-
-                    ElementId levelId = levelParam.AsElementId();
-                    Level mepLevel = doc.GetElement(levelId) as Level;
-                    if (mepLevel == null) continue;
-                    // 检查是否在当前楼层标高（考虑标高容差）
-                    double levelDifference = Math.Abs(mepLevel.Elevation - currentLevel.Elevation);
-                    if (levelDifference > 0.1) // 容差约30mm
-                        continue;
-                    // 获取MEP曲线的位置曲线
-                    LocationCurve locationCurve = mepCurve.Location as LocationCurve;
-                    if (locationCurve == null) continue;
-                    Curve curve = locationCurve.Curve;
-                    if (curve == null) continue;
-                    // 创建垂直投影线（从目标高度向下）
-                    XYZ projectionStart = new XYZ(point.X, point.Y, targetElevation + 1.0); // 稍微高于目标高度
-                    XYZ projectionEnd = new XYZ(point.X, point.Y, targetElevation - 1.0);   // 稍微低于目标高度
-                    Line verticalLine = Line.CreateBound(projectionStart, projectionEnd);
-                    // 检查垂直投影线是否与MEP曲线相交
-                    SetComparisonResult setComparison = curve.Intersect(verticalLine, out IntersectionResultArray results);
-                    if (setComparison == SetComparisonResult.Disjoint)
-                        continue;
-                    if (setComparison == SetComparisonResult.Overlap && results != null && results.Size > 0)
-                    {
-                        // 找到相交的MEP曲线
-                        result = mepCurve;
-                        break;
-                    }
-                }
-                return result;
-            }
-            catch (Exception ex)
-            {
-                TaskDialog.Show("查找管道错误", ex.Message);
-                return null;
-            }
-        }
-        //private MEPCurve FindMEPCurveAtPoint(UIDocument doc, XYZ point)
-        //{
-        //    try
-        //    {
-        //        // 使用ReferenceIntersector查找与点相交的MEP曲线
-        //        ElementClassFilter mepFilter = new ElementClassFilter(typeof(MEPCurve));
-        //        ReferenceIntersector refIntersector = new ReferenceIntersector(mepFilter, FindReferenceTarget.Element, doc.ActiveView);
-
-        //        // 在点周围小范围内查找
-        //        XYZ searchDirection = new XYZ(0, 0, -1); // 向下搜索
-        //        ReferenceWithContext referenceWithContext = refIntersector.FindNearest(point, searchDirection);
-
-        //        if (referenceWithContext != null)
-        //        {
-        //            Reference reference = referenceWithContext.GetReference();
-        //            Element element = doc.GetElement(reference.ElementId);
-        //            return element as MEPCurve;
-        //        }
-
-        //        return null;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        TaskDialog.Show("查找管道错误", ex.Message);
-        //        return null;
-        //    }
-        //}
-        // 管道退后方法
-        //private void RetreatMEPCurve(MEPCurve mepCurve, XYZ breakPoint, double retreatDistance)
-        //{
-        //    try
-        //    {
-        //        LocationCurve locationCurve = mepCurve.Location as LocationCurve;
-        //        if (locationCurve == null) return;
-        //        Curve currentCurve = locationCurve.Curve;
-        //        XYZ startPoint = currentCurve.GetEndPoint(0);
-        //        XYZ endPoint = currentCurve.GetEndPoint(1);
-        //        // 确定退后方向
-        //        XYZ curveDirection = (endPoint - startPoint).Normalize();
-        //        // 根据退后距离的正负决定退后方向
-        //        XYZ retreatVector = curveDirection * retreatDistance;
-        //        // 判断哪一端靠近打断点
-        //        double distanceToStart = breakPoint.DistanceTo(startPoint);
-        //        double distanceToEnd = breakPoint.DistanceTo(endPoint);
-        //        Curve newCurve;
-        //        if (distanceToStart < distanceToEnd)
-        //        {
-        //            // 靠近起点端，移动起点
-        //            XYZ newStartPoint = startPoint + retreatVector;
-        //            // 确保新起点在曲线上且不超出范围
-        //            if (IsPointOnCurveSegment(currentCurve, newStartPoint))
-        //            {
-        //                newCurve = Line.CreateBound(newStartPoint, endPoint);
-        //            }
-        //            else
-        //            {
-        //                // 如果无法退后，保持原曲线
-        //                newCurve = currentCurve;
-        //            }
-        //        }
-        //        else
-        //        {
-        //            // 靠近终点端，移动终点
-        //            XYZ newEndPoint = endPoint + retreatVector;
-        //            // 确保新终点在曲线上且不超出范围
-        //            if (IsPointOnCurveSegment(currentCurve, newEndPoint))
-        //            {
-        //                newCurve = Line.CreateBound(startPoint, newEndPoint);
-        //            }
-        //            else
-        //            {
-        //                // 如果无法退后，保持原曲线
-        //                newCurve = currentCurve;
-        //            }
-        //        }
-        //        locationCurve.Curve = newCurve;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // 退后失败时忽略错误，继续执行
-        //        System.Diagnostics.Debug.WriteLine($"管道退后失败: {ex.Message}");
-        //    }
-        //}
-        // 检查点是否在曲线段上
-        //private bool IsPointOnCurveSegment(Curve curve, XYZ point)
-        //{
-        //    try
-        //    {
-        //        // 获取曲线参数范围
-        //        double startParam = curve.GetEndParameter(0);
-        //        double endParam = curve.GetEndParameter(1);
-
-        //        // 将点投影到曲线上获取参数
-        //        IntersectionResult result = curve.Project(point);
-        //        if (result != null)
-        //        {
-        //            double pointParam = result.Parameter;
-        //            // 检查参数是否在曲线范围内（包含一定的容差）
-        //            return pointParam >= startParam - 0.001 && pointParam <= endParam + 0.001;
-        //        }
-        //        return false;
-        //    }
-        //    catch
-        //    {
-        //        return false;
-        //    }
-        //}
-
-        //public void ConnectPipes(Document doc, ElementId pipeId1, ElementId pipeId2, ElementId pipeId3, ElementId pipeId4 = null)
+        //多管连接逻辑待后梳理
         public void ConnectPipes(Document doc, ElementId pipeId1, ElementId pipeId2, ElementId pipeId3, ElementId pipeId4 = null)
         {
             using (Transaction trans = new Transaction(doc, "Connect Pipes"))
@@ -970,9 +664,9 @@ namespace CreatePipe
                     // 三管连接（T型）
                     if (pipeId4 == null)
                     {
-                        Connector c1 = GetUnusedConnector(pipe1);
-                        Connector c2 = GetUnusedConnector(pipe2);
-                        Connector c3 = GetUnusedConnector(pipe3);
+                        Connector c1 = MEPAnalysisExtension.GetUnusedConnector(pipe1);
+                        Connector c2 = MEPAnalysisExtension.GetUnusedConnector(pipe2);
+                        Connector c3 = MEPAnalysisExtension.GetUnusedConnector(pipe3);
                         // 创建三通连接件
                         FamilyInstance tee = doc.Create.NewTeeFitting(c1, c2, c3);
                     }
@@ -996,104 +690,6 @@ namespace CreatePipe
                     trans.RollBack();
                     TaskDialog.Show("Error", ex.Message);
                 }
-            }
-        }
-        private Connector GetUnusedConnector(Pipe pipe)
-        {
-            ConnectorSet connectors = pipe.ConnectorManager.Connectors;
-            foreach (Connector conn in connectors)
-            {
-                if (!conn.IsConnected) return conn;
-            }
-            return null;
-        }
-        // 获取元素的所有连接器
-        private List<Connector> GetConnectors(Element element)
-        {
-            List<Connector> connectors = new List<Connector>();
-            if (element is FamilyInstance familyInstance)
-            {
-                ConnectorSet connectorSet = null;
-                // 检查是否为风管末端设备
-                if (familyInstance.MEPModel != null)
-                {
-                    connectorSet = familyInstance.MEPModel.ConnectorManager.Connectors;
-                }
-                if (connectorSet != null)
-                {
-                    foreach (Connector connector in connectorSet)
-                    {
-                        connectors.Add(connector);
-                    }
-                }
-            }
-            return connectors;
-        }
-        // 递归获取所有相连的元素
-        private List<ElementId> GetAllConnectedElements(List<Connector> startConnectors, Document doc)
-        {
-            List<ElementId> connectedElements = new List<ElementId>();
-            Queue<Connector> connectorsToProcess = new Queue<Connector>(startConnectors);
-            HashSet<ElementId> processedElements = new HashSet<ElementId>();
-
-            while (connectorsToProcess.Count > 0)
-            {
-                Connector currentConnector = connectorsToProcess.Dequeue();
-                Element currentElement = currentConnector.Owner;
-
-                if (currentElement == null || processedElements.Contains(currentElement.Id))
-                    continue;
-
-                // 标记当前元素已处理
-                processedElements.Add(currentElement.Id);
-
-                // 如果不是初始的风口，添加到要删除的列表
-                if (!startConnectors.Any(c => c.Owner.Id == currentElement.Id))
-                {
-                    connectedElements.Add(currentElement.Id);
-                }
-
-                // 获取当前连接器的所有连接
-                ConnectorSet connectorSet = null;
-
-                if (currentElement is FamilyInstance familyInstance && familyInstance.MEPModel != null)
-                {
-                    connectorSet = familyInstance.MEPModel.ConnectorManager.Connectors;
-                }
-                else if (currentElement is MEPCurve mepCurve)
-                {
-                    connectorSet = mepCurve.ConnectorManager.Connectors;
-                }
-
-                if (connectorSet != null)
-                {
-                    foreach (Connector connector in connectorSet)
-                    {
-                        // 获取连接器连接到的其他连接器
-                        foreach (Connector connectedConnector in connector.AllRefs)
-                        {
-                            Element connectedElement = connectedConnector.Owner;
-
-                            if (connectedElement != null &&
-                                !processedElements.Contains(connectedElement.Id) &&
-                                connectedElement.Id != currentElement.Id)
-                            {
-                                // 添加到待处理队列
-                                connectorsToProcess.Enqueue(connectedConnector);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return connectedElements;
-        }
-        // 删除所有相连的元素
-        private void DeleteConnectedElements(Document doc, List<ElementId> elementIds)
-        {
-            if (elementIds.Count > 0)
-            {
-                doc.Delete(elementIds);
             }
         }
         // 设置风口高度
@@ -1126,6 +722,306 @@ namespace CreatePipe
                 }
             }
         }
+        //0516 管道改平测试
+        private bool ProcessPipe(Document doc, Pipe pipe)
+        {
+            try
+            {
+                LocationCurve lc = pipe.Location as LocationCurve;
+                if (MEPAnalysisExtension.IsVertical(pipe))
+                {
+                    TaskDialog.Show("tt", "管道近似立管，压平后长度为0，跳过处理。");
+                    return false;
+                }
+                if (lc == null) return false;
+                Line oldLine = lc.Curve as Line;
+                if (oldLine == null) return false;
+                //找管道所在楼层
+                Level level = GetPipeReferenceLevel(doc, pipe);
+                if (level == null)
+                {
+                    TaskDialog.Show("tt", "无法获取参考楼层。");
+                    return false;
+                }
+                XYZ oldP0 = oldLine.GetEndPoint(0);
+                XYZ oldP1 = oldLine.GetEndPoint(1);
+                double targetZ = level.Elevation;
+                XYZ newP0 = new XYZ(oldP0.X, oldP0.Y, targetZ);
+                XYZ newP1 = new XYZ(oldP1.X, oldP1.Y, targetZ);
+                //// 记录原端部连接
+                //var oldConnectors = GetPipeEndConnectors(pipe);
+                //var connectionInfos = new List<ConnectionInfo>();
+                //foreach (var pc in oldConnectors)
+                //{
+                //    ConnectionInfo info = CaptureConnectionInfo(pipe, pc);
+                //    connectionInfos.Add(info);
+                //}
+                //// 先断开原连接，并删除直接相连小管件（可选）
+                //foreach (var info in connectionInfos)
+                //{
+                //    MEPAnalysisExtension.DisconnectAll(info.PipeConnector);
+                //    // 如果对方是管件，可按策略删除，以便重新生成连接
+                //    if (info.ConnectedOwnerId != ElementId.InvalidElementId)
+                //    {
+                //        Element owner = doc.GetElement(info.ConnectedOwnerId);
+                //        if (owner != null && MEPAnalysisExtension.IsPipeFitting(owner))
+                //        {
+                //            TryDeleteElement(doc, owner.Id);
+                //        }
+                //    }
+                //}
+                // 再次确认管还存在
+                pipe = doc.GetElement(pipe.Id) as Pipe;
+                if (pipe == null)
+                {
+                    TaskDialog.Show("tt", "原管道在删除相邻管件后失效。");
+                    return false;
+                }
+                // 强制改为水平线
+                Line newLine = Line.CreateBound(newP0, newP1);
+                lc.Curve = newLine;
+                doc.Regenerate();
+                //// 获取修改后的两端连接器
+                //var newPipeConnectors = GetPipeEndConnectors(pipe);
+                //// 将原连接信息按距离匹配到新的两端
+                //var mapping = MatchOldInfosToNewConnectors(connectionInfos, newPipeConnectors);
+                //List<string> reconnectLogs = new List<string>();
+                //foreach (var pair in mapping)
+                //{
+                //    ConnectionInfo oldInfo = pair.Key;
+                //    Connector newPipeConn = pair.Value;
+                //    // 没有外部连接对象，忽略
+                //    if (oldInfo.RemoteConnectorOwnerId == ElementId.InvalidElementId)
+                //    {
+                //        reconnectLogs.Add("端部原无外部连接。");
+                //        continue;
+                //    }
+                //    Element remoteOwner = doc.GetElement(oldInfo.RemoteConnectorOwnerId);
+                //    if (remoteOwner == null)
+                //    {
+                //        reconnectLogs.Add($"外部连接对象已不存在: {oldInfo.RemoteConnectorOwnerId.IntegerValue}");
+                //        continue;
+                //    }
+                //    Connector remoteConn = FindBestConnector(remoteOwner, oldInfo.RemoteConnectorOrigin, oldInfo.RemoteConnectorDirection);
+                //    if (remoteConn == null)
+                //    {
+                //        reconnectLogs.Add($"未找到外部连接器: {remoteOwner.Id.IntegerValue}");
+                //        continue;
+                //    }
+                //    bool connected = TryReconnect(doc, newPipeConn, remoteConn, out string detail);
+                //    reconnectLogs.Add(detail);
+                //}
+                //TaskDialog.Show("tt", "成功压平到标高 " + level.Name + " / Elev=" + targetZ.ToString("F3")
+                //    + "；" + string.Join(" | ", reconnectLogs));
+                return true;
+            }
+            catch (Exception)
+            {
+                throw;
+            }      
+        }
+        private Level GetPipeReferenceLevel(Document doc, Pipe pipe)
+        {
+            if (pipe.ReferenceLevel != null) return pipe.ReferenceLevel;
+            Parameter p1 = pipe.get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM);
+            if (p1 != null && p1.HasValue)
+            {
+                ElementId id = p1.AsElementId();
+                if (id != ElementId.InvalidElementId)
+                    return doc.GetElement(id) as Level;
+            }
+            return null;
+        }
+        private List<Connector> GetPipeEndConnectors(Pipe pipe)
+        {
+            var result = new List<Connector>();
+            ConnectorSet connectors = pipe.ConnectorManager?.Connectors;
+            if (connectors == null) return result;
+
+            foreach (Connector c in connectors)
+            {
+                if (c.ConnectorType == ConnectorType.End)
+                    result.Add(c);
+            }
+
+            return result;
+        }
+        private class ConnectionInfo
+        {
+            public ElementId PipeId { get; set; } = ElementId.InvalidElementId;
+            public Connector PipeConnector { get; set; }
+            public XYZ PipeConnectorOrigin { get; set; }
+            public XYZ PipeConnectorDirection { get; set; }
+
+            public ElementId ConnectedOwnerId { get; set; } = ElementId.InvalidElementId;
+
+            public ElementId RemoteConnectorOwnerId { get; set; } = ElementId.InvalidElementId;
+            public XYZ RemoteConnectorOrigin { get; set; }
+            public XYZ RemoteConnectorDirection { get; set; }
+        }
+        private ConnectionInfo CaptureConnectionInfo(Pipe pipe, Connector pipeConnector)
+        {
+            var info = new ConnectionInfo
+            {
+                PipeId = pipe.Id,
+                PipeConnector = pipeConnector,
+                PipeConnectorOrigin = pipeConnector.Origin,
+                PipeConnectorDirection = MEPAnalysisExtension.GetConnectorDirection(pipeConnector)
+            };
+
+            foreach (Connector refConn in pipeConnector.AllRefs)
+            {
+                if (refConn == null) continue;
+                if (refConn.Owner == null) continue;
+
+                if (refConn.Owner.Id == pipe.Id)
+                    continue;
+
+                info.ConnectedOwnerId = refConn.Owner.Id;
+                info.RemoteConnectorOwnerId = refConn.Owner.Id;
+                info.RemoteConnectorOrigin = refConn.Origin;
+                info.RemoteConnectorDirection = MEPAnalysisExtension.GetConnectorDirection(refConn);
+                break;
+            }
+
+            return info;
+        }
+        private void TryDeleteElement(Document doc, ElementId id)
+        {
+            try
+            {
+                if (id != ElementId.InvalidElementId)
+                    doc.Delete(id);
+            }
+            catch
+            {
+                // 忽略，有些管件受约束删不掉
+            }
+        }
+        private Dictionary<ConnectionInfo, Connector> MatchOldInfosToNewConnectors(
+            List<ConnectionInfo> oldInfos,
+            List<Connector> newConnectors)
+        {
+            var result = new Dictionary<ConnectionInfo, Connector>();
+
+            var remaining = new List<Connector>(newConnectors);
+
+            foreach (var info in oldInfos.OrderBy(x => x.PipeConnectorOrigin.X + x.PipeConnectorOrigin.Y))
+            {
+                Connector best = null;
+                double bestDist = double.MaxValue;
+
+                foreach (var c in remaining)
+                {
+                    double d = c.Origin.DistanceTo(info.PipeConnectorOrigin);
+                    if (d < bestDist)
+                    {
+                        bestDist = d;
+                        best = c;
+                    }
+                }
+
+                if (best != null)
+                {
+                    result[info] = best;
+                    remaining.Remove(best);
+                }
+            }
+
+            return result;
+        }
+        private Connector FindBestConnector(Element owner, XYZ targetOrigin, XYZ targetDirection)
+        {
+            var all = MEPAnalysisExtension.GetConnectors(owner);
+            if (all.Count() == 0) return null;
+
+            Connector best = null;
+            double bestScore = double.MaxValue;
+
+            foreach (var c in all)
+            {
+                double dist = c.Origin.DistanceTo(targetOrigin);
+                XYZ dir = MEPAnalysisExtension.GetConnectorDirection(c);
+                double dirPenalty = 0;
+
+                if (dir != null && targetDirection != null)
+                {
+                    double dot = Math.Abs(dir.Normalize().DotProduct(targetDirection.Normalize()));
+                    dirPenalty = 1.0 - dot;
+                }
+
+                double score = dist + dirPenalty;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = c;
+                }
+            }
+
+            return best;
+        }
+        private bool TryReconnect(Document doc, Connector pipeConn, Connector remoteConn, out string detail)
+        {
+            detail = "";
+            if (pipeConn == null || remoteConn == null)
+            {
+                detail = "重连失败：连接器为空。";
+                return false;
+            }
+            // 先尝试直接连接
+            try
+            {
+                if (!pipeConn.IsConnectedTo(remoteConn))
+                {
+                    pipeConn.ConnectTo(remoteConn);
+                    doc.Regenerate();
+                }
+                if (pipeConn.IsConnectedTo(remoteConn))
+                {
+                    detail = $"直接重连成功 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
+                    return true;
+                }
+            }
+            catch
+            {
+                // 继续尝试自动插入管件
+            }
+            // 尝试自动生成弯头
+            try
+            {
+                FamilyInstance fi = doc.Create.NewElbowFitting(pipeConn, remoteConn);
+                doc.Regenerate();
+                if (fi != null)
+                {
+                    detail = $"弯头重连成功 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
+                    return true;
+                }
+            }
+            catch
+            {
+                // 忽略
+            }
+            // 若同点共线，有时可再次尝试直接连接
+            try
+            {
+                if (pipeConn.Origin.DistanceTo(remoteConn.Origin) < 0.01)
+                {
+                    pipeConn.ConnectTo(remoteConn);
+                    doc.Regenerate();
+                    if (pipeConn.IsConnectedTo(remoteConn))
+                    {
+                        detail = $"近点直接重连成功 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // 忽略
+            }
+            detail = $"重连失败 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
+            return false;
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -1133,8 +1029,265 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-          
+            //0517 喷头方法重构
+            SprinklerReplaceAmendView amendView = new SprinklerReplaceAmendView(uiApp);
+            amendView.Show();
 
+            ////////0516测试 管道改平改0 后续应节合instance尝试按指定高度放置，可能更实用
+            //var selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds == null || selectedIds.Count == 0)
+            //{
+            //    TaskDialog.Show("提示", "请先选择管道。");
+            //    return Result.Cancelled;
+            //}
+            //List<Pipe> pipes = selectedIds.Select(id => doc.GetElement(id)).OfType<Pipe>().ToList();
+            //if (pipes.Count == 0)
+            //{
+            //    TaskDialog.Show("提示", "未选择任何管道。");
+            //    return Result.Cancelled;
+            //}
+            //int success = 0;
+            //int fail = 0;
+            //List<string> logs = new List<string>();
+            //using (TransactionGroup tg = new TransactionGroup(doc, "强制压平管道到楼层标高"))
+            //{
+            //    tg.Start();
+            //    foreach (var pipe in pipes)
+            //    {
+            //        using (Transaction tx = new Transaction(doc, $"处理管道 {pipe.Id.IntegerValue}"))
+            //        {
+            //            tx.Start();
+            //            try
+            //            {
+            //                string log;
+            //                bool ok = ProcessPipe(doc, pipe);
+            //                if (ok)
+            //                {
+            //                    tx.Commit();
+            //                    success++;
+            //                }
+            //                else
+            //                {
+            //                    tx.RollBack();
+            //                    fail++;
+            //                }
+            //                logs.Add($"管道 {pipe.Id.IntegerValue}");
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                tx.RollBack();
+            //                fail++;
+            //                logs.Add($"管道 {pipe.Id.IntegerValue}: 失败 - {ex.Message}");
+            //            }
+            //        }
+            //    }
+            //    tg.Assimilate();
+            //}
+            //string result = $"完成。\n成功：{success}\n失败：{fail}";
+            //if (logs.Count > 0)
+            //{
+            //    result += "\n\n处理详情：\n" + string.Join("\n", logs.Take(50));
+            //    if (logs.Count > 50)
+            //        result += $"\n...其余 {logs.Count - 50} 条省略";
+            //}
+            //TaskDialog.Show("结果", result);
+
+
+            ////0329 选择偏移量（Offset）设置过大构件，逻辑还不够清晰，误差太大
+            //// 1. 获取并排序所有标高
+            //List<Level> sortedLevels = new FilteredElementCollector(doc).OfClass(typeof(Level))
+            //    .Cast<Level>().OrderBy(l => l.Elevation).ToList();
+            //if (sortedLevels.Count < 1) return Result.Cancelled;
+            //// 2. 收集需要检查的构件（排除链接和类型）
+            //List<Element> allElements = new FilteredElementCollector(doc, doc.ActiveView.Id).WhereElementIsNotElementType()
+            //    .Where(e => e.Category != null && e.LevelId != ElementId.InvalidElementId).ToList();
+            //List<ElementId> anomalyIds = new List<ElementId>();
+            //foreach (Element el in allElements)
+            //{
+            //    // 获取构件关联的标高
+            //    Level currentLevel = sortedLevels.FirstOrDefault(l => l.Id == el.LevelId);
+            //    if (currentLevel == null) continue;
+            //    // 获取当前层的层间高差（寻找上一层）
+            //    int currentIndex = sortedLevels.IndexOf(currentLevel);
+            //    double heightToNextLevel = double.MaxValue;
+            //    double heightToBelowLevel = double.MaxValue;
+            //    if (currentIndex < sortedLevels.Count - 1)
+            //    {
+            //        // 有上一层，计算差值
+            //        heightToNextLevel = sortedLevels[currentIndex + 1].Elevation - currentLevel.Elevation;
+            //    }
+            //    else
+            //    {
+            //        // 顶层，设定一个经验阈值（如 5米）
+            //        heightToNextLevel = 5000 / 304.8;
+            //    }
+            //    if (currentIndex > 0)
+            //    {
+            //        // 有下一层
+            //        heightToBelowLevel = currentLevel.Elevation - sortedLevels[currentIndex - 1].Elevation;
+            //    }
+            //    // 3. 提取偏移量参数 (尝试常见的内置参数)
+            //    double offset = GetElementOffset(el);
+            //    // 4. 判定异常：偏移值大于层高，或者负偏移超过下层高度
+            //    if (offset > heightToNextLevel || (offset < 0 && Math.Abs(offset) > heightToBelowLevel))
+            //    {
+            //        anomalyIds.Add(el.Id);
+            //    }
+            //}
+            //// 5. 反馈结果并选中
+            //if (anomalyIds.Any())
+            //{
+            //    uiDoc.Selection.SetElementIds(anomalyIds);
+            //    TaskDialog.Show("检测结果", $"发现 {anomalyIds.Count} 个标高异常构件（偏移量超出层高范围）。已在视图中选中这些构件。");
+            //}
+            //else
+            //{
+            //    TaskDialog.Show("检测结果", "未发现明显的标高偏移异常构件。");
+            //}
+
+            ////0222 批量改标高1500.OK 待深化
+            //var selectedIds = uiDoc.Selection.GetElementIds();
+            //if (selectedIds.Count > 1)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //try
+            //{
+            //    if (selectedIds.Count == 0)
+            //    {
+            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
+            //        Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //        Parameter sysParam = pipe1.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //        if (sysParam == null || !sysParam.HasValue)
+            //        {
+            //            TaskDialog.Show("提示", "未获取到系统参数");
+            //            return Result.Cancelled;
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "更改标高"))
+            //        {
+            //            tx.Start();
+            //            sysParam.Set(1500 / 304.8);
+            //            tx.Commit();
+            //        }
+            //    }
+            //    else
+            //    {
+            //        Pipe pipe = doc.GetElement(selectedIds.FirstOrDefault()) as Pipe;
+            //        Parameter sysParam = pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
+            //        if (sysParam == null || !sysParam.HasValue)
+            //        {
+            //            TaskDialog.Show("提示", "未获取到系统参数");
+            //            return Result.Cancelled;
+            //        }
+            //        using (Transaction tx = new Transaction(doc, "更改标高"))
+            //        {
+            //            tx.Start();
+            //            sysParam.Set(1500 / 304.8);
+            //            tx.Commit();
+            //        }
+            //    }
+            //}
+            //catch (Exception)
+            //{
+            //    throw;
+            //}
+
+
+            ////0511 找轴线交叉点坐标测试
+            //// 2. 收集所有轴线 (Grid) 图元
+            //FilteredElementCollector collector = new FilteredElementCollector(doc);
+            //IList<Element> grids = collector.OfClass(typeof(Autodesk.Revit.DB.Grid))
+            //    .WhereElementIsNotElementType().ToElements();
+            //if (grids.Count < 2)
+            //{
+            //    TaskDialog.Show("提示", "当前文档中轴线数量不足，无法计算交点。");
+            //    return Result.Failed;
+            //}
+            //// 提取所有轴线的二维无限长直线 (过滤掉弧形轴线)
+            //List<Line> infiniteFlatLines = new List<Line>();
+            //foreach (Autodesk.Revit.DB.Grid grid in grids)
+            //{
+            //    Curve curve = grid.Curve;
+            //    // 目前仅处理直线型轴线，如果是弧形轴线(Arc)需要另外的数学逻辑
+            //    if (curve is Line line)
+            //    {
+            //        // 提取起点和方向，强制 Z 坐标为 0，拍平到同一个二维平面
+            //        XYZ originFlat = new XYZ(line.Origin.X, line.Origin.Y, 0);
+            //        XYZ directionFlat = new XYZ(line.Direction.X, line.Direction.Y, 0).Normalize();
+            //        // 创建无界(无限长)的直线
+            //        Line unboundLine = Line.CreateUnbound(originFlat, directionFlat);
+            //        infiniteFlatLines.Add(unboundLine);
+            //    }
+            //}
+            //// 4. 存储所有交点 (使用 List 并在存入前去重，防止极近的点重复)
+            //List<XYZ> intersectionPoints = new List<XYZ>();
+            //// 5. 双重循环计算交点 (两两组合比对，避免自己和自己比，也避免重复比对)
+            //for (int i = 0; i < infiniteFlatLines.Count; i++)
+            //{
+            //    for (int j = i + 1; j < infiniteFlatLines.Count; j++)
+            //    {
+            //        Line line1 = infiniteFlatLines[i];
+            //        Line line2 = infiniteFlatLines[j];
+            //        // 检查两条线是否平行 (方向向量的叉乘接近于0)
+            //        XYZ crossProduct = line1.Direction.CrossProduct(line2.Direction);
+            //        if (crossProduct.GetLength() < 1e-6)
+            //        {
+            //            continue; // 平行或重合，无唯一交点，跳过
+            //        }
+            //        IntersectionResultArray intersections;
+            //        SetComparisonResult result = line1.Intersect(line2, out intersections);
+
+            //        if (result == SetComparisonResult.Overlap && intersections != null)
+            //        {
+            //            foreach (IntersectionResult iResult in intersections)
+            //            {
+            //                XYZ point = iResult.XYZPoint;
+
+            //                // 去重机制：检查是否已经存在非常接近的交点 (容差设为 0.001 英尺)
+            //                if (!intersectionPoints.Any(p => p.DistanceTo(point) < 0.001))
+            //                {
+            //                    intersectionPoints.Add(point);
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+            //for (int i = 0; i < intersectionPoints.Count; i++)
+            //{
+            //    XYZ p = intersectionPoints[i];
+            //    if (Math.Round(p.X * 304.8, 4)==0&& Math.Round(p.Y * 304.8, 4)==0)
+            //    {
+            //        TaskDialog.Show("tt", "轴网交点与项目基点有交叉");
+            //    }
+            //}
+            ////// 6. 输出结果到文件
+            ////string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            ////string outputPath = Path.Combine(desktopPath, "GridIntersections.txt");
+            ////using (StreamWriter writer = new StreamWriter(outputPath))
+            ////{
+            ////    writer.WriteLine($"轴线交点坐标列表 (共 {intersectionPoints.Count} 个点):");
+            ////    writer.WriteLine("=========================================");
+            ////    writer.WriteLine("单位转换为mm");
+            ////    for (int i = 0; i < intersectionPoints.Count; i++)
+            ////    {
+            ////        XYZ p = intersectionPoints[i];
+            ////        writer.WriteLine($"点 {i + 1}: ({Math.Round(p.X * 304.8, 4)}, {Math.Round(p.Y * 304.8, 4)}, {Math.Round(p.Z * 304.8, 4)})");
+            ////    }
+            ////}
+            ////TaskDialog.Show("完成", $"成功找到 {intersectionPoints.Count} 个轴线交点，已保存至：\n{outputPath}");
+
+
+            ////0508 找未赋值深圳墙
+            //var walls = new FilteredElementCollector(doc).OfClass(typeof(Wall)).WhereElementIsNotElementType().Cast<Wall>().ToList();
+            //List<ElementId> ids = new List<ElementId>();
+            //foreach (var item in walls)
+            //{
+            //    if (item.LookupParameter("深圳构件标识") == null)
+            //    {
+            //        ids.Add(item.Id);
+            //    }
+            //}
+            //TaskDialog.Show("tt", ids.Count.ToString());
 
             //0426 文本框输入数字限定测试
             //TestWindow testWindow = new TestWindow(uiApp);
@@ -1144,7 +1297,6 @@ namespace CreatePipe
             ////结构族SectionShape参数 symbol参数int值表示
             //var column = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new ColumnFilter(), "findA柱子")) as FamilyInstance;
             //TaskDialog.Show("tt", column.Symbol.get_Parameter(BuiltInParameter.STRUCTURAL_SECTION_SHAPE).AsInteger().ToString());
-
 
             //////1102 结构柱翻模测试改造 https://zhuanlan.zhihu.com/p/108750783
             /////改为按标高打断管线,需要增加高度获取和。OK
@@ -1718,18 +1870,6 @@ namespace CreatePipe
             //例程结束
 
 
-            //////0830 已载入插件查找管理1，没啥用
-            //var loadedApps = uiApp.LoadedApplications;
-            ////var list = loadedApps.Cast<IExternalApplication>().Select(a => a.GetType().FullName).ToList();
-            //var list = loadedApps.Cast<IExternalApplication>().ToList();
-            //StringBuilder stringBuilder = new StringBuilder();
-            //foreach (var item in list)
-            //{
-            //    //stringBuilder.AppendLine(item.GetType().Assembly.Location.ToString());
-            //    //stringBuilder.AppendLine(item.GetType().FullName.ToString());
-            //    ////stringBuilder.AppendLine(item.GetType().AssemblyQualifiedName.ToString());
-            //}
-            //TaskDialog.Show("tt", stringBuilder.ToString());
 
             ////1125 三管、四管连接试验,顺序会导致连接失败需要优化X
             //// 1. 拾取第一根管道
@@ -2180,7 +2320,7 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("执行结果", message);
             ////////1003 SplitElementsCommand 变形缝、后浇带打断板、梁 遗留考虑问题较多，板边界，连线方向等等
-            
+
             ////0421 构件分析测试 要排除固定的MEP相关配置项和系统材质、视图等，只管理手动添加的元素
             //var analyzer = new ModelProfessionAnalyzer(doc);
             //string report = analyzer.GetDetailedReport();
@@ -2282,104 +2422,6 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
 
-            ////0329 选择偏移量（Offset）设置过大构件，逻辑还不够清晰，误差太大
-            //// 1. 获取并排序所有标高
-            //List<Level> sortedLevels = new FilteredElementCollector(doc).OfClass(typeof(Level))
-            //    .Cast<Level>().OrderBy(l => l.Elevation).ToList();
-            //if (sortedLevels.Count < 1) return Result.Cancelled;
-            //// 2. 收集需要检查的构件（排除链接和类型）
-            //List<Element> allElements = new FilteredElementCollector(doc, doc.ActiveView.Id).WhereElementIsNotElementType()
-            //    .Where(e => e.Category != null && e.LevelId != ElementId.InvalidElementId).ToList();
-            //List<ElementId> anomalyIds = new List<ElementId>();
-            //foreach (Element el in allElements)
-            //{
-            //    // 获取构件关联的标高
-            //    Level currentLevel = sortedLevels.FirstOrDefault(l => l.Id == el.LevelId);
-            //    if (currentLevel == null) continue;
-            //    // 获取当前层的层间高差（寻找上一层）
-            //    int currentIndex = sortedLevels.IndexOf(currentLevel);
-            //    double heightToNextLevel = double.MaxValue;
-            //    double heightToBelowLevel = double.MaxValue;
-            //    if (currentIndex < sortedLevels.Count - 1)
-            //    {
-            //        // 有上一层，计算差值
-            //        heightToNextLevel = sortedLevels[currentIndex + 1].Elevation - currentLevel.Elevation;
-            //    }
-            //    else
-            //    {
-            //        // 顶层，设定一个经验阈值（如 5米）
-            //        heightToNextLevel = 5000 / 304.8;
-            //    }
-            //    if (currentIndex > 0)
-            //    {
-            //        // 有下一层
-            //        heightToBelowLevel = currentLevel.Elevation - sortedLevels[currentIndex - 1].Elevation;
-            //    }
-            //    // 3. 提取偏移量参数 (尝试常见的内置参数)
-            //    double offset = GetElementOffset(el);
-            //    // 4. 判定异常：偏移值大于层高，或者负偏移超过下层高度
-            //    if (offset > heightToNextLevel || (offset < 0 && Math.Abs(offset) > heightToBelowLevel))
-            //    {
-            //        anomalyIds.Add(el.Id);
-            //    }
-            //}
-            //// 5. 反馈结果并选中
-            //if (anomalyIds.Any())
-            //{
-            //    uiDoc.Selection.SetElementIds(anomalyIds);
-            //    TaskDialog.Show("检测结果", $"发现 {anomalyIds.Count} 个标高异常构件（偏移量超出层高范围）。已在视图中选中这些构件。");
-            //}
-            //else
-            //{
-            //    TaskDialog.Show("检测结果", "未发现明显的标高偏移异常构件。");
-            //}
-
-            ////0222 批量改标高1500.OK 待深化
-            //var selectedIds = uiDoc.Selection.GetElementIds();
-            //if (selectedIds.Count > 1)
-            //{
-            //    return Result.Cancelled;
-            //}
-            //try
-            //{
-            //    if (selectedIds.Count == 0)
-            //    {
-            //        Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择一根水平管道");
-            //        Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //        Parameter sysParam = pipe1.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
-            //        if (sysParam == null || !sysParam.HasValue)
-            //        {
-            //            TaskDialog.Show("提示", "未获取到系统参数");
-            //            return Result.Cancelled;
-            //        }
-            //        using (Transaction tx = new Transaction(doc, "更改标高"))
-            //        {
-            //            tx.Start();
-            //            sysParam.Set(1500 / 304.8);
-            //            tx.Commit();
-            //        }
-            //    }
-            //    else
-            //    {
-            //        Pipe pipe = doc.GetElement(selectedIds.FirstOrDefault()) as Pipe;
-            //        Parameter sysParam = pipe.get_Parameter(BuiltInParameter.RBS_OFFSET_PARAM);
-            //        if (sysParam == null || !sysParam.HasValue)
-            //        {
-            //            TaskDialog.Show("提示", "未获取到系统参数");
-            //            return Result.Cancelled;
-            //        }
-            //        using (Transaction tx = new Transaction(doc, "更改标高"))
-            //        {
-            //            tx.Start();
-            //            sysParam.Set(1500 / 304.8);
-            //            tx.Commit();
-            //        }
-            //    }
-            //}
-            //catch (Exception)
-            //{
-            //    throw;
-            //}
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
             //var selIds = uiDoc.Selection.GetElementIds();
@@ -2448,7 +2490,7 @@ namespace CreatePipe
             //    }
             //    tx.Commit();
             //}
-            //TaskDialog.Show("结果",$"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));     
+            //TaskDialog.Show("结果", $"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
 
             ////0205 查找特定属性风口构建
             //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
@@ -2949,11 +2991,6 @@ namespace CreatePipe
                 // 如果设置失败，使用默认样式
             }
         }
-        ////private bool IsPointOnCurve(Curve curve, XYZ point)
-        ////{
-        ////    return curve.Distance(point) < 1e-6; // 使用容差判断点是否在曲线上
-        ////}
-        //0425 体面相交逻辑方法结束
     }
     /// <summary>
     /// 专业统计结果类

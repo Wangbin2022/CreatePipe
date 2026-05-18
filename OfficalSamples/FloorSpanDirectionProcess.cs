@@ -3,8 +3,6 @@ using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -14,7 +12,7 @@ namespace CreatePipe.OfficalSamples
         public FloorSpanDirectionProcess(Element elem)
         {
             _document = elem.Document;
-            Floor floor =_document.GetElement(elem.Id) as Floor;
+            Floor floor = _document.GetElement(elem.Id) as Floor;
             AnalyzeFloorSpanDirection(floor);
         }
         /// <summary>
@@ -154,7 +152,7 @@ namespace CreatePipe.OfficalSamples
             dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "确定");
             dialog.Show();
         }
- 
+
 
         #region 辅助方法
         /// <summary>

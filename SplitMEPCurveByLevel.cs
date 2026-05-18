@@ -229,18 +229,7 @@
     //        double tolerance = 0.0001;
     //        return breakZ > minZ + tolerance && breakZ < maxZ - tolerance;
     //    }
-    //    /// <summary>
-    //    /// 判断MEPCurve是否为垂直的
-    //    /// </summary>
-    //    private bool IsVertical(MEPCurve mepCurve)
-    //    {
-    //        if (!(mepCurve.Location is LocationCurve locationCurve)) return false;
-    //        Curve curve = locationCurve.Curve;
-    //        XYZ start = curve.GetEndPoint(0);
-    //        XYZ end = curve.GetEndPoint(1);
-    //        double tolerance = 0.001;
-    //        return Math.Abs(start.X - end.X) < tolerance && Math.Abs(start.Y - end.Y) < tolerance;
-    //    }
+
     //    private bool IsHorizontal(MEPCurve mepCurve)
     //    {
     //        if (!(mepCurve.Location is LocationCurve locationCurve)) return false;

@@ -1,20 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Plumbing;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.cmd;
-using CreatePipe.Form;
-using CreatePipe.Utils;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Globalization;
-using System.Linq;
-using System.Windows.Data;
-using System.Windows.Input;
-using System.Windows.Media;
-
-namespace CreatePipe.models
+﻿namespace CreatePipe.models
 {
     //public class PipeSystemViewModel : ObserverableObject
     //{

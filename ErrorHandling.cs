@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 //service.Update(++index, id.Value.ToString());
 //set => SetProperty(ref _maximum, value);
 
@@ -245,5 +244,5 @@ namespace CreatePipe
             //}
             return Result.Succeeded;
         }
-        }
+    }
 }

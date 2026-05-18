@@ -6,20 +6,9 @@ using CreatePipe.cmd;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using static CreatePipe.RevitOperationLogger;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -213,7 +202,7 @@ namespace CreatePipe.OfficalSamples
                 _electricalSystemItems.Clear();
                 foreach (ElectricalSystem es in _electricalSystemSet)
                 {
- 
+
                     //_electricalSystemItems.Add(new ElectricalSystemItem(es));
                 }
                 return new ReadOnlyCollection<ElectricalSystemItem>(_electricalSystemItems);

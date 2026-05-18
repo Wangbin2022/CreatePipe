@@ -1,43 +1,7 @@
 ﻿using Autodesk.Revit.Attributes;
-using Autodesk.Revit.Creation;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.DirectContext3D;
-using Autodesk.Revit.DB.ExtensibleStorage;
-using Autodesk.Revit.DB.Fabrication;
-using Autodesk.Revit.DB.Plumbing;
-using Autodesk.Revit.DB.Structure;
-using Autodesk.Revit.Exceptions;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
-using CreatePipe.Form;
-using CreatePipe.MEPevent;
-using CreatePipe.OfficalSamples;
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Data.Common;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Management.Instrumentation;
-using System.Runtime.CompilerServices;
-using System.Runtime.Remoting.Lifetime;
-using System.Security.Cryptography;
-using System.Text;
-using System.Windows.Controls;
-using System.Windows.Forms;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Media3D;
-using System.Xml;
-using System.Xml.Linq;
-using static CreatePipe.OfficalSamples.DuplicateView;
-using static CreatePipe.OfficalSamples.RoutingPreferenceView;
-using static CreatePipe.RevitOperationLogger;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
-using View = Autodesk.Revit.DB.View;
 //ObserverableObject
 //service.Update(++index, id.Value.ToString());
 //set => SetProperty(ref _maximum, value);
@@ -56,38 +20,74 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
 
             //////0507 官方代码测试
+            //UIAPI详细说明，新增选项等
+            //https://www.mxbim.com/article/detail/UIAPI.html
+            //OptionsDialog 4个userControl待测试用途能否扩展
+
+            //Truss 创建桁架并修改其桁架成员和剖面。将近1500行待深化  带界面
+            //Site 比较旧的做法，现在是否还有看的需要？
+            //包括TopographySurface和SiteSubRegion编辑工具，其中包括添加预定义点区域、更改点高程、移动点和删除点。
+            //· Application.cs - 实现Revit插件接口IExternalApplication
+            //· SiteAddRetainingPondCommand.cs - 添加一个新的圆形蓄水池到用户选择的TopographySurface的命令。
+            //· SiteDeleteRegionAndPointsCommand.cs - 删除一个子区域和其中包含的所有地形表面点的命令。
+            //· SiteLowerTerrainInRegionCommand.cs - 将一个子区域中包含的所有点下降3英尺的命令。
+            //· SiteMoveRegionAndPointsCommand.cs - 将子区域及其包含的点移动到宿主表面上新的位置的命令。
+            //· SiteNormalizeTerrainInRegionCommand.cs - 将区域中的所有点正常化到平均海拔高度的命令。
+            //· SiteRaiseTerrainInRegionCommand.cs - 提起子区域中包含的所有点3英尺的命令。
+            //· SiteEditingUtils.cs - 用于现场编辑命令的数据库级别工具。
+            //· SiteUIUtils.cs - 用于现场编辑命令的用户界面工具。
+            //StairsAutomation 基于预定义的规则和参数，创建一系列楼梯、楼梯跑和楼梯平台配置。 类目太多将近1500行待深化 无界面是否增加
+            //· Command.cs - 包含继承自IExternalCommand接口并实现Execute方法的Command类。
+            //· StairsAutomationUtility.cs - 掌管自动楼梯元素创建的主要类。
+            //· IStairsConfiguration.cs - 此接口表示要创建的楼梯跑和平台的配置。
+            //· StairsConfiguration.cs - IStairsConfiguration的特定实现，包含一些默认存储。
+            //· StairsSingleStraightRun.cs - 表示一个单直线跑的楼梯配置。
+            //· StairsSingleCurvedRun.cs - 由一条弯曲的楼梯跑组成的楼梯构件。
+            //· StairsSingleSketchedStraightRun.cs - 由一个单线段直线跑组成的楼梯跑。
+            //· StairsSingleSketchedCurvedRun.cs - 代表一个弧形跑（在Revit中将被作为绘制的跑形成）的楼梯配置。
+            //· StairsStandardConfiguration.cs - 表示由直线跑和矩形平台组成的楼梯配置。根据输入参数切换跑。平台宽度可以独立调整。
+            //· GeometryUtils.cs - 此示例中使用的几何实用程序。
+            //· RunComponents / IStairsRunComponent.cs - 单个楼梯跑的基本接口。
+            //· RunComponents / TransformedStairsComponent.cs - 一个可通过平移和旋转移动的楼梯组件的抽象基类。
+            //· RunComponents / StraightStairsRunComponent.cs - 由线性直线跑组成的楼梯跑。
+            //· RunComponents / CurvedStairsRunComponent.cs - 由一条弯曲的楼梯跑构成的楼梯组件。
+            //· RunComponents / SketchedStraightStairsRunComponent.cs - 由单线段直线跑组成的楼梯跑。
+            //· RunComponents / SketchedCurvedStairsRunComponent.cs - 由一个弧形跑组成的楼梯跑。
+            //· LandingComponents / IStairsLandingComponent.cs - 表示平台的接口。
+            //· LandingComponents / StairsRectangleLandingConfiguration.cs - 用于创建具有固定横截面的平台的配置。
+            //· LandingComponents / LandingComponentUtils.cs - 处理平台时使用的实用程序。
+
+            //WinderStairs 转角楼梯设计 类目太多将近1500行待深化 带界面
 
             //////0506 官方代码测试
-
             //Viewers 基于VB开发的四个工具似乎无特殊性，暂跳过
 
-            //TypeSelector 元素类型切换工具，主要功能包括：
-            //选择元素：用户选择一个墙体或构件（FamilyInstance）
-            //获取可用类型：根据选中元素显示所有可用的类型列表
-            //切换类型：将选中元素的类型更改为用户选择的类型
-            //支持类型：墙体（Wall）和构件（FamilyInstance）
-            try
-            {
-                var uiDocument = commandData.Application.ActiveUIDocument;
-                // 创建视图模型
-                var viewModel = new TypeSelectorViewModel(uiDocument);
-                // 创建并显示WPF窗口
-                var window = new TypeSelectorView(viewModel);
-                ////// 设置Revit为所有者窗口
-                ////var revitWindow = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
-                ////var helper = new System.Windows.Interop.WindowInteropHelper(window)
-                ////{
-                ////    Owner = revitWindow
-                ////};
-                window.ShowDialog();
-                return Result.Succeeded;
-            }
-            catch (Exception ex)
-            {
-                message = ex.Message;
-                return Result.Failed;
-            }
-
+            ////TypeSelector 元素类型切换工具，主要功能包括：
+            ////选择元素：用户选择一个墙体或构件（FamilyInstance）
+            ////获取可用类型：根据选中元素显示所有可用的类型列表
+            ////切换类型：将选中元素的类型更改为用户选择的类型
+            ////支持类型：墙体（Wall）和构件（FamilyInstance）
+            //try
+            //{
+            //    var uiDocument = commandData.Application.ActiveUIDocument;
+            //    // 创建视图模型
+            //    var viewModel = new TypeSelectorViewModel(uiDocument);
+            //    // 创建并显示WPF窗口
+            //    var window = new TypeSelectorView(viewModel);
+            //    ////// 设置Revit为所有者窗口
+            //    ////var revitWindow = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            //    ////var helper = new System.Windows.Interop.WindowInteropHelper(window)
+            //    ////{
+            //    ////    Owner = revitWindow
+            //    ////};
+            //    window.ShowDialog();
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
 
             //Options 控件UserControl插件选项配置控件，主要功能包括：
             //按钮可用性设置：通过ComboBox控制Revit工具栏按钮在不同专业环境下的可用性

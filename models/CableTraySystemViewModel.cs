@@ -1,14 +1,4 @@
-﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Electrical;
-using Autodesk.Revit.UI;
-using CreatePipe.cmd;
-using CreatePipe.Utils;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-
-namespace CreatePipe.models
+﻿namespace CreatePipe.models
 {
     //public class CableTraySystemViewModel : ObserverableObject
     //{

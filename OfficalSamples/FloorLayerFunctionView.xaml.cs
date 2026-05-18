@@ -2,21 +2,10 @@
 using Autodesk.Revit.UI;
 using CreatePipe.cmd;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -39,7 +28,7 @@ namespace CreatePipe.OfficalSamples
     /// <summary>
     /// 楼板结构层功能视图模型
     /// </summary>
-    public class FloorLayerFunctionViewModel :ObserverableObject
+    public class FloorLayerFunctionViewModel : ObserverableObject
     {
         #region 私有成员
         private readonly FloorLayerService _service;

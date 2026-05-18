@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CreatePipe.OfficalSamples
+﻿namespace CreatePipe.OfficalSamples
 {
     /// <summary>
     /// 四维齐次坐标向量类，用于存储向量及向量运算
