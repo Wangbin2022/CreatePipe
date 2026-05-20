@@ -6,8 +6,6 @@ using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CreatePipe.Utils
 {
@@ -202,16 +200,9 @@ namespace CreatePipe.Utils
         /// </summary>
         public static ConnectorManager GetConnectorManager(this Element element)
         {
-            if (element == null) return null;
-            if (element is MEPCurve mepCurve)
-            {
-                return mepCurve.ConnectorManager;
-            }
-            else if (element is FamilyInstance fi)
-            {
-                return fi.MEPModel?.ConnectorManager;
-            }
-            else return null;
+            if (element is MEPCurve curve) return curve.ConnectorManager;
+            if (element is FamilyInstance fi) return fi.MEPModel?.ConnectorManager;
+            return null;
         }
         /// <summary>
         /// 获取元素所有的连接器（支持管线和族实例）
@@ -402,6 +393,32 @@ namespace CreatePipe.Utils
                 return target;
             }
             return null;
+        }
+        public static void SafeDisconnect(Connector a, Connector b)
+        {
+            if (a == null || b == null) return;
+
+            try
+            {
+                if (a.IsConnectedTo(b))
+                {
+                    a.DisconnectFrom(b);
+                }
+            }
+            catch
+            {
+                try
+                {
+                    if (b.IsConnectedTo(a))
+                    {
+                        b.DisconnectFrom(a);
+                    }
+                }
+                catch
+                {
+ 
+                }
+            }
         }
         /// <summary>
         /// 获取指定位置的连接器
@@ -729,9 +746,9 @@ namespace CreatePipe.Utils
         public static bool TryConnectAndVerify(Document doc, Connector cFrom, Connector cTo)
         {
             if (doc == null || cFrom == null || cTo == null) return false;
-            if (cFrom.Owner?.Id == cTo.Owner?.Id)   return false;
+            if (cFrom.Owner?.Id == cTo.Owner?.Id) return false;
             // 已经互相连接，直接认为成功
-            if (IsActuallyConnected(cFrom, cTo))   return true;
+            if (IsActuallyConnected(cFrom, cTo)) return true;
             try
             {
                 cFrom.ConnectTo(cTo);
@@ -755,13 +772,13 @@ namespace CreatePipe.Utils
         //验证conn1 ref已连c2,单向
         public static bool ContainsConnectorRef(Connector source, Connector target)
         {
-            if (source == null || target == null)  return false;
+            if (source == null || target == null) return false;
             if (source.AllRefs == null) return false;
             int targetOwnerId = target.Owner?.Id.IntegerValue ?? -1;
             int targetConnectorId = target.Id;
             foreach (Connector r in source.AllRefs)
             {
-                if (r?.Owner == null)  continue;
+                if (r?.Owner == null) continue;
                 if (r.Owner.Id.IntegerValue == targetOwnerId &&
                     r.Id == targetConnectorId)
                 {
@@ -770,8 +787,97 @@ namespace CreatePipe.Utils
             }
             return false;
         }
+        // 递归查找连接的 MEPCurve 是否水平
+        public static MEPCurve GetHorizontalMEPCurveRecursive(Element currentElement, HashSet<ElementId> visited)
+        {
+            // 基础防护
+            if (currentElement == null || visited.Contains(currentElement.Id)) return null;
+            // 记录当前元素
+            visited.Add(currentElement.Id);
 
+            // 如果当前元素是 MEPCurve
+            if (currentElement is MEPCurve curve)
+            {
+                // ✅ 修复1：移除永远为 false 的 curve.Id != currentElement.Id
+                // visited 已经排除了 sourcePipe，此处直接判断水平即可
+                if (MEPAnalysisExtension.IsHorizontal(curve))
+                {
+                    return curve;
+                }
+                // 如果是管道但不是水平的（例如是一段立管），继续往后探寻
+                return SearchNext(curve, visited);
+            }
 
+            // 如果当前元素是管件或附件
+            if (currentElement is FamilyInstance fi)
+            {
+                return SearchNext(fi, visited);
+            }
 
+            return null;
+        }
+
+        // 辅助方法：获取当前元素的所有连接器并继续递归
+        private static MEPCurve SearchNext(Element element, HashSet<ElementId> visited)
+        {
+            // 获取连接管理器
+            ConnectorManager cm = null;
+            if (element is MEPCurve curve) cm = curve.ConnectorManager;
+            else if (element is FamilyInstance fi) cm = fi.MEPModel?.ConnectorManager;
+            if (cm == null) return null;
+
+            foreach (Connector conn in cm.Connectors.OfType<Connector>())
+            {
+                foreach (Connector refConn in conn.AllRefs.OfType<Connector>())
+                {
+                    // ✅ 修复2：visited.Contains 的判断对象从 element.Id 改为 refConn.Owner.Id
+                    if (refConn.Owner == null ||
+                        refConn.Owner.Id == element.Id ||
+                        visited.Contains(refConn.Owner.Id)) continue;
+
+                    MEPCurve found = GetHorizontalMEPCurveRecursive(refConn.Owner, visited);
+                    if (found != null) return found;
+                }
+            }
+            return null;
+        }
+        ////强制管件实例Z轴重合 
+        public static void ForceCoordFittingZ(FamilyInstance targetFitting, FamilyInstance sourceFitting)
+        {
+            if (targetFitting == null || sourceFitting == null) return;
+            // 1. 获取绝对坐标点
+            double targetZ = ((LocationPoint)targetFitting.Location).Point.Z;
+            double currentZ = ((LocationPoint)sourceFitting.Location).Point.Z;
+            // 2. 使用容差比较
+            if (Math.Abs(targetZ - currentZ) > 0.0001)
+            {
+                // 获取目标高程（从 targetFitting）
+                Parameter targetElevationParam = targetFitting.get_Parameter(BuiltInParameter.INSTANCE_ELEVATION_PARAM);
+                double targetElevation = targetElevationParam.AsDouble();
+                Parameter teeElevationParam = sourceFitting.get_Parameter(BuiltInParameter.INSTANCE_ELEVATION_PARAM);
+                teeElevationParam.Set(targetElevation);
+            }
+        }
+        //判断连接器方向是否水平
+        public static bool IsHorizontalConnector(Connector conn)
+        {
+            if (conn == null) return false;
+            XYZ dir = conn.CoordinateSystem.BasisZ.Normalize();
+            // 水平连接器方向的 Z 分量应接近 0
+            return Math.Abs(dir.Z) < 0.1;
+        }
+        //
+        public static Parameter GetAssociatedParameter(Element element, Connector connector, BuiltInParameter bip)
+        {
+            var connectorInfo = connector.GetMEPConnectorInfo() as MEPFamilyConnectorInfo;
+            if (connectorInfo == null) return null;
+            var associatedFamilyParameterId = connectorInfo.GetAssociateFamilyParameterId(new ElementId(bip));
+            if (associatedFamilyParameterId == ElementId.InvalidElementId) return null;
+            var document = element.Document;
+            var parameterElement = document.GetElement(associatedFamilyParameterId) as ParameterElement;
+            if (parameterElement == null) return null;
+            var paramterDefinition = parameterElement.GetDefinition();
+            return element.get_Parameter(paramterDefinition);
+        }
     }
 }

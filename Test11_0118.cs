@@ -5,16 +5,11 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
-using Autodesk.Revit.UI.Selection;
-using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.Utils;
-using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Windows.Controls;
 
 //service.Update(++index, id.Value.ToString());
@@ -818,7 +813,7 @@ namespace CreatePipe
             catch (Exception)
             {
                 throw;
-            }      
+            }
         }
         private Level GetPipeReferenceLevel(Document doc, Pipe pipe)
         {
