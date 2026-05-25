@@ -5,12 +5,15 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Controls;
+using static CreatePipe.Utils.HelpersSelection;
 
 //service.Update(++index, id.Value.ToString());
 //set => SetProperty(ref _maximum, value);
@@ -1024,7 +1027,28 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0517 喷头方法重构
+            ////0522 弯头连接两段管道 变径逻辑待完善
+            //try
+            //{
+            //    // 1. 拾取两根管道
+            //    Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPCurveClass(), "请拾取第一根管道");
+            //    Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPCurveClass(), "请拾取第二根管道");
+            //    Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //    Pipe pipe2 = doc.GetElement(ref2) as Pipe;
+            //    // 2. 开启事务
+            //    NewTransaction.Execute(doc, "生成弯头", () =>
+            //    {
+            //        MEPAnalysisExtension.NewElbowBy2MEPCurve(pipe1, pipe2);
+            //    });
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////0517 喷头方法重构
             SprinklerReplaceAmendView amendView = new SprinklerReplaceAmendView(uiApp);
             amendView.Show();
 

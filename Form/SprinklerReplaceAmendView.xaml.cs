@@ -1,4 +1,5 @@
 ﻿using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
@@ -8,8 +9,11 @@ using CreatePipe.filter;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
+using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 
@@ -51,223 +55,366 @@ namespace CreatePipe.Form
         /// 喷头转换核心逻辑（上喷 / 下喷 / 上下双喷） 
         private void ConvertSprinkler(object obj, SprinklerConvertMode mode)
         {
+            ExternalHandler.Run(app =>
+            {
+                try
+                {
+                    Reference r = uIDocument.Selection.PickObject(ObjectType.Element, new SprinklerEntityFilter(), "请选择喷头");
+                    FamilyInstance sp = (FamilyInstance)Document.GetElement(r);
 
-            //ExternalHandler.Run(app =>
-            //{
-            //    Reference r = uIDocument.Selection.PickObject(
-            //        ObjectType.Element, new SprinklerEntityFilter(), "请选择喷头");
-            //    FamilyInstance sp = (FamilyInstance)Document.GetElement(r);
-            //    // ── 2. 校验连接器 ─────────────────────────────────────
-            //    var connector = sp.MEPModel?.ConnectorManager?.Connectors
-            //                      ?.OfType<Connector>().FirstOrDefault();
-            //    if (connector == null || !connector.IsConnected) return;
-            //    // Z == 1  → 连接器朝上 → 下喷 ;   -1 → 上喷
-            //    bool isDown = connector.CoordinateSystem.BasisZ.Z.ToString() == "1";
-            //    bool isUp = connector.CoordinateSystem.BasisZ.Z.ToString() == "-1";
-            //    // ── 3. 单喷转向：方向已一致则无需操作 ───────────────────
-            //    if (mode == SprinklerConvertMode.ToUp && isUp) return;
-            //    if (mode == SprinklerConvertMode.ToDown && isDown) return;
-            //    if (mode != SprinklerConvertMode.ToDouble && !isDown && !isUp) return;
-            //    // ── 4. 开始事务 ──────────────────────────────────────
-            //    using (Transaction tx = new Transaction(Document))
-            //    {
-            //        tx.Start("喷头方向转换");
-            //        // ── 5. 获取关联元素 ───────────────────────────────
-            //        (Pipe pipe, Connector refCo) = GetConnectedPipe(sp);
-            //        FamilyInstance targetFitting = GetTargetFitting(sp, pipe, refCo);
-            //        if (pipe == null || targetFitting == null) return;
-            //        var ft1 = MEPAnalysisExtension.GetConnectors(targetFitting).ToList();
-            //        var toRemoveElems = new List<ElementId>();
-            //        Pipe pipeHorizontal = GetHorizonPipe(pipe, ft1);
-            //        // 水平连接器对（用于创建旋转轴）
-            //        List<Connector> horizontalConnectors = ft1.Where(c => Math.Abs(c.CoordinateSystem.BasisZ.Z) < 0.01)
-            //            .ToList();
-            //        Line rotationAxis;
-            //        FamilyInstance newFitting;
-            //        // ── 6. 按管件连接数分支 ───────────────────────────
-            //        switch (ft1.Count)
-            //        {
-            //            // 四通
-            //            case 4:
-            //                switch (mode)
-            //                {
-            //                    case SprinklerConvertMode.ToDouble:
-            //                        // 已是四通 = 已是双喷，无需处理
-            //                        return;
-            //                    case SprinklerConvertMode.ToUp:
-            //                    case SprinklerConvertMode.ToDown:
-            //                        // 四通 → 三通：删除目标方向的垂直支管
-            //                        if (pipeHorizontal == null) return;
-            //                        if (horizontalConnectors == null || horizontalConnectors.Count != 2) return;
-            //                        // ToUp → 保留上喷，删下喷(false)；ToDown → 保留下喷，删上喷(true)
-            //                        toRemoveElems = FindVerticalElementsToRemove(
-            //                            targetFitting, mode == SprinklerConvertMode.ToDown);
-            //                        rotationAxis = Line.CreateBound(
-            //                            horizontalConnectors[0].Origin,
-            //                            horizontalConnectors[1].Origin);
-            //                        newFitting = CreateFitting(targetFitting, pipe, 3);
-            //                        MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
-            //                        RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis);
-            //                        // ToUp → 侧口朝上(false)；ToDown → 侧口朝下(true)
-            //                        RotateFittingVertical(newFitting, pipeHorizontal,
-            //                            mode == SprinklerConvertMode.ToDown);
-            //                        //ConnectAndMatchSize(newFitting, pipeHorizontal);
-            //                        //ProcessConnections(targetFitting, newFitting);
-            //                        break;
-            //                }
-            //                break;
+                    // ── 1. 校验连接器并用容差判断方向（修复ToString隐患）─────────────────────────────────────
+                    var connector = sp.MEPModel?.ConnectorManager?.Connectors?.OfType<Connector>().FirstOrDefault();
+                    if (connector == null || !connector.IsConnected) return;
 
-            //            // 三通
-            //            case 3:
-            //                if (pipeHorizontal == null) return;
-            //                switch (mode)
-            //                {
-            //                    case SprinklerConvertMode.ToDouble:
-            //                        // 三通 → 四通
-            //                        var hConnsByZ = ft1.GroupBy(c => c.Origin.Z)
-            //                            .Where(g => g.Count() >= 2).FirstOrDefault()?.ToList();
+                    double zValue = connector.CoordinateSystem.BasisZ.Z;
+                    // Z == 1 (朝上) -> 下喷 ; Z == -1 (朝下) -> 上喷 (使用 0.01 精度容差)
+                    bool isDown = Math.Abs(zValue - 1) < 0.01;
+                    bool isUp = Math.Abs(zValue - (-1)) < 0.01;
 
-            //                        if (hConnsByZ == null || hConnsByZ.Count != 2) return;
+                    //// ── 2. 单喷转向：方向已一致则无需操作 ───────────────────
+                    //if (mode == SprinklerConvertMode.ToUp && isUp) return;
+                    //if (mode == SprinklerConvertMode.ToDown && isDown) return;
+                    //if (mode != SprinklerConvertMode.ToDouble && !isDown && !isUp) return;
 
-            //                        rotationAxis = Line.CreateBound(hConnsByZ[0].Origin, hConnsByZ[1].Origin);
+                    // ── 3. 开始事务 ──────────────────────────────────────
+                    using (Transaction tx = new Transaction(Document, "喷头方向转换"))
+                    {
+                        tx.Start();
 
-            //                        newFitting = CreateFitting(targetFitting, pipe, 4);
-            //                        MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
-            //                        RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis);
-            //                        //ProcessConnections(targetFitting, newFitting);
+                        // 找立管和水平转接管件
+                        var (pipe, refCo) = GetConnectedPipe(sp);
+                        FamilyInstance targetFitting = GetTargetFitting(sp, pipe, refCo);
+                        ElementId pipeSystemId = pipe.MEPSystem.GetTypeId();
+                        double pipeDiameter = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
+                        if (pipe == null || targetFitting == null) return;
 
-            //                        FamilyInstance newSprinklerDouble = NewSprinklerMethod(sp, targetFitting);
-            //                        NewSprinklerConnect(pipe, newFitting, newSprinklerDouble,
-            //                            ((LocationPoint)targetFitting.Location).Point);
-            //                        break;
-            //                    case SprinklerConvertMode.ToUp:
-            //                    case SprinklerConvertMode.ToDown:
-            //                        // 判断是"简单分支"（端头垂直三通改弯头）
-            //                        // 还是"复杂分支"（水平三通旋转+新建喷头）
-            //                        // ToUp   → 当前是下喷(isDown)触发简单，当前是上喷(isUp)触发复杂
-            //                        // ToDown → 当前是上喷(isUp)触发简单，当前是下喷(isDown)触发复杂
-            //                        bool isSimpleBranch = mode == SprinklerConvertMode.ToUp ? isDown : isUp;
+                        var ft1 = MEPAnalysisExtension.GetConnectors(targetFitting).ToList();
 
-            //                        if (isSimpleBranch)
-            //                        {
-            //                            // 简单分支：垂直三通 → 改弯头
-            //                            if (horizontalConnectors == null || horizontalConnectors.Count == 2) return;
-            //                            toRemoveElems = FindVerticalElementsToRemove(
-            //                                targetFitting, mode == SprinklerConvertMode.ToDown);
-            //                            foreach (var conn in ft1)
-            //                                MEPAnalysisExtension.DisconnectConnector(conn);
-            //                            var (c1, c2) = MEPAnalysisExtension.GetClosestConnectorsTuple(
-            //                                MEPAnalysisExtension.GetConnectors(pipeHorizontal).ToList(),
-            //                                MEPAnalysisExtension.GetConnectors(pipe).ToList());
-            //                            Document.Create.NewElbowFitting(c1, c2);
-            //                        }
-            //                        else
-            //                        {
-            //                            // 复杂分支：水平三通 → 旋转 + 新建喷头
-            //                            toRemoveElems.AddRange(new[] { sp.Id, pipe.Id, targetFitting.Id });
-            //                            if (refCo.Owner.Id != pipe.Id)
-            //                                toRemoveElems.Add(refCo.Owner.Id);
-            //                            if (horizontalConnectors == null || horizontalConnectors.Count == 2)
-            //                            {
-            //                                // 水平三通旋转处理
-            //                                rotationAxis = Line.CreateBound(horizontalConnectors[0].Origin,horizontalConnectors[1].Origin);
+                        List<Pipe> pipeHorizontal = new List<Pipe>();
+                        List<ElementId> oldConnectFittings = new List<ElementId>();
+                        (oldConnectFittings, pipeHorizontal) = MEPAnalysisExtension.GetAllConnectedElementsAndStopByHorizontalPipes(connector);
+                        if (pipeHorizontal.Count == 0) return;
 
-            //                                newFitting = CreateFitting(targetFitting, pipe, 3);
-            //                                MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
-            //                                RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis);
-            //                                RotateFittingVertical(newFitting, pipeHorizontal,
-            //                                    mode == SprinklerConvertMode.ToDown);
-            //                                //ConnectAndMatchSize(newFitting, pipeHorizontal);
+                        // 水平连接器对 (使用容差提取)
+                        List<Connector> horizontalConnectors = ft1.Where(c => MEPAnalysisExtension.IsHorizontalConnector(c)).ToList();
 
-            //                                FamilyInstance newSprinkler = NewSprinklerMethod(sp, targetFitting);
-            //                                NewSprinklerConnect(pipe, newFitting, newSprinkler,
-            //                                    ((LocationPoint)targetFitting.Location).Point);
-            //                                //ProcessConnections(targetFitting, newFitting);
-            //                            }
-            //                            else
-            //                            {
-            //                                // 退化处理：找对侧管道连弯头
-            //                                Pipe pipe2 = GetOppositePipe(targetFitting, pipe);
-            //                                if (pipe2 != null)
-            //                                {
-            //                                    var (c1, c2) = MEPAnalysisExtension.GetClosestConnectorsTuple(
-            //                                        MEPAnalysisExtension.GetConnectors(pipeHorizontal).ToList(),
-            //                                        MEPAnalysisExtension.GetConnectors(pipe2).ToList());
+                        var toRemoveElems = new HashSet<ElementId>();
+                        Line rotationAxis;
+                        FamilyInstance newFitting;
 
-            //                                    Document.Create.NewElbowFitting(c1, c2);
-            //                                }
-            //                            }
-            //                        }
-            //                        break;
-            //                }
-            //                break;
-            //            // 弯头
-            //            case 2:
-            //                if (pipeHorizontal == null) return;
-            //                switch (mode)
-            //                {
-            //                    case SprinklerConvertMode.ToDouble:
-            //                        // 弯头 → 三通（增加一个方向的喷头）
-            //                        rotationAxis = Line.CreateBound(
-            //                            ((LocationCurve)pipeHorizontal.Location).Curve.GetEndPoint(0),
-            //                            ((LocationCurve)pipeHorizontal.Location).Curve.GetEndPoint(1));
+                        // ── 5. 按管件连接数分支 ───────────────────────────
+                        switch (ft1.Count)
+                        {
+                            // 四通
+                            case 4:
+                                if (mode == SprinklerConvertMode.ToDouble) return; // 已经是四通，无需处理
+                                if (horizontalConnectors.Count != 2) return;
+                                if (!isUp && !isDown) return; // 既不是上喷也不是下喷，直接退出（等同于原逻辑的 else return）
 
-            //                        newFitting = CreateFitting(targetFitting, pipe, 3);
-            //                        MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
-            //                        RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis);
-            //                        //ProcessConnections(targetFitting, newFitting);
+                                bool isToUp = mode == SprinklerConvertMode.ToUp;
+                                bool isToDown = mode == SprinklerConvertMode.ToDown;
 
-            //                        FamilyInstance newSprinklerFromElbow = NewSprinklerMethod(sp, targetFitting);
-            //                        NewSprinklerConnect(pipe, newFitting, newSprinklerFromElbow,
-            //                            ((LocationPoint)targetFitting.Location).Point);
-            //                        break;
-            //                    case SprinklerConvertMode.ToUp:
-            //                    case SprinklerConvertMode.ToDown:
-            //                        // 弯头 → 弯头（喷头换向）
-            //                        // 步骤3已提前拦截方向一致的情况，此处必然需要操作
-            //                        toRemoveElems.AddRange(new[] { sp.Id, targetFitting.Id });
-            //                        if (refCo.Owner.Id != pipe.Id)
-            //                            toRemoveElems.Add(refCo.Owner.Id);
-            //                        pipeHorizontal = GetHorizonPipe(pipe, ft1);
-            //                        FamilyInstance newSprinklerElbow = NewSprinklerMethod(sp, targetFitting);
-            //                        Connector sprinklerConn = MEPAnalysisExtension
-            //                            .GetConnectors(newSprinklerElbow).ToList().FirstOrDefault();
-            //                        if (sprinklerConn == null) return;
+                                // 核心差异：如果想转上但点的是下喷，或者想转下但点的是上喷，就需要获取对侧喷头
+                                if ((isToUp && isDown) || (isToDown && isUp))
+                                {
+                                    sp = GetOppositeSprinkler(sp);
+                                    connector = sp.MEPModel?.ConnectorManager?.Connectors?.OfType<Connector>().FirstOrDefault();
+                                }
 
-            //                        Connector pipeConn = MEPAnalysisExtension
-            //                            .GetClosestConnector(pipe, newSprinklerElbow);
-            //                        MEPAnalysisExtension.DisconnectConnector(pipeConn);
+                                // ============ 以下为提取出的公共执行逻辑 ============
 
-            //                        XYZ offset = sprinklerConn.Origin - pipeConn.Origin;
-            //                        ElementTransformUtils.MoveElement(Document, pipe.Id, offset);
+                                rotationAxis = Line.CreateBound(horizontalConnectors[0].Origin, horizontalConnectors[1].Origin);
+                                newFitting = CreateFitting(targetFitting, pipe, 3); // 3代表三通
+                                MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
+                                RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis, 90);
+                                RotateFittingVertical(newFitting, pipeHorizontal, isToDown);
 
-            //                        if (!pipeConn.IsConnected && !sprinklerConn.IsConnected)
-            //                            pipeConn.ConnectTo(sprinklerConn);
+                                // 记录旧四通横管较小管径（使用 LINQ 简化遍历查找）
+                                var minRadius = MEPAnalysisExtension.GetConnectors(targetFitting)
+                                    .Where(c => c.ConnectorType != ConnectorType.Logical && MEPAnalysisExtension.IsHorizontalConnector(c))
+                                    .Select(c => c.Radius)
+                                    .DefaultIfEmpty(double.MaxValue)
+                                    .Min();
 
-            //                        var (c1Elbow, c2Elbow) = MEPAnalysisExtension.GetClosestConnectorsTuple(
-            //                            MEPAnalysisExtension.GetConnectors(pipeHorizontal).ToList(),
-            //                            MEPAnalysisExtension.GetConnectors(pipe).ToList());
+                                // 设置为新三通横管管径
+                                if (minRadius != double.MaxValue && newFitting != null)
+                                {
+                                    foreach (var item in MEPAnalysisExtension.GetConnectors(newFitting)
+                                        .Where(c => c.ConnectorType != ConnectorType.Logical && MEPAnalysisExtension.IsHorizontalConnector(c)))
+                                    {
+                                        item.Radius = minRadius;
+                                    }
+                                }
 
-            //                        Document.Create.NewElbowFitting(c1Elbow, c2Elbow);
-            //                        break;
-            //                }
-            //                break;
-            //        }
-            //        if (mode == SprinklerConvertMode.ToDouble)
-            //        {
-            //            // 双喷模式：只删原管件（新管件已替代）
-            //            Document.Delete(targetFitting.Id);
-            //            if (connectedSpFitting != null)
-            //                Document.Delete(connectedSpFitting);
-            //        }
-            //        else if (toRemoveElems.Count > 0)
-            //        {
-            //            // 单喷转向：删除收集到的元素
-            //            Document.Delete(new HashSet<ElementId>(toRemoveElems).ToList());
-            //        }
-            //        tx.Commit();
-            //    }
-            //});
+                                // 收集旧构件并删除
+                                (oldConnectFittings, pipeHorizontal) = MEPAnalysisExtension.GetAllConnectedElementsAndStopByHorizontalPipes(connector);
+                                toRemoveElems.UnionWith(oldConnectFittings);
+                                Document.Delete(toRemoveElems.ToList());
+
+                                // 连接三通与横管
+                                var connectors1 = MEPAnalysisExtension.GetConnectors(newFitting).ToList();
+                                foreach (var item in pipeHorizontal)
+                                {
+                                    var connectors2 = MEPAnalysisExtension.GetConnectors(item).ToList();
+                                    var (connFit, connPipe) = MEPAnalysisExtension.GetClosestConnectorsTuple(connectors1, connectors2);
+                                    MEPAnalysisExtension.ConnectMEPCurve2FittingConn(item, connFit);
+                                }
+
+                                // 连接三通异端口与喷头，生成立管
+                                var sideConn = MEPAnalysisExtension.GetTeeSideConn(newFitting);
+                                var firstPipe = pipeHorizontal.FirstOrDefault();
+                                if (firstPipe != null)
+                                {
+                                    Pipe verticalPipe = Pipe.Create(Document, firstPipe.PipeType.Id, firstPipe.ReferenceLevel.Id, sideConn, connector);
+                                    verticalPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(pipeDiameter);
+                                }
+
+                                break;
+                            // 三通
+                            case 3:
+                                //判断三通方向，
+                                if (horizontalConnectors.Count() == 2)
+                                {
+                                    //获取三通的水平连接器对,创建旋转轴
+                                    rotationAxis = Line.CreateBound(horizontalConnectors[0].Origin, horizontalConnectors[1].Origin);
+                                    //单上或单下喷头改上下喷
+                                    if (mode == SprinklerConvertMode.ToDouble)
+                                    {
+                                        newFitting = CreateFitting(targetFitting, pipe, 4);
+                                        RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis, 90);
+                                        //按方向建立新喷头并连接
+                                        FamilyInstance newSprinkler = NewSprinklerMethod(sp, targetFitting);
+                                        MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
+                                        NewSprinklerConnect(pipe, newFitting, newSprinkler,
+                                            ((LocationPoint)targetFitting.Location).Point);
+                                        ////转移连接并同步尺寸，先删除原有多余接口   
+                                        toRemoveElems.UnionWith(oldConnectFittings);
+                                        //toRemoveElems.Remove(pipe.Id);
+                                        Document.Delete(toRemoveElems.ToList());
+                                        //连接三通与横管
+                                        connectors1 = MEPAnalysisExtension.GetConnectors(newFitting).ToList();
+                                        foreach (var item in pipeHorizontal)
+                                        {
+                                            var connectors2 = MEPAnalysisExtension.GetConnectors(item).ToList();
+                                            var (connFit, connPipe) = MEPAnalysisExtension.GetClosestConnectorsTuple(connectors1, connectors2);
+                                            MEPAnalysisExtension.ConnectMEPCurve2FittingConn(item, connFit);
+                                        }
+                                        var (connFitOld, connSp) = MEPAnalysisExtension.GetClosestConnectorsTuple(connectors1, new List<Connector>(MEPAnalysisExtension.GetConnectors(sp)));
+                                        Document.Regenerate();
+                                        MEPAnalysisExtension.NewPipeBetweenConnectors(Document, connFitOld, connSp, pipeHorizontal.FirstOrDefault().GetTypeId(), pipeHorizontal.FirstOrDefault().get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM).AsElementId(), pipeSystemId, pipeDiameter);
+                                    }
+                                    //换为单上或单下喷头
+                                    else
+                                    {
+                                        newFitting = CreateFitting(targetFitting, pipe, 3);
+                                        // 2. 获取原三通（targetFitting）的非直通连接器，并计算它的“相反方向”作为目标方向
+                                        var origSideConn = MEPAnalysisExtension.GetTeeSideConn(targetFitting);
+                                        XYZ origSideDir = origSideConn.CoordinateSystem.BasisZ.Normalize();
+                                        // 原分支方向目标方向相反
+                                        XYZ targetSideDir = -origSideDir;
+                                        var initialNewSideConn = MEPAnalysisExtension.GetTeeSideConn(newFitting);
+                                        XYZ currentSideDir = initialNewSideConn.CoordinateSystem.BasisZ.Normalize();
+                                        // 4. 提取旋转轴的向量方向 (前提：入参 rotationAxis 是一个通过主管中心的 Line 对象)
+                                        XYZ axisDir = rotationAxis.Direction.Normalize();
+                                        double rotateAngle = currentSideDir.AngleOnPlaneTo(targetSideDir, axisDir);
+                                        // 6. 执行旋转（如果角度差大于 0.001 弧度才旋转，避免微小误差报错）
+                                        if (Math.Abs(rotateAngle) > 0.001)
+                                        {
+                                            ElementTransformUtils.RotateElement(Document, newFitting.Id, rotationAxis, rotateAngle);
+                                        }
+                                        // 7. 【重要】由于管件发生过旋转，原来的 Connector 对象坐标可能未刷新，必须重新获取！
+                                        sideConn = MEPAnalysisExtension.GetTeeSideConn(newFitting);
+                                        //按方向建立新喷头并连接
+                                        FamilyInstance newSprinkler = NewSprinklerMethod(sp, targetFitting);
+                                        MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
+                                        NewSprinklerConnect(pipe, newFitting, newSprinkler,
+                                            ((LocationPoint)targetFitting.Location).Point);
+                                        //////转移连接并同步尺寸，先删除原有多余接口
+                                        toRemoveElems.UnionWith(oldConnectFittings);
+                                        toRemoveElems.Add(sp.Id);
+                                        Document.Delete(toRemoveElems.ToList());
+                                        Document.Regenerate();
+                                        connectors1 = MEPAnalysisExtension.GetConnectors(newFitting).ToList();
+                                        foreach (var item in pipeHorizontal)
+                                        {
+
+                                            var connectors2 = MEPAnalysisExtension.GetConnectors(item).ToList();
+                                            var (connFit, connPipe) = MEPAnalysisExtension.GetClosestConnectorsTuple(connectors1, connectors2);
+                                            MEPAnalysisExtension.ConnectMEPCurve2FittingConn(item, connFit);
+                                        }
+                                    }
+                                }
+                                else if (horizontalConnectors.Count() == 1)
+                                {
+                                    // 端头上下立管仅保留一方
+                                    if (mode == SprinklerConvertMode.ToDouble) return;
+                                    // 1. 获取对侧喷头信息
+                                    FamilyInstance oppoSp = GetOppositeSprinkler(sp);
+                                    if (oppoSp == null) return;
+                                    var oppoConnector = oppoSp.MEPModel?.ConnectorManager?.Connectors?.OfType<Connector>().FirstOrDefault();
+                                    if (oppoConnector == null) return;
+                                    // 2. 获取横管及中间连接件
+                                    (oldConnectFittings, pipeHorizontal) = MEPAnalysisExtension.GetAllConnectedElementsAndStopByHorizontalPipes(oppoConnector);
+                                    var targetHorizontalPipe = pipeHorizontal.FirstOrDefault();
+                                    if (targetHorizontalPipe == null) return;
+                                    // 3. 判断逻辑：我们要改成上喷还是下喷？当前点选的喷头是否与目标一致？
+                                    bool keepUp = mode == SprinklerConvertMode.ToUp;
+                                    bool isKeepingCurrentSp = (keepUp && isUp) || (!keepUp && isDown);
+                                    // 4. 根据判断结果分配要操作的元素
+                                    if (isKeepingCurrentSp)
+                                    {
+                                        // 保留当前 sp，删除对侧 oppoSp
+                                        toRemoveElems.Add(oppoSp.Id);
+                                    }
+                                    else
+                                    {
+                                        // 删除当前 sp，保留对侧 oppoSp。因此执行后续操作的立管需要切换为 oppoSp 的立管
+                                        var connectedResult = GetConnectedPipe(oppoSp);
+                                        pipe = connectedResult.Item1;
+                                    }
+                                    // 5. 整理删除列表：加入旧管件，排除需要保留的立管
+                                    toRemoveElems.UnionWith(oldConnectFittings);
+                                    var keepIds = FindVerticalElementsToRemove(pipe, keepUp);
+                                    toRemoveElems.ExceptWith(keepIds);
+                                    // 6. 执行删除并创建弯头
+                                    Document.Delete(toRemoveElems);
+                                    MEPAnalysisExtension.NewElbowBy2MEPCurve(pipe, targetHorizontalPipe);
+                                }
+                                break;
+                            // 弯头
+                            case 2:
+                                if (mode == SprinklerConvertMode.ToDouble)
+                                {
+                                    var curve = ((LocationCurve)pipeHorizontal.FirstOrDefault().Location).Curve;
+                                    rotationAxis = Line.CreateBound(curve.GetEndPoint(0), curve.GetEndPoint(1));
+                                    newFitting = CreateFitting(targetFitting, pipe, 3);
+                                    MEPAnalysisExtension.ForceCoordFittingZ(targetFitting, newFitting);
+                                    RotateFittingToAlignVertical(newFitting, pipeHorizontal, targetFitting, rotationAxis, 90);
+                                    FamilyInstance newSprinkler = NewSprinklerMethod(sp, targetFitting);
+                                    var closeFitConn = MEPAnalysisExtension.GetClosestConnector(pipe, refCo.Origin);
+                                    var farFitConn = MEPAnalysisExtension.GetOppositeConnector(pipe, closeFitConn.Origin);
+                                    (oldConnectFittings, pipeHorizontal) = MEPAnalysisExtension.GetAllConnectedElementsAndStopByHorizontalPipes(farFitConn);
+                                    toRemoveElems.UnionWith(oldConnectFittings);
+                                    Document.Delete(toRemoveElems.ToList());
+                                    //新立管连接喷头与三通                                    
+                                    var newSPConn = MEPAnalysisExtension.GetConnectors(newSprinkler).FirstOrDefault();
+                                    var fitCloseConn = MEPAnalysisExtension.GetClosestConnector(newFitting, newSPConn.Origin);
+                                    Pipe verticalPipe = Pipe.Create(Document, pipe.PipeType.Id, pipe.ReferenceLevel.Id, fitCloseConn, newSPConn);
+                                    //连接旧立管与三通
+                                    var fitCloseConn2 = MEPAnalysisExtension.GetClosestConnector(newFitting, closeFitConn.Origin);
+                                    MEPAnalysisExtension.ConnectMEPCurve2FittingConn(pipe, fitCloseConn2);
+                                    //连接三通与横管
+                                    connectors1 = MEPAnalysisExtension.GetConnectors(newFitting).ToList();
+                                    foreach (var item in pipeHorizontal)
+                                    {
+                                        var connectors2 = MEPAnalysisExtension.GetConnectors(item).ToList();
+                                        var (connFit, connPipe) = MEPAnalysisExtension.GetClosestConnectorsTuple(connectors1, connectors2);
+                                        MEPAnalysisExtension.ConnectMEPCurve2FittingConn(item, connFit);
+                                    }
+                                }
+                                else
+                                {
+                                    if (refCo.Owner.Id != pipe.Id) toRemoveElems.Add(refCo.Owner.Id);
+                                    FamilyInstance newSprinklerElbow = NewSprinklerMethod(sp, targetFitting);
+                                    Connector sprinklerConn = MEPAnalysisExtension.GetConnectors(newSprinklerElbow).FirstOrDefault();
+                                    if (sprinklerConn == null) return;
+                                    Connector pipeConn = MEPAnalysisExtension.GetClosestConnector(pipe, newSprinklerElbow);
+                                    MEPAnalysisExtension.DisconnectConnector(pipeConn);
+                                    XYZ offset = sprinklerConn.Origin - pipeConn.Origin;
+                                    ElementTransformUtils.MoveElement(Document, pipe.Id, offset);
+                                    if (!pipeConn.IsConnected && !sprinklerConn.IsConnected)
+                                        pipeConn.ConnectTo(sprinklerConn);
+                                    ////删除原变径,喷头，保留立管
+                                    toRemoveElems.UnionWith(oldConnectFittings);
+                                    toRemoveElems.Remove(pipe.Id);
+                                    toRemoveElems.Add(sp.Id);
+                                    Document.Delete(toRemoveElems.ToList());
+                                    MEPAnalysisExtension.NewElbowBy2MEPCurve(pipe, pipeHorizontal.FirstOrDefault());
+                                }
+                                break;
+                        }
+                        tx.Commit();
+                    }
+                }
+                catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+                {
+                    // 用户按 ESC 正常退出循环
+                    return;
+                }
+                catch (Exception)
+                {
+
+                    throw;
+                }
+            });
+        }
+        private FamilyInstance GetOppositeSprinkler(FamilyInstance sp)
+        {
+            var connector = sp.MEPModel?.ConnectorManager?.Connectors?.OfType<Connector>().FirstOrDefault();
+            if (connector == null || !connector.IsConnected) return null;
+
+            // 1. 获取原喷头的连接器方向、立管和转接管件
+            var (pipe, refCo) = GetConnectedPipe(sp);
+            if (pipe == null) return null;
+
+            FamilyInstance targetFitting = GetTargetFitting(sp, pipe, refCo);
+            if (targetFitting == null) return null;
+
+            // 获取原喷头的坐标和方向
+            LocationPoint spLocPoint = sp.Location as LocationPoint;
+            if (spLocPoint == null) return null;
+            XYZ spPos = spLocPoint.Point;
+            XYZ spDirection = connector.CoordinateSystem.BasisZ.Normalize();
+
+            Document doc = sp.Document;
+
+            // 2. 收集文档中所有的喷头（排除自身）
+            var allSprinklers = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_Sprinklers)
+                .OfClass(typeof(FamilyInstance))
+                .Cast<FamilyInstance>()
+                .Where(x => x.Id != sp.Id);
+
+            // 3. 遍历检查符合条件的喷头
+            foreach (var otherSp in allSprinklers)
+            {
+                // 步骤 3.1：检查 XY 坐标是否一致（Revit 容差通常取 1e-5）
+                LocationPoint otherLocPoint = otherSp.Location as LocationPoint;
+                if (otherLocPoint == null) continue;
+                XYZ otherPos = otherLocPoint.Point;
+
+                if (Math.Abs(spPos.X - otherPos.X) > 1e-5 ||
+                    Math.Abs(spPos.Y - otherPos.Y) > 1e-5)
+                {
+                    continue; // XY 位置不同，跳过
+                }
+
+                // 步骤 3.2：检查连接器方向是否相反
+                var otherConnector = otherSp.MEPModel?.ConnectorManager?.Connectors?.OfType<Connector>().FirstOrDefault();
+                if (otherConnector == null || !otherConnector.IsConnected) continue;
+
+                XYZ otherDirection = otherConnector.CoordinateSystem.BasisZ.Normalize();
+                // 原方向 与 目标反方向 应该近乎相等
+                if (!spDirection.IsAlmostEqualTo(-otherDirection, 1e-5))
+                {
+                    continue; // 方向不是完全相反，跳过
+                }
+
+                // 步骤 3.3：检查目标管件（TargetFitting）是否为同一个
+                // 因为这步计算成本最高，所以放在最后验证
+                var (otherPipe, otherRefCo) = GetConnectedPipe(otherSp);
+                if (otherPipe == null) continue;
+
+                FamilyInstance otherTargetFitting = GetTargetFitting(otherSp, otherPipe, otherRefCo);
+
+                // 如果找到的目标管件ID与原喷头一致，说明这就是要找的上/下喷头
+                if (otherTargetFitting != null && otherTargetFitting.Id == targetFitting.Id)
+                {
+                    return otherSp;
+                }
+            }
+            // 遍历完都没找到
+            return null;
         }
         //寻找管件上与目标管道连接的端口，计算对侧端口，返回对侧端口连接的管道OK
         private Pipe GetOppositePipe(FamilyInstance fitting, Pipe excludePipe)
@@ -290,7 +437,7 @@ namespace CreatePipe.Form
                 .FirstOrDefault(pipe => pipe != null && pipe.Id != excludePipe.Id);
         }
         //在垂直面转管件OK
-        private void RotateFittingVertical(FamilyInstance fitting, Pipe pipe, bool upDown)
+        private void RotateFittingVertical(FamilyInstance fitting, List<Pipe> pipe, bool upDown)
         {
             Connector sideConn = MEPAnalysisExtension.GetTeeSideConn(fitting);
             if (sideConn == null) return;
@@ -306,7 +453,7 @@ namespace CreatePipe.Form
             {
                 // 【关键修复】方向相反（180度）时，必须绕水平主管道的轴线翻转！
                 // 否则会导致主管两端的接口对调，破坏系统连接
-                var pipeLine = (pipe?.Location as LocationCurve)?.Curve as Line;
+                var pipeLine = (pipe.FirstOrDefault()?.Location as LocationCurve)?.Curve as Line;
                 rotationAxis = pipeLine.Direction;
                 // 180度
                 rotationAngle = Math.PI;
@@ -324,9 +471,9 @@ namespace CreatePipe.Form
             ElementTransformUtils.RotateElement(Document, fitting.Id, rotationAxisLine, rotationAngle);
         }
         //深度优先搜索（DFS）顺着管件/管道寻找连接的垂直元素及其末端喷头，直到找到喷头（单连接器元素）为止，并收集这条路径上的所有元素以便后续删除OK
-        public List<ElementId> FindVerticalElementsToRemove(Element startElement, bool searchUpward)
+        public HashSet<ElementId> FindVerticalElementsToRemove(Element startElement, bool searchUpward)
         {
-            var toRemove = new List<ElementId>();
+            var toRemove = new HashSet<ElementId>();
             var visited = new HashSet<ElementId>();
             // 内部局部函数，执行递归查找逻辑 (深度优先搜索 DFS)
             bool TraverseVerticalPath(Element currentElem)
@@ -340,12 +487,14 @@ namespace CreatePipe.Form
                 toRemove.Add(currentElem.Id);
                 // 4. 如果只有一个连接器（通常是喷头或管帽末端），说明找到终点，终止并确认成功
                 if (connectors.Count == 1) return true;
+                var verticalConnectors = connectors
+    .Where(c => Math.Abs(c.CoordinateSystem.BasisZ.Z) > 0.5);
                 // 5. 根据方向排序连接器，优先遍历目标垂直方向
                 // searchUpward = true  -> 优先 +Z (向上)
                 // searchUpward = false -> 优先 -Z (向下，即 Z 值从小到大排序)
                 var sortedConnectors = searchUpward
-                    ? connectors.OrderByDescending(c => c.CoordinateSystem.BasisZ.Z)
-                    : connectors.OrderBy(c => c.CoordinateSystem.BasisZ.Z);
+                        ? verticalConnectors.OrderByDescending(c => c.CoordinateSystem.BasisZ.Z) // 优先向上找
+                        : verticalConnectors.OrderBy(c => c.CoordinateSystem.BasisZ.Z);          // 优先向下找
                 // 6. 顺着排序后的连接器往下找
                 foreach (var conn in sortedConnectors)
                 {
@@ -456,7 +605,7 @@ namespace CreatePipe.Form
                 }
             }
             doc.Regenerate();
-        }   
+        }
         //根据原喷头和方向距离生成新喷头。OK
         private FamilyInstance NewSprinklerMethod(FamilyInstance sp, FamilyInstance targetFitting)
         {
@@ -504,10 +653,10 @@ namespace CreatePipe.Form
                 var conn = spInst.MEPModel?.ConnectorManager?.Connectors?.OfType<Connector>().FirstOrDefault();
                 if (conn != null)
                 {
-                    // 如果找到一个实例，其连接器的 Z 方向符合我们要求的目标方向
-                    if (Math.Abs(conn.CoordinateSystem.BasisZ.Z - targetConnZ) < 0.001)
+                    // 【关键修复】将精度从 0.001 放宽至 0.05，避免因为轻微坡度或构件安装误差导致匹配失败
+                    if (Math.Abs(conn.CoordinateSystem.BasisZ.Z - targetConnZ) < 0.05)
                     {
-                        return spInst.Symbol; // 匹配成功，直接返回它所用的族类型
+                        return spInst.Symbol;
                     }
                 }
             }
@@ -533,11 +682,13 @@ namespace CreatePipe.Form
             return null;
         }
         /// 对齐管件到水平管道方向，再绕旋转轴做90°垂直旋转.OK
-        private void RotateFittingToAlignVertical(FamilyInstance fitting, Pipe pipeHorizontal,
-            FamilyInstance targetFitting, Line rotationAxis, bool usePipeDirection = false)
+        private void RotateFittingToAlignVertical(FamilyInstance fitting, List<Pipe> pipeHorizontal,
+            FamilyInstance targetFitting, Line rotationAxis, double rotateDegree, bool usePipeDirection = false)
         {
             Document doc = fitting.Document;
-            var pipeCurve = (pipeHorizontal.Location as LocationCurve)?.Curve as Line;
+            // 1. 将角度转换为弧度：弧度 = 角度 * (π / 180)
+            double rotationRadians = rotateDegree * (Math.PI / 180.0);
+            var pipeCurve = (pipeHorizontal.FirstOrDefault().Location as LocationCurve)?.Curve as Line;
             var locPoint = targetFitting.Location as LocationPoint;
             XYZ targetCenter = locPoint.Point;
             var ft1Count = MEPAnalysisExtension.GetConnectors(targetFitting).ToList().Count;
@@ -570,7 +721,7 @@ namespace CreatePipe.Form
             {
                 // ── 场景B（三通：侧口对齐管道端口方向）────────────────
                 Connector sideConn = MEPAnalysisExtension.GetTeeSideConn(fitting);
-                Connector pipeOpenEnd = pipeHorizontal.ConnectorManager.Connectors.OfType<Connector>()
+                Connector pipeOpenEnd = pipeHorizontal.FirstOrDefault().ConnectorManager.Connectors.OfType<Connector>()
                     .OrderBy(c => c.Origin.DistanceTo(targetCenter)).FirstOrDefault();
                 if (sideConn != null && pipeOpenEnd != null)
                 {
@@ -593,62 +744,110 @@ namespace CreatePipe.Form
                 }
             }
             // ── 3. 绕管道轴垂直旋转 90° ────────────
-            ElementTransformUtils.RotateElement(doc, fitting.Id, rotationAxis, Math.PI / 2);        
+            ElementTransformUtils.RotateElement(doc, fitting.Id, rotationAxis, rotationRadians);
         }
         // 构建过指定点、沿Z轴方向的直线（用于水平面旋转）
         private Line BuildZAxisAtPoint(XYZ point)
-            => Line.CreateBound(point, point + XYZ.BasisZ);
-        //递归找target连接器对应的水平管。OK
-        private Pipe GetHorizonPipe(Pipe sourcePipe, List<Connector> connectorsToCheck)
-        {
-            // 用于记录已访问的元素，防止死循环
-            HashSet<ElementId> visited = new HashSet<ElementId>();
-            visited.Add(sourcePipe.Id);
-            foreach (Connector startConn in connectorsToCheck)
-            {
-                foreach (Connector refConn in startConn.AllRefs.OfType<Connector>())
-                {
-                    if (refConn.ConnectorType == ConnectorType.Logical) continue;
-                    // 开启递归搜索
-                    Pipe found = MEPAnalysisExtension.GetHorizontalMEPCurveRecursive(refConn.Owner, visited) as Pipe;
-                    if (found != null) return found;
-                }
-            }
-            return null;
-        }
+            => Line.CreateBound(point, point + XYZ.BasisZ);       
         //获取直接喷头相连的connector和pipe。OK
         private FamilyInstance GetTargetFitting(FamilyInstance sprinkler, Pipe pipe, Connector refConnector)
         {
             if (sprinkler == null || pipe == null || refConnector == null || refConnector.Owner == null) return null;
+
             Element refOwner = refConnector.Owner;
-            FamilyInstance refFitting = refOwner as FamilyInstance; 
+            FamilyInstance refFitting = refOwner as FamilyInstance;
+
             // 遍历管道的所有物理连接器（通常是两端）
             foreach (Connector pipeConn in pipe.ConnectorManager.Connectors.OfType<Connector>())
             {
                 // 如果 refConnector 属于这根管道，且当前遍历到的正好是 refConnector，跳过，只看远端
                 if (refOwner.Id == pipe.Id && pipeConn.Id == refConnector.Id)
                     continue;
+
                 // 遍历与管道端点相连的其他连接器
                 foreach (Connector refConn in pipeConn.AllRefs.OfType<Connector>())
                 {
                     // 过滤掉：逻辑连接器、没有 Owner 的野连接器、以及管道自身的连接器
                     if (refConn.ConnectorType == ConnectorType.Logical ||
                         refConn.Owner == null ||
-                        refConn.Owner.Id == pipe.Id)                         continue; 
+                        refConn.Owner.Id == pipe.Id) continue;
+
                     // 检查目标是否是族实例 (管件/附件等)
                     if (refConn.Owner is FamilyInstance candidateFitting)
                     {
                         // 1. 排除喷头本身,参考对象本身 (例如上游管件)
-                        if (candidateFitting.Id == sprinkler.Id|| candidateFitting.Id == refOwner.Id) continue;
-                        // 3. 排除那些“直接连接了喷头”的管件
+                        if (candidateFitting.Id == sprinkler.Id || candidateFitting.Id == refOwner.Id) continue;
+
+                        // 2. 排除那些“直接连接了喷头”的管件
                         if (IsDirectSprinklerFitting(candidateFitting, sprinkler, refFitting))
                             continue;
+
+                        // 3. 【新增逻辑】：排除变径/束节等（只有两个物理连接器，且方向相反的构件）
+                        if (candidateFitting.MEPModel != null && candidateFitting.MEPModel.ConnectorManager != null)
+                        {
+                            // 获取所有的非逻辑物理连接器
+                            var candidateConns = candidateFitting.MEPModel.ConnectorManager.Connectors
+                                .OfType<Connector>()
+                                .Where(c => c.ConnectorType != ConnectorType.Logical)
+                                .ToList();
+
+                            // 如果只有两个连接器，检查它们的方向
+                            if (candidateConns.Count == 2)
+                            {
+                                XYZ dir1 = candidateConns[0].CoordinateSystem.BasisZ;
+                                XYZ dir2 = candidateConns[1].CoordinateSystem.BasisZ;
+
+                                // Revit API 提供了 IsAlmostEqualTo 用于判断向量是否相等（内置了极小容差）
+                                // 如果两端连接器法向量完全相反（相加约等于0），说明是直通管件或变径
+                                if (dir1.IsAlmostEqualTo(-dir2))
+                                {
+                                    foreach (var item in candidateConns)
+                                    {
+                                        // 确保连接器已经连接了其他构件
+                                        if (item.IsConnected)
+                                        {
+                                            foreach (Connector refToOther in item.AllRefs.OfType<Connector>())
+                                            {
+                                                // 排除逻辑连接器
+                                                if (refToOther.ConnectorType == ConnectorType.Logical) continue;
+
+                                                // 排除原管道 (pipe) 以及变径管件自身
+                                                if (refToOther.Owner.Id == pipe.Id || refToOther.Owner.Id == candidateFitting.Id)
+                                                    continue;
+
+                                                // 情况 A：变径另一头连接的是下一根管道
+                                                if (refToOther.Owner is Pipe nextPipe)
+                                                {
+                                                    // 递归穿透：以下一根管道为起点，refToOther（管道端的连接器）作为防倒退起点继续查找
+                                                    FamilyInstance found = GetTargetFitting(sprinkler, nextPipe, refToOther);
+                                                    if (found != null)
+                                                        return found;
+                                                }
+                                                // 情况 B：变径另一头直接连接了另一个管件 (例如变径直接套弯头)
+                                                else if (refToOther.Owner is FamilyInstance nextFitting)
+                                                {
+                                                    // 排除喷头本身和最开始的参考管件
+                                                    if (nextFitting.Id == sprinkler.Id || nextFitting.Id == refOwner.Id) continue;
+                                                    if (IsDirectSprinklerFitting(nextFitting, sprinkler, refFitting)) continue;
+
+                                                    // 返回找到的第一个实体管件
+                                                    return nextFitting;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // 如果穿过变径后是断头或者没找到，则跳过当前分支，继续寻找其他可能
+                                    continue;
+                                }
+                            }
+                        }
+
                         // 找到符合条件的目标管件
                         return candidateFitting;
                     }
                 }
             }
-            return null;          
+            return null;
         }
         // 查找管道另一端的关键管件targetFitting和Connector.OK
         private (Pipe Pipe, Connector PipeConnector) GetConnectedPipe(FamilyInstance sp)
@@ -710,7 +909,6 @@ namespace CreatePipe.Form
             }
             return false;
         }
-
         //在管件原位建立管道默认的新管件样式并指定初始管径 应结合管件参数优化
         private FamilyInstance CreateFitting(FamilyInstance targetFitting, Pipe pipe, int fittingType)
         {
@@ -722,7 +920,13 @@ namespace CreatePipe.Form
                 case 3: groupType = RoutingPreferenceRuleGroupType.Junctions; break;
                 default: groupType = RoutingPreferenceRuleGroupType.Crosses; break;
             }
-
+            var routingManager = pipe.PipeType.RoutingPreferenceManager;
+            // 【关键修复】防止布管系统中未配置对应管件而导致直接崩溃
+            if (routingManager.GetNumberOfRules(groupType) == 0)
+            {
+                TaskDialog.Show("警告", $"管道类型[{pipe.PipeType.Name}]中未配置对应的布管系统管件，无法自动生成！");
+                return null;
+            }
             // 2. 统一获取对应的管件族类型
             ElementId mepPartId = pipe.PipeType.RoutingPreferenceManager.GetRule(groupType, 0).MEPPartId;
             FamilySymbol familySymbol = (FamilySymbol)Document.GetElement(mepPartId);

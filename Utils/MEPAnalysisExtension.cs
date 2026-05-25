@@ -6,6 +6,7 @@ using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Controls;
 
 namespace CreatePipe.Utils
 {
@@ -214,6 +215,7 @@ namespace CreatePipe.Utils
             if (cm == null) yield break;
             foreach (Connector conn in cm.Connectors)
             {
+                if (conn.ConnectorType == ConnectorType.Logical) continue;
                 yield return conn;
             }
         }
@@ -416,7 +418,7 @@ namespace CreatePipe.Utils
                 }
                 catch
                 {
- 
+
                 }
             }
         }
@@ -543,32 +545,47 @@ namespace CreatePipe.Utils
 
             var result = new List<ElementId>();
             var processedElements = new HashSet<ElementId>();
-            var queuedElements = new HashSet<ElementId>();
             var queue = new Queue<Element>();
 
-            var startElementIds = new HashSet<ElementId>(startConnectors
-                .Where(c => c != null && c.Owner != null).Select(c => c.Owner.Id));
+            // 1. 将所有起点元素的主体ID加入黑名单，彻底排除自身，且防止后续转回来找到它
             foreach (var connector in startConnectors)
             {
-                if (connector?.Owner != null && queuedElements.Add(connector.Owner.Id))
+                if (connector?.Owner != null)
                 {
-                    queue.Enqueue(connector.Owner);
+                    processedElements.Add(connector.Owner.Id);
                 }
             }
+
+            // 2. 严格【仅从入参连接器】向外探出第一步
+            foreach (var startConnector in startConnectors)
+            {
+                if (startConnector == null) continue;
+
+                foreach (Connector refConn in startConnector.AllRefs)
+                {
+                    // 屏蔽逻辑连接器（系统）
+                    if (refConn.ConnectorType == ConnectorType.Logical) continue;
+
+                    Element connectedElement = refConn.Owner;
+                    if (connectedElement == null || connectedElement is Autodesk.Revit.DB.MEPSystem) continue;
+
+                    // 如果对面的元素没被处理过，压入队列，并立即标记已处理
+                    if (processedElements.Add(connectedElement.Id))
+                    {
+                        queue.Enqueue(connectedElement);
+                    }
+                }
+            }
+
+            // 3. 开始标准的广度优先遍历
             while (queue.Count > 0)
             {
                 Element currentElement = queue.Dequeue();
-                //BFS 图遍历中的去重逻辑
-                if (currentElement == null || processedElements.Contains(currentElement.Id))
-                    continue;
-                //// 标记当前元素已处理
-                //processedElements.Add(currentElement.Id);
-                // 如果不是初始的风口，添加到要删除的列表
-                if (!startElementIds.Contains(currentElement.Id))
-                {
-                    result.Add(currentElement.Id);
-                }
-                // 获取当前连接器的所有连接
+
+                // 既然能进队列，必定不是起点元素，直接加入结果集
+                result.Add(currentElement.Id);
+
+                // 获取当前元素的所有连接器
                 ConnectorSet connectorSet = null;
                 if (currentElement is FamilyInstance familyInstance && familyInstance.MEPModel != null)
                 {
@@ -578,20 +595,24 @@ namespace CreatePipe.Utils
                 {
                     connectorSet = mepCurve.ConnectorManager.Connectors;
                 }
+
                 if (connectorSet == null) continue;
+
                 foreach (Connector connector in connectorSet)
                 {
-                    // 获取连接器连接到的其他连接器
-                    foreach (Connector connectedConnector in connector.AllRefs)
-                    {
-                        Element connectedElement = connectedConnector?.Owner;
-                        if (connectedElement == null) continue;
-                        if (connectedElement.Id == currentElement.Id) continue;
+                    if (connector.ConnectorType == ConnectorType.Logical) continue;
 
-                        if (!processedElements.Contains(connectedElement.Id) &&
-                            queuedElements.Add(connectedElement.Id))
+                    // 获取连接器连接到的其他连接器
+                    foreach (Connector refConn in connector.AllRefs)
+                    {
+                        if (refConn.ConnectorType == ConnectorType.Logical) continue;
+
+                        Element connectedElement = refConn.Owner;
+                        if (connectedElement == null || connectedElement is Autodesk.Revit.DB.MEPSystem) continue;
+
+                        // 如果未处理过，压入队列并立即标记
+                        if (processedElements.Add(connectedElement.Id))
                         {
-                            //添加入列
                             queue.Enqueue(connectedElement);
                         }
                     }
@@ -599,6 +620,217 @@ namespace CreatePipe.Utils
             }
             return result;
         }
+        /// 从指定单个连接器出发，使用 DFS获取所有相连元素，遇到排除 ID 时需要判断这个id对应element有几个连接器，如果连接器id等于startConnector，要将其连接的元素加入队列，排除其他连接器连接的元素 
+        /// <summary>
+        /// 查找相连元素，遇到水平管停止。
+        /// 返回值：沿途经过的所有中间构件的 ElementId 集合（不含起点和水平管）。
+        /// out 参数：收集到的所有作为边界的水平管。
+        /// </summary>
+        public static (List<ElementId>, List<Pipe>) GetAllConnectedElementsAndStopByHorizontalPipes(Connector startConnector)
+        {
+            List<Pipe> boundaryHorizontalPipes = new List<Pipe>();
+            var resultElements = new List<ElementId>();
+
+            if (startConnector == null || startConnector.Owner == null)
+                return (resultElements, boundaryHorizontalPipes);
+
+            var processedElements = new HashSet<ElementId>();
+            var stackedElements = new HashSet<ElementId>();
+            var queue = new Queue<Element>();
+
+            // 使用字典来收集水平管，确保绝对去重（防止成环管网导致两端查找到同一根管子）
+            var uniquePipes = new Dictionary<ElementId, Pipe>();
+
+            Element startElement = startConnector.Owner;
+            ElementId startElementId = startElement.Id;
+
+            queue.Enqueue(startElement);
+            stackedElements.Add(startElementId);
+
+            while (queue.Count > 0)
+            {
+                Element currentElement = queue.Dequeue();
+
+                if (currentElement == null || processedElements.Contains(currentElement.Id))
+                    continue;
+
+                processedElements.Add(currentElement.Id);
+
+                // 判断当前元素是否为横管（边界）
+                bool isHorizontalPipe = currentElement is Pipe pipe && MEPAnalysisExtension.IsHorizontal(pipe);
+
+                // 如果遇到了远端的水平管（不能是起点自身）
+                if (isHorizontalPipe && currentElement.Id != startElementId)
+                {
+                    // 【核心收集】：把这根水平管加入集合
+                    uniquePipes[currentElement.Id] = (Pipe)currentElement;
+
+                    // 【核心打断】：遇到水平管就不再向外扩散，直接跳过连接器遍历
+                    continue;
+                }
+
+                // 加入结果的条件：不是起点 且 不是横管
+                if (currentElement.Id != startElementId && !isHorizontalPipe)
+                {
+                    resultElements.Add(currentElement.Id);
+                }
+
+                var connectorSet = GetConnectorManager(currentElement)?.Connectors;
+                if (connectorSet == null) continue;
+
+                // 向外扩散：遍历当前元素的所有连接器
+                foreach (Connector connector in connectorSet)
+                {
+                    // 过滤逻辑连接器
+                    if (connector == null || connector.ConnectorType == ConnectorType.Logical) continue;
+                    // 【修改点】：只要当前元素是起点构件，强制过滤，只能顺着入参 startConnector 往外找
+                    if (currentElement.Id == startElementId)
+                    {
+                        // 如果当前遍历的连接器不是我们传入的起始连接器，则跳过
+                        if (connector.Id != startConnector.Id) continue;
+                    }
+                    //// 如果起点是横管，必须确保我们只顺着 startConnector 往外找，不往管子反方向找
+                    //if (currentElement.Id == startElementId && isHorizontalPipe)
+                    //{
+                    //    if (connector.Id != startConnector.Id) continue;
+                    //}
+
+                    PushConnectedElements(connector, currentElement, processedElements, stackedElements, queue);
+                }
+            }
+            // 赋值 out 参数
+            boundaryHorizontalPipes = uniquePipes.Values.ToList();
+            return (resultElements, boundaryHorizontalPipes);
+        }
+
+        /// <summary>
+        /// 辅助方法：获取连接器连接到的其他元素并压入队列
+        /// </summary>
+        private static void PushConnectedElements(Connector connector, Element currentElement,
+            HashSet<ElementId> processedElements, HashSet<ElementId> stackedElements,
+            Queue<Element> stack)
+        {
+            foreach (Connector connectedConnector in connector.AllRefs)
+            {
+                if (connectedConnector == null) continue;
+
+                // 过滤逻辑连接器，避免顺着 MEPSystem 穿透整张管网
+                if (connectedConnector.ConnectorType != ConnectorType.End &&
+                    connectedConnector.ConnectorType != ConnectorType.Curve)
+                    continue;
+
+                Element connectedElement = connectedConnector.Owner;
+                if (connectedElement == null) continue;
+
+                // 排除 MEPSystem 元素和自身
+                if (connectedElement is Autodesk.Revit.DB.MEPSystem) continue;
+                if (connectedElement.Id == currentElement.Id) continue;
+
+                if (!processedElements.Contains(connectedElement.Id) &&
+                    stackedElements.Add(connectedElement.Id))
+                {
+                    stack.Enqueue(connectedElement);
+                }
+            }
+        }
+
+
+
+        //public static List<ElementId> GetAllConnectedElementsStopByHorizontalMEPCurve(Connector startConnector)
+        //{
+        //    if (startConnector == null || startConnector.Owner == null)
+        //        return new List<ElementId>();
+
+        //    var result = new List<ElementId>();
+        //    var processedElements = new HashSet<ElementId>();
+        //    var stackedElements = new HashSet<ElementId>();
+        //    var queue = new Queue<Element>();
+
+        //    Element startElement = startConnector.Owner;
+        //    ElementId startElementId = startElement.Id;
+
+        //    queue.Enqueue(startElement);
+        //    stackedElements.Add(startElementId);
+
+        //    while (queue.Count > 0)
+        //    {
+        //        Element currentElement = queue.Dequeue();
+
+        //        if (currentElement == null || processedElements.Contains(currentElement.Id))
+        //            continue;
+
+        //        processedElements.Add(currentElement.Id);
+
+        //        // 判断当前元素是否为横管（边界）
+        //        bool isHorizontalPipe = currentElement is MEPCurve mepCurve && mepCurve.IsHorizontal();
+
+        //        // 加入结果的条件：不是起点 且 不是横管
+        //        if (currentElement.Id != startElementId && !isHorizontalPipe)
+        //        {
+        //            result.Add(currentElement.Id);
+        //        }
+
+        //        var connectorSet = GetConnectors(currentElement);
+        //        if (connectorSet == null) continue;
+
+        //        // 如果当前元素是横管（边界）
+        //        if (isHorizontalPipe)
+        //        {
+        //            // 仅当横管是起点时，从起始连接器向外扩散一次；否则直接截断
+        //            if (currentElement.Id == startElementId)
+        //            {
+        //                foreach (Connector connector in connectorSet)
+        //                {
+        //                    if (connector == null) continue;
+        //                    if (connector.Id == startConnector.Id)
+        //                    {
+        //                        PushConnectedElements(connector, currentElement, processedElements, stackedElements, queue);
+        //                    }
+        //                }
+        //            }
+        //            // 远端遇到的横管：不再向外扩散，彻底打断搜索
+        //        }
+        //        else
+        //        {
+        //            // 普通元素，遍历其所有连接器
+        //            foreach (Connector connector in connectorSet)
+        //            {
+        //                if (connector == null) continue;
+        //                PushConnectedElements(connector, currentElement, processedElements, stackedElements, queue);
+        //            }
+        //        }
+        //    }
+
+        //    return result;
+        //}
+        /////// <summary>
+        /////// 辅助方法：获取连接器连接到的其他元素并压入栈
+        /////// </summary>
+        //private static void PushConnectedElements(Connector connector, Element currentElement,
+        //    HashSet<ElementId> processedElements, HashSet<ElementId> stackedElements,
+        //    Queue<Element> stack)
+        //{
+        //    foreach (Connector connectedConnector in connector.AllRefs)
+        //    {
+        //        if (connectedConnector == null) continue;
+
+        //        // 【核心修复 1】过滤逻辑连接器，避免顺着 MEPSystem 穿透整张管网
+        //        if (connectedConnector.ConnectorType != ConnectorType.End &&
+        //            connectedConnector.ConnectorType != ConnectorType.Curve)
+        //            continue;
+        //        Element connectedElement = connectedConnector.Owner;
+        //        if (connectedElement == null) continue;
+        //        // 【核心修复 2】双重保险：直接排除 MEPSystem 类型元素
+        //        if (connectedElement is Autodesk.Revit.DB.MEPSystem) continue;
+        //        // 跳过元素自身内部连接
+        //        if (connectedElement.Id == currentElement.Id) continue;
+        //        if (!processedElements.Contains(connectedElement.Id) &&
+        //            stackedElements.Add(connectedElement.Id))
+        //        {
+        //            stack.Enqueue(connectedElement);
+        //        }
+        //    }
+        //}
         //查找一定范围内MepCurve
         public static IList<MEPCurve> GetMEPCurvesAtPoint(Document doc, XYZ point, double offsetHeight, double detectRange = 1.0)
         {
@@ -787,7 +1019,101 @@ namespace CreatePipe.Utils
             }
             return false;
         }
-        // 递归查找连接的 MEPCurve 是否水平
+        /////// 递归查找：只要找到一个就立刻返回 Pipe 对象来打断整个递归树
+        //public static Pipe GetFirstHorizontalPipe(Element currentElement, HashSet<ElementId> visited)
+        //{
+        //    // 基础防护
+        //    if (currentElement == null || visited.Contains(currentElement.Id)) return null;
+
+        //    visited.Add(currentElement.Id);
+
+        //    // 如果当前元素是 MEPCurve
+        //    if (currentElement is MEPCurve curve)
+        //    {
+        //        // 【核心】：是水平管，直接返回该管，立刻终止深入
+        //        if (MEPAnalysisExtension.IsHorizontal(curve) && curve is Pipe pipe)
+        //        {
+        //            return pipe;
+        //        }
+        //        // 不是水平管（如立管），继续往下找
+        //        return SearchNextSingle(curve, visited);
+        //    }
+        //    // 如果是管件或附件
+        //    else if (currentElement is FamilyInstance fi)
+        //    {
+        //        return SearchNextSingle(fi, visited);
+        //    }
+        //    //// 基础防护
+        //    //if (currentElement == null || visited.Contains(currentElement.Id)) return null;
+        //    //visited.Add(currentElement.Id);
+        //    //// 如果当前元素是 MEPCurve
+        //    //if (currentElement is MEPCurve curve)
+        //    //{
+        //    //    // 【核心】：是水平管，直接返回该管，立刻终止深入
+        //    //    if (MEPAnalysisExtension.IsHorizontal(curve) && curve is Pipe pipe)
+        //    //    {
+        //    //        return pipe;
+        //    //    }
+        //    //    // 不是水平管（如立管），继续往下找
+        //    //    return SearchNextSingle(curve, visited);
+        //    //}
+        //    //// 如果是管件或附件
+        //    //else if (currentElement is FamilyInstance fi)
+        //    //{
+        //    //    return SearchNextSingle(fi, visited);
+        //    //}
+        //    return null;
+        //}
+        //// 辅助方法：遍历连接器，一旦某个分支返回了管子，立刻打断循环向上传递
+        //private static Pipe SearchNextSingle(Element element, HashSet<ElementId> visited)
+        //{
+        //    ConnectorManager cm = GetConnectorManager(element);
+        //    if (cm == null) return null;
+
+        //    foreach (Connector conn in cm.Connectors.OfType<Connector>())
+        //    {
+        //        // 【修改 2】：彻底过滤逻辑连接器，防止 MEPSystem 污染遍历树
+        //        if (conn.ConnectorType == ConnectorType.Logical) continue;
+
+        //        foreach (Connector refConn in conn.AllRefs.OfType<Connector>())
+        //        {
+        //            // 双重保险：过滤对面连接过来的逻辑连接器
+        //            if (refConn.ConnectorType == ConnectorType.Logical) continue;
+
+        //            if (refConn.Owner == null ||
+        //                refConn.Owner.Id == element.Id ||
+        //                visited.Contains(refConn.Owner.Id)) continue;
+
+        //            // 往下层寻找
+        //            Pipe found = GetFirstHorizontalPipe(refConn.Owner, visited);
+
+        //            // 【关键阻断】：如果底层找到了水平管，立刻返回，不再遍历当前管件的其他连接器
+        //            if (found != null)
+        //            {
+        //                return found;
+        //            }
+        //        }
+        //    }
+        //    //ConnectorManager cm = GetConnectorManager(element);
+        //    //if (cm == null) return null;
+        //    //foreach (Connector conn in cm.Connectors.OfType<Connector>())
+        //    //{
+        //    //    foreach (Connector refConn in conn.AllRefs.OfType<Connector>())
+        //    //    {
+        //    //        if (refConn.Owner == null ||
+        //    //            refConn.Owner.Id == element.Id ||
+        //    //            visited.Contains(refConn.Owner.Id)) continue;
+        //    //        // 往下层寻找
+        //    //        Pipe found = GetFirstHorizontalPipe(refConn.Owner, visited);
+        //    //        // 【关键阻断】：如果底层找到了水平管，立刻返回，不再遍历当前管件的其他连接器（如三通的另一个口）
+        //    //        if (found != null)
+        //    //        {
+        //    //            return found;
+        //    //        }
+        //    //    }
+        //    //}
+        //    return null;
+        //}
         public static MEPCurve GetHorizontalMEPCurveRecursive(Element currentElement, HashSet<ElementId> visited)
         {
             // 基础防护
@@ -813,11 +1139,8 @@ namespace CreatePipe.Utils
             {
                 return SearchNext(fi, visited);
             }
-
             return null;
         }
-
-        // 辅助方法：获取当前元素的所有连接器并继续递归
         private static MEPCurve SearchNext(Element element, HashSet<ElementId> visited)
         {
             // 获取连接管理器
@@ -866,7 +1189,16 @@ namespace CreatePipe.Utils
             // 水平连接器方向的 Z 分量应接近 0
             return Math.Abs(dir.Z) < 0.1;
         }
-        //
+        //判断连接器方向是否垂直
+        public static bool IsVerticalConnector(Connector conn)
+        {
+            if (conn == null) return false;
+            XYZ dir = conn.CoordinateSystem.BasisZ.Normalize();
+            // 垂直连接器方向的 Z 分量绝对值应接近 1（向上或向下）
+            return Math.Abs(Math.Abs(dir.Z) - 1.0) < 0.1;
+        }
+
+        //获取特定内置参数
         public static Parameter GetAssociatedParameter(Element element, Connector connector, BuiltInParameter bip)
         {
             var connectorInfo = connector.GetMEPConnectorInfo() as MEPFamilyConnectorInfo;
@@ -879,5 +1211,236 @@ namespace CreatePipe.Utils
             var paramterDefinition = parameterElement.GetDefinition();
             return element.get_Parameter(paramterDefinition);
         }
+        // --- 辅助方法：将管道端点移动到目标点 ---
+        public static void ExtendOrTrimMEPCurveToPoint(MEPCurve curve, XYZ targetPoint)
+        {
+            LocationCurve locCurve = curve.Location as LocationCurve;
+            Line line = locCurve.Curve as Line;
+            XYZ pt0 = line.GetEndPoint(0);
+            XYZ pt1 = line.GetEndPoint(1);
+            // 判断哪个端点离交点更近
+            if (pt0.DistanceTo(targetPoint) < pt1.DistanceTo(targetPoint))
+            {
+                // 移动端点0
+                locCurve.Curve = Line.CreateBound(targetPoint, pt1);
+            }
+            else
+            {
+                // 移动端点1
+                locCurve.Curve = Line.CreateBound(pt0, targetPoint);
+            }
+        }
+        //获取管道对侧连接接口  (用于计算打断方向) 
+        public static Connector GetOppositeConnector(MEPCurve curve, XYZ pointToExclude)
+        {
+            foreach (Connector conn in curve.ConnectorManager.Connectors)
+            {
+                if (!conn.Origin.IsAlmostEqualTo(pointToExclude, 0.005))
+                {
+                    // 过滤掉支管连接器等，只保留端点连接器
+                    if (conn.ConnectorType == ConnectorType.End)
+                    {
+                        return conn;
+                    }
+                }
+            }
+            return null;
+        }
+        /// 获取 FamilyInstance 上与指定连接器方向相反的对侧连接器。
+        public static Connector GetOppositeConnector(FamilyInstance familyInstance, Connector inputConnector)
+        {
+            if (familyInstance == null || familyInstance.MEPModel == null || inputConnector == null)
+                return null;
+
+            ConnectorManager connectorManager = familyInstance.MEPModel.ConnectorManager;
+            if (connectorManager == null)
+                return null;
+
+            // 获取输入连接器的向外法向量方向
+            XYZ inputDirection = inputConnector.CoordinateSystem.BasisZ;
+
+            foreach (Connector conn in connectorManager.Connectors)
+            {
+                // 排除自身连接器
+                if (conn.Id == inputConnector.Id)
+                    continue;
+
+                // 获取当前连接器的方向
+                XYZ currentDirection = conn.CoordinateSystem.BasisZ;
+
+                // 判断两个向量是否相反：相反向量在 3D 空间中的夹角为 180 度 (Math.PI 弧度)
+                // 使用 0.01 弧度（约 0.57度）作为 Revit 精度容差
+                double angle = inputDirection.AngleTo(currentDirection);
+                if (Math.Abs(angle - Math.PI) < 0.01)
+                {
+                    return conn;
+                }
+            }
+
+            return null;
+        }
+        public static FamilyInstance NewElbowBy2MEPCurve(MEPCurve curve1, MEPCurve curve2)
+        {
+            Document doc = curve1.Document;
+            FamilyInstance result;
+            // 3. 计算中心线延长线的交点
+            Line line1 = (curve1.Location as LocationCurve).Curve as Line;
+            Line line2 = (curve2.Location as LocationCurve).Curve as Line;
+            // 将线转换为无限长直线以求交点
+            Line unboundLine1 = Line.CreateUnbound(line1.GetEndPoint(0), line1.Direction);
+            Line unboundLine2 = Line.CreateUnbound(line2.GetEndPoint(0), line2.Direction);
+            IntersectionResultArray results;
+            SetComparisonResult intersectResult = unboundLine1.Intersect(unboundLine2, out results);
+            if (intersectResult != SetComparisonResult.Overlap)
+            {
+                TaskDialog.Show("错误", "这两根管道在空间中不共面或平行，无法生成交点！");
+                return result = null;
+            }
+            XYZ intersectionPoint = results.get_Item(0).XYZPoint;
+            // 4. 将两根管道延伸或修剪到交点
+            MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(curve1, intersectionPoint);
+            MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(curve2, intersectionPoint);
+            // 注意：修改管道几何后，需要重新生成文档以更新Connector的位置
+            doc.Regenerate();
+            // 5. 获取交点处的两个连接器 (Connector)
+            Connector conn1 = MEPAnalysisExtension.GetClosestConnector(curve1, intersectionPoint);
+            Connector conn2 = MEPAnalysisExtension.GetClosestConnector(curve2, intersectionPoint);
+            if (conn1 == null || conn2 == null)
+            {
+                TaskDialog.Show("错误", "无法在交点处找到连接器！");
+                return result = null;
+            }
+            // 6. 检查管径是否一致（变径处理逻辑）可自动处理无需手动
+            if (Math.Abs(curve1.Diameter - curve2.Diameter) > 0.001)
+            {
+
+            }
+            // 7. 生成弯头
+            FamilyInstance elbow = doc.Create.NewElbowFitting(conn1, conn2);
+            return elbow;
+        }
+        /// 判断两条直线是否共面（使用混合积方法）
+        public static bool AreLinesCoPlanar(Line line1, Line line2, double tolerance = 0.001)
+        {
+            XYZ A = line1.GetEndPoint(0);
+            XYZ B = line1.GetEndPoint(1);
+            XYZ C = line2.GetEndPoint(0);
+            XYZ D = line2.GetEndPoint(1);
+            // 计算向量
+            XYZ AB = B - A;
+            XYZ AC = C - A;
+            XYZ AD = D - A;
+            // 计算混合积：AB · (AC × AD)
+            XYZ crossProduct = AC.CrossProduct(AD);
+            double mixedProduct = AB.DotProduct(crossProduct);
+            // 判断混合积的绝对值是否接近零
+            return Math.Abs(mixedProduct) < tolerance;
+        }
+        /// 辅助方法：判断两个连接器是否是同一个连接器
+        private static bool AreConnectorsEqual(Connector conn1, Connector conn2)
+        {
+            if (conn1 == null || conn2 == null)
+                return false;
+            // 通过位置和方向判断是否是同一个连接器
+            return conn1.Origin.IsAlmostEqualTo(conn2.Origin, 0.001) &&
+                   Math.Abs(conn1.Angle - conn2.Angle) < 0.01;
+        }
+        // 判断三通是否为横向三通（判断依据：是否至少有两个连接器在水平方向上）
+        public static bool IsHorizontalTee(IEnumerable<Connector> connectors)
+        {
+            if (connectors == null) return false;
+            int horizontalConnectorCount = 0;
+            foreach (Connector conn in connectors)
+            {
+                if (conn == null) continue;
+
+                // 判断单个连接器是否水平
+                if (IsHorizontalConnector(conn))
+                {
+                    horizontalConnectorCount++;
+                }
+            }
+            // 三通共3个连接器，如果有2个或3个是水平的，则认定为横向三通
+            return horizontalConnectorCount >= 2;
+        }
+        // 连接管道与管件上的连接器方法，先如果mepcurve上与管件连接器较近的connector在一个位置优先连接，如果管件连接器在mepcurve延长线或线上调整管上较近连接器位置，如果连接器和mepcurve管径不同则增加变径
+        public static void ConnectMEPCurve2FittingConn(MEPCurve mEPCurve, Connector fitConnector)
+        {
+            if (mEPCurve == null || fitConnector == null) return;
+            Document doc = mEPCurve.Document;
+            // 1. 获取 MEPCurve 上距离给定的管件 Connector 最近的连接器
+            Connector closestPipeConn = GetClosestConnector(mEPCurve, fitConnector.Origin);
+            // 1. 设置一个合理的容差，比如 0.001 英尺 (约 0.3mm)
+            bool isSameLocation = fitConnector.Origin.IsAlmostEqualTo(closestPipeConn.Origin, 0.001);
+            try
+            {
+                if (!isSameLocation)
+                {
+                    if (Math.Abs(closestPipeConn.Radius - fitConnector.Radius) > 0.001) // 容差
+                    {
+                        FamilyInstance instance = NewTransitionSafely(doc, closestPipeConn, fitConnector);
+                    }
+                    else
+                    {
+                        // 管径相同，不需要变径，直接连接或生成直接(Union)
+                        closestPipeConn.ConnectTo(fitConnector);
+                    }
+                }
+                else
+                {
+                    bool hasConnected = TryConnectAndVerify(doc, closestPipeConn, fitConnector);
+                    if (!hasConnected)
+                    {
+                        //NewTransitionSafely(doc, closestPipeConn, connector);
+                        doc.Create.NewTransitionFitting(closestPipeConn, fitConnector);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+        /// 在两个连接器之间直接创建管道并连接
+        public static Pipe NewPipeBetweenConnectors(Document doc, Connector conn1, Connector conn2, ElementId pipeTypeId, ElementId levelId, ElementId systemTypeId, double pipeDiameter)
+        {
+            // 2. 根据两个连接器的坐标，创建新管道
+            Pipe newPipe = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, conn1.Origin, conn2.Origin);
+            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(pipeDiameter);
+            var conn = GetClosestConnector(newPipe, conn1.Origin);
+            var spConn = GetOppositeConnector(newPipe, conn.Origin);
+            TryConnectAndVerify(doc, conn, conn1);
+            TryConnectAndVerify(doc, spConn, conn2);
+            return newPipe;
+        }
+        /// 安全地生成变径（大小头），自动纠正连接器顺序
+        public static FamilyInstance NewTransitionSafely(Document doc, Connector conn1, Connector conn2)
+        {
+            if (conn1 == null || conn2 == null)
+                throw new ArgumentNullException("连接器不能为空");
+
+            Connector firstConn = conn1;
+            Connector secondConn = conn2;
+
+            // 检查第一个连接器的宿主是否为管道(MEPCurve)。如果不是，而第二个是，则交换顺序
+            bool isConn1Pipe = conn1.Owner is MEPCurve;
+            bool isConn2Pipe = conn2.Owner is MEPCurve;
+
+            if (!isConn1Pipe && isConn2Pipe)
+            {
+                firstConn = conn2;
+                secondConn = conn1;
+            }
+            else if (!isConn1Pipe && !isConn2Pipe)
+            {
+                // 如果两个都不是管道（两个都是管件），Revit 通常无法直接在两个管件之间生成变径
+                throw new InvalidOperationException("无法在两个管件之间直接生成变径，至少需要一个是管道。");
+            }
+
+            // 调用 API，确保属于管道的 firstConn 永远在第一个
+            return doc.Create.NewTransitionFitting(firstConn, secondConn);
+        }
+
     }
 }
