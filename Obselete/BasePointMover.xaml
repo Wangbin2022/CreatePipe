@@ -6,6 +6,14 @@
         xmlns:local="clr-namespace:CreatePipe"
         mc:Ignorable="d"
         Title="BasePointMover" Height="360" Width="240">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- 引用你的 CommonDataGridStyles.xaml -->
+                <ResourceDictionary Source="/CreatePipe;component/Form/ResourceDictionary/CommonStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <Grid Margin="5">
         <Grid.RowDefinitions>
             <RowDefinition Height="35"/>
@@ -14,11 +22,11 @@
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
         <Button Grid.Row="0" Margin="5" Content="选取坐标清单csv">
-            
+
         </Button>
         <ComboBox Grid.Row="1" Margin="5"
                   x:Name="CoordList">
-            
+
         </ComboBox>
         <TextBlock Grid.Row="2" 
             Text="注意事项：建议提前检查原始测量点和项目基点坐标是否与1-A轴重合" TextWrapping="Wrap" Margin="5"/>
@@ -26,6 +34,7 @@
             <Button  Content="查找并高亮显示" Command="{Binding DrawTableCommand}"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
         </DockPanel>
+
 
     </Grid>
 </Window>

@@ -9,12 +9,13 @@
         xmlns:form="clr-namespace:CreatePipe.Form"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="机电管线坡度检查" Width="240" Height="260"
+        Title="机电管线坡度检查" Width="240" Height="360"
         ResizeMode="NoResize" Topmost="True" WindowStartupLocation="CenterScreen"
-        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors">
+        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
+        xmlns:db="clr-namespace:CreatePipe.Form.UserControls">
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <Style x:Key="TransparentHoverButtonStyle" TargetType="{x:Type Button}">
+        <!--<BooleanToVisibilityConverter x:Key="BoolToVis"/>-->
+        <!--<Style x:Key="TransparentHoverButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="SlateGray"/>
@@ -32,7 +33,13 @@
                     <Setter Property="Foreground" Value="CadetBlue"/>
                 </Trigger>
             </Style.Triggers>
-        </Style>
+        </Style>-->
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- 引用你的 CommonDataGridStyles.xaml -->
+                <ResourceDictionary Source="/CreatePipe;component/Form/ResourceDictionary/CommonStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
     <Grid Margin="5">
         <Grid.RowDefinitions>
@@ -48,8 +55,6 @@
                 <RowDefinition Height="30"/>
                 <RowDefinition Height="30"/>
                 <RowDefinition Height="30"/>
-                <RowDefinition Height="30"/>
-                <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
         </Grid>
         <StackPanel Margin="10">
@@ -60,10 +65,36 @@
             <TextBlock Text="{Binding IntegerValue, StringFormat='当前值: {0}'}" 
                            Foreground="Gray"/>
         </StackPanel>
-        <DockPanel Grid.Row="1" Margin="0,5,5,5">
+
+        <db:DrawerButton Content="点击展开抽屉菜单" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Top" 
+                            Grid.Row="2">
+
+            <!-- 定义抽屉里面显示的内容 (支持任意复杂布局) -->
+            <db:DrawerButton.DrawerContent>
+                <StackPanel Width="auto">
+                    <TextBlock Text="新建任务参数" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
+
+                    <TextBlock Text="任务名称:" Margin="0,0,0,5"/>
+                    <TextBox Margin="0,0,0,15" Padding="4"/>
+
+                    <TextBlock Text="选择执行层:" Margin="0,0,0,5"/>
+                    <ComboBox Margin="0,0,0,15">
+                        <ComboBoxItem Content="结构层"/>
+                        <ComboBoxItem Content="建筑层"/>
+                    </ComboBox>
+
+                    <Button Content="确认执行" Background="#FF28A745" Foreground="White" Padding="0,5"/>
+                </StackPanel>
+            </db:DrawerButton.DrawerContent>
+
+        </db:DrawerButton>
+
+        <!--<DockPanel Grid.Row="2" Margin="0,5,5,5">
             <Button  Content="查找并高亮显示" Command="{Binding DrawTableCommand}"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
-        </DockPanel>
+        </DockPanel>-->
     </Grid>
 </Window>
 

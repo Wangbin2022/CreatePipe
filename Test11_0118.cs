@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
@@ -11,6 +12,7 @@ using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows.Controls;
 using static CreatePipe.Utils.HelpersSelection;
@@ -735,7 +737,10 @@ namespace CreatePipe
                 Line oldLine = lc.Curve as Line;
                 if (oldLine == null) return false;
                 //找管道所在楼层
-                Level level = GetPipeReferenceLevel(doc, pipe);
+                ElementId levelId = pipe.ReferenceLevel.Id;
+                Level level = doc.GetElement(levelId) as Level;
+
+                //Level level = GetPipeReferenceLevel(doc, pipe);
                 if (level == null)
                 {
                     TaskDialog.Show("tt", "无法获取参考楼层。");
@@ -818,208 +823,6 @@ namespace CreatePipe
                 throw;
             }
         }
-        private Level GetPipeReferenceLevel(Document doc, Pipe pipe)
-        {
-            if (pipe.ReferenceLevel != null) return pipe.ReferenceLevel;
-            Parameter p1 = pipe.get_Parameter(BuiltInParameter.RBS_START_LEVEL_PARAM);
-            if (p1 != null && p1.HasValue)
-            {
-                ElementId id = p1.AsElementId();
-                if (id != ElementId.InvalidElementId)
-                    return doc.GetElement(id) as Level;
-            }
-            return null;
-        }
-        private List<Connector> GetPipeEndConnectors(Pipe pipe)
-        {
-            var result = new List<Connector>();
-            ConnectorSet connectors = pipe.ConnectorManager?.Connectors;
-            if (connectors == null) return result;
-
-            foreach (Connector c in connectors)
-            {
-                if (c.ConnectorType == ConnectorType.End)
-                    result.Add(c);
-            }
-
-            return result;
-        }
-        private class ConnectionInfo
-        {
-            public ElementId PipeId { get; set; } = ElementId.InvalidElementId;
-            public Connector PipeConnector { get; set; }
-            public XYZ PipeConnectorOrigin { get; set; }
-            public XYZ PipeConnectorDirection { get; set; }
-
-            public ElementId ConnectedOwnerId { get; set; } = ElementId.InvalidElementId;
-
-            public ElementId RemoteConnectorOwnerId { get; set; } = ElementId.InvalidElementId;
-            public XYZ RemoteConnectorOrigin { get; set; }
-            public XYZ RemoteConnectorDirection { get; set; }
-        }
-        private ConnectionInfo CaptureConnectionInfo(Pipe pipe, Connector pipeConnector)
-        {
-            var info = new ConnectionInfo
-            {
-                PipeId = pipe.Id,
-                PipeConnector = pipeConnector,
-                PipeConnectorOrigin = pipeConnector.Origin,
-                PipeConnectorDirection = MEPAnalysisExtension.GetConnectorDirection(pipeConnector)
-            };
-
-            foreach (Connector refConn in pipeConnector.AllRefs)
-            {
-                if (refConn == null) continue;
-                if (refConn.Owner == null) continue;
-
-                if (refConn.Owner.Id == pipe.Id)
-                    continue;
-
-                info.ConnectedOwnerId = refConn.Owner.Id;
-                info.RemoteConnectorOwnerId = refConn.Owner.Id;
-                info.RemoteConnectorOrigin = refConn.Origin;
-                info.RemoteConnectorDirection = MEPAnalysisExtension.GetConnectorDirection(refConn);
-                break;
-            }
-
-            return info;
-        }
-        private void TryDeleteElement(Document doc, ElementId id)
-        {
-            try
-            {
-                if (id != ElementId.InvalidElementId)
-                    doc.Delete(id);
-            }
-            catch
-            {
-                // 忽略，有些管件受约束删不掉
-            }
-        }
-        private Dictionary<ConnectionInfo, Connector> MatchOldInfosToNewConnectors(
-            List<ConnectionInfo> oldInfos,
-            List<Connector> newConnectors)
-        {
-            var result = new Dictionary<ConnectionInfo, Connector>();
-
-            var remaining = new List<Connector>(newConnectors);
-
-            foreach (var info in oldInfos.OrderBy(x => x.PipeConnectorOrigin.X + x.PipeConnectorOrigin.Y))
-            {
-                Connector best = null;
-                double bestDist = double.MaxValue;
-
-                foreach (var c in remaining)
-                {
-                    double d = c.Origin.DistanceTo(info.PipeConnectorOrigin);
-                    if (d < bestDist)
-                    {
-                        bestDist = d;
-                        best = c;
-                    }
-                }
-
-                if (best != null)
-                {
-                    result[info] = best;
-                    remaining.Remove(best);
-                }
-            }
-
-            return result;
-        }
-        private Connector FindBestConnector(Element owner, XYZ targetOrigin, XYZ targetDirection)
-        {
-            var all = MEPAnalysisExtension.GetConnectors(owner);
-            if (all.Count() == 0) return null;
-
-            Connector best = null;
-            double bestScore = double.MaxValue;
-
-            foreach (var c in all)
-            {
-                double dist = c.Origin.DistanceTo(targetOrigin);
-                XYZ dir = MEPAnalysisExtension.GetConnectorDirection(c);
-                double dirPenalty = 0;
-
-                if (dir != null && targetDirection != null)
-                {
-                    double dot = Math.Abs(dir.Normalize().DotProduct(targetDirection.Normalize()));
-                    dirPenalty = 1.0 - dot;
-                }
-
-                double score = dist + dirPenalty;
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    best = c;
-                }
-            }
-
-            return best;
-        }
-        private bool TryReconnect(Document doc, Connector pipeConn, Connector remoteConn, out string detail)
-        {
-            detail = "";
-            if (pipeConn == null || remoteConn == null)
-            {
-                detail = "重连失败：连接器为空。";
-                return false;
-            }
-            // 先尝试直接连接
-            try
-            {
-                if (!pipeConn.IsConnectedTo(remoteConn))
-                {
-                    pipeConn.ConnectTo(remoteConn);
-                    doc.Regenerate();
-                }
-                if (pipeConn.IsConnectedTo(remoteConn))
-                {
-                    detail = $"直接重连成功 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
-                    return true;
-                }
-            }
-            catch
-            {
-                // 继续尝试自动插入管件
-            }
-            // 尝试自动生成弯头
-            try
-            {
-                FamilyInstance fi = doc.Create.NewElbowFitting(pipeConn, remoteConn);
-                doc.Regenerate();
-                if (fi != null)
-                {
-                    detail = $"弯头重连成功 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
-                    return true;
-                }
-            }
-            catch
-            {
-                // 忽略
-            }
-            // 若同点共线，有时可再次尝试直接连接
-            try
-            {
-                if (pipeConn.Origin.DistanceTo(remoteConn.Origin) < 0.01)
-                {
-                    pipeConn.ConnectTo(remoteConn);
-                    doc.Regenerate();
-                    if (pipeConn.IsConnectedTo(remoteConn))
-                    {
-                        detail = $"近点直接重连成功 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
-                        return true;
-                    }
-                }
-            }
-            catch
-            {
-                // 忽略
-            }
-            detail = $"重连失败 -> 对象 {remoteConn.Owner.Id.IntegerValue}";
-            return false;
-        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -1027,32 +830,67 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0522 弯头连接两段管道 变径逻辑待完善
-            //try
+
+            //0603 房间功能扩展修改
+            RoomManagerView roomManagerView = new RoomManagerView(uiApp);
+            roomManagerView.Show();
+
+            //// 1. 收集当前文档中的所有房间
+            //FilteredElementCollector collector = new FilteredElementCollector(doc);
+            //ICollection<Element> allRooms = collector
+            //    .OfCategory(BuiltInCategory.OST_Rooms)
+            //    .WhereElementIsNotElementType()
+            //    .ToElements();
+
+            //// 2. 筛选出“未放置”的房间
+            //List<ElementId> unplacedRoomIds = new List<ElementId>();
+            //foreach (Element elem in allRooms)
             //{
-            //    // 1. 拾取两根管道
-            //    Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPCurveClass(), "请拾取第一根管道");
-            //    Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPCurveClass(), "请拾取第二根管道");
-            //    Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //    Pipe pipe2 = doc.GetElement(ref2) as Pipe;
-            //    // 2. 开启事务
-            //    NewTransaction.Execute(doc, "生成弯头", () =>
+            //    Room room = elem as Room;
+            //    if (room != null && room.Location == null)
             //    {
-            //        MEPAnalysisExtension.NewElbowBy2MEPCurve(pipe1, pipe2);
-            //    });
-            //    return Result.Succeeded;
+            //        unplacedRoomIds.Add(room.Id);
+            //    }
             //}
-            //catch (Exception ex)
+
+            //// 3. 开启事务，执行删除操作
+            //using (Transaction trans = new Transaction(doc, "彻底删除未放置房间"))
             //{
-            //    message = ex.Message;
-            //    return Result.Failed;
+            //    trans.Start();
+            //    if (unplacedRoomIds.Count > 0)
+            //    {
+            //        // 一次性删除所有收集到的未放置房间ID
+            //        doc.Delete(unplacedRoomIds);
+            //        TaskDialog.Show("完成", $"已彻底删除 {unplacedRoomIds.Count} 个未放置房间。");
+            //    }
+            //    else
+            //    {
+            //        TaskDialog.Show("提示", "没有找到未放置的房间。");
+            //    }
+            //    trans.Commit();
             //}
 
-            ////0517 喷头方法重构
-            SprinklerReplaceAmendView amendView = new SprinklerReplaceAmendView(uiApp);
-            amendView.Show();
 
-            ////////0516测试 管道改平改0 后续应节合instance尝试按指定高度放置，可能更实用
+            //0602 整合删除各类元素功能
+            //BacthDelModelElementView bacthDelModelElementView = new BacthDelModelElementView(uiApp);
+            //bacthDelModelElementView.ShowDialog();
+
+            ////0602 测试抽屉弹出控件
+            //TestWindow testWindow = new TestWindow(uiApp);
+            //testWindow.ShowDialog();
+
+            ////0529 管道交接方法
+            //NewTransaction.Execute(doc,"test",() => {
+            //    // 1. 拾取第一根管道
+            //    Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根管道");
+            //    Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //    // 2. 拾取第二根管道
+            //    Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根管道");
+            //    Pipe pipe2 = doc.GetElement(ref2) as Pipe;
+            //    MEPAnalysisExtension.NewElbowBy2MEPCurve(pipe1, pipe2);
+            //});
+
+            //////////0516测试 管道改平改0 后续应节合instance尝试按指定高度放置，可能更实用 应把与立管之间弯头都删掉
             //var selectedIds = uiDoc.Selection.GetElementIds();
             //if (selectedIds == null || selectedIds.Count == 0)
             //{
@@ -1111,59 +949,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("结果", result);
 
-
-            ////0329 选择偏移量（Offset）设置过大构件，逻辑还不够清晰，误差太大
-            //// 1. 获取并排序所有标高
-            //List<Level> sortedLevels = new FilteredElementCollector(doc).OfClass(typeof(Level))
-            //    .Cast<Level>().OrderBy(l => l.Elevation).ToList();
-            //if (sortedLevels.Count < 1) return Result.Cancelled;
-            //// 2. 收集需要检查的构件（排除链接和类型）
-            //List<Element> allElements = new FilteredElementCollector(doc, doc.ActiveView.Id).WhereElementIsNotElementType()
-            //    .Where(e => e.Category != null && e.LevelId != ElementId.InvalidElementId).ToList();
-            //List<ElementId> anomalyIds = new List<ElementId>();
-            //foreach (Element el in allElements)
-            //{
-            //    // 获取构件关联的标高
-            //    Level currentLevel = sortedLevels.FirstOrDefault(l => l.Id == el.LevelId);
-            //    if (currentLevel == null) continue;
-            //    // 获取当前层的层间高差（寻找上一层）
-            //    int currentIndex = sortedLevels.IndexOf(currentLevel);
-            //    double heightToNextLevel = double.MaxValue;
-            //    double heightToBelowLevel = double.MaxValue;
-            //    if (currentIndex < sortedLevels.Count - 1)
-            //    {
-            //        // 有上一层，计算差值
-            //        heightToNextLevel = sortedLevels[currentIndex + 1].Elevation - currentLevel.Elevation;
-            //    }
-            //    else
-            //    {
-            //        // 顶层，设定一个经验阈值（如 5米）
-            //        heightToNextLevel = 5000 / 304.8;
-            //    }
-            //    if (currentIndex > 0)
-            //    {
-            //        // 有下一层
-            //        heightToBelowLevel = currentLevel.Elevation - sortedLevels[currentIndex - 1].Elevation;
-            //    }
-            //    // 3. 提取偏移量参数 (尝试常见的内置参数)
-            //    double offset = GetElementOffset(el);
-            //    // 4. 判定异常：偏移值大于层高，或者负偏移超过下层高度
-            //    if (offset > heightToNextLevel || (offset < 0 && Math.Abs(offset) > heightToBelowLevel))
-            //    {
-            //        anomalyIds.Add(el.Id);
-            //    }
-            //}
-            //// 5. 反馈结果并选中
-            //if (anomalyIds.Any())
-            //{
-            //    uiDoc.Selection.SetElementIds(anomalyIds);
-            //    TaskDialog.Show("检测结果", $"发现 {anomalyIds.Count} 个标高异常构件（偏移量超出层高范围）。已在视图中选中这些构件。");
-            //}
-            //else
-            //{
-            //    TaskDialog.Show("检测结果", "未发现明显的标高偏移异常构件。");
-            //}
-
             ////0222 批量改标高1500.OK 待深化
             //var selectedIds = uiDoc.Selection.GetElementIds();
             //if (selectedIds.Count > 1)
@@ -1211,6 +996,391 @@ namespace CreatePipe
             //    throw;
             //}
 
+
+            ////1125 三管、四管连接试验,顺序会导致连接失败需要优化X
+            //// 1. 拾取第一根管道
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
+            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //// 2. 拾取第二根管道
+            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
+            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
+            //Reference ref3 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
+            //Pipe pipe3 = doc.GetElement(ref2) as Pipe;
+            //ConnectPipes(doc, ref1.ElementId, ref2.ElementId, ref3.ElementId);
+            ////1125 查找模型中所有垂直立管,并给出不同管径的管道数量OK
+            //try
+            //{
+            //    // 1. 获取模型中所有管道
+            //    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(Pipe));
+            //    // 管径统计字典：键=管径（毫米或英寸），值=数量
+            //    Dictionary<string, int> diameterCount = new Dictionary<string, int>();
+            //    foreach (Pipe pipe in collector)
+            //    {
+            //        LocationCurve lc = pipe.Location as LocationCurve;
+            //        if (lc == null) continue;
+            //        Line line = lc.Curve as Line;
+            //        if (line == null) continue;
+            //        // 2. 判断是否为垂直方向（通过方向向量判断）
+            //        XYZ dir = line.Direction.Normalize();
+            //        // 容差判断：方向Z分量 ≈ 1 或 ≈ -1
+            //        if (Math.Abs(Math.Abs(dir.Z) - 1.0) < 0.001)
+            //        {
+            //            // 3. 获取管径
+            //            double diameterFeet = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
+            //            // 转为毫米（英尺 * 304.8）
+            //            double diameterMM = diameterFeet * 304.8;
+            //            string diameterStr = $"{Math.Round(diameterMM, 0)} mm";
+            //            if (!diameterCount.ContainsKey(diameterStr))
+            //                diameterCount[diameterStr] = 0;
+            //            diameterCount[diameterStr]++;
+            //        }
+            //    }
+            //    // 4. 输出结果
+            //    string resultMsg = "垂直立管管径统计：\n";
+            //    if (diameterCount.Count == 0)
+            //    {
+            //        resultMsg += "未找到垂直立管。";
+            //    }
+            //    else
+            //    {
+            //        foreach (var kvp in diameterCount.OrderBy(k => k.Key))
+            //        {
+            //            resultMsg += $"{kvp.Key} ： {kvp.Value} 条";
+            //        }
+            //    }
+            //    TaskDialog.Show("立管统计", resultMsg);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+            ////////1207 风口清理和连接
+            //try
+            //{
+            //    // 1. 选择风口
+            //    using (Transaction trans = new Transaction(doc, "修改风管系统"))
+            //    {
+            //        trans.Start();
+            //        //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new AirTerminalSelectionFilter(), "请选择一个风口");
+            //        //Element terminal = doc.GetElement(reference);
+            //        ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            //        if (selectedIds == null || selectedIds.Count == 0)
+            //        {
+            //            TaskDialog.Show("错误", "未选择任意");
+            //            return Result.Failed;
+            //        }
+            //        List<Element> ductTerminals = new List<Element>();
+            //        foreach (var id in selectedIds)
+            //        {
+            //            Element element = doc.GetElement(id);
+            //            if (element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctTerminal)
+            //            {
+            //                ductTerminals.Add(element);
+            //            }
+            //        }
+            //        if (ductTerminals == null)
+            //        {
+            //            TaskDialog.Show("错误", "未选择风口");
+            //            return Result.Failed;
+            //        }
+            //        foreach (var item in ductTerminals)
+            //        {
+            //            // 2. 获取风口的所有连接器
+            //            List<Connector> connectors = GetConnectors(item);
+            //            if (connectors.Count == 0)
+            //            {
+            //                TaskDialog.Show("提示", "该风口没有连接器");
+            //                return Result.Failed;
+            //            }
+            //            // 3. 获取所有相连的管件和风管
+            //            List<ElementId> connectedElements = GetAllConnectedElements(connectors, doc);
+            //            // 4. 删除所有相连的管件和风管
+            //            DeleteConnectedElements(doc, connectedElements);
+            //            // 5. 设置风口高度
+            //            SetTerminalHeight(item, 3000);
+            //        }
+            //        trans.Commit();
+            //        //TaskDialog.Show("完成",$"已删除 {connectedElements.Count} 个相连元素，并将风口高度设置为4000mm");
+            //    }
+            //    return Result.Succeeded;
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+            ////////0331 批量改族类型方法，考虑封装一个类型转化方法
+            //try
+            //{
+            //    // 选择文件
+            //    var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            //    {
+            //        Title = "选择要修改族类别的 RFA 文件",
+            //        Filter = "Revit Family Files (*.rfa)|*.rfa",
+            //        Multiselect = true
+            //    };
+            //    if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
+            //    string[] selectedFiles = openFileDialog.FileNames;
+            //    if (selectedFiles.Length == 0)
+            //    {
+            //        TaskDialog.Show("提示", "未选择任何文件");
+            //        return Result.Cancelled;
+            //    }
+            //    // 确认操作
+            //    var result = TaskDialog.Show(
+            //        "确认操作",
+            //        $"即将修改 {selectedFiles.Length} 个族文件的类别为\"电气装置\"。\n\n是否继续？",
+            //        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+            //    if (result != TaskDialogResult.Yes) return Result.Cancelled;
+            //    // 处理文件
+            //    var successFiles = new List<string>();
+            //    var failedFiles = new List<string>();
+            //    var skippedFiles = new List<string>();
+            //    foreach (string filePath in selectedFiles)
+            //    {
+            //        string resultMessage;
+            //        if (ProcessFamilyFile(uiApp, filePath, out resultMessage))
+            //        {
+            //            successFiles.Add(Path.GetFileName(filePath));
+            //        }
+            //        else if (resultMessage.Contains("已是"))
+            //        {
+            //            skippedFiles.Add(Path.GetFileName(filePath));
+            //        }
+            //        else
+            //        {
+            //            failedFiles.Add($"{Path.GetFileName(filePath)} - {resultMessage}");
+            //        }
+            //    }
+            //    ShowResult(successFiles, failedFiles, skippedFiles);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
+
+
+            ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
+            //var selIds = uiDoc.Selection.GetElementIds();
+            //if (selIds == null || selIds.Count == 0)
+            //{
+            //    message = "请先在选集中选择风管管件（Duct Fitting）。";
+            //    return Result.Failed;
+            //}
+            //var logs = new List<string>();
+            //int ok = 0, skipped = 0, failed = 0;
+            //using (var tx = new Transaction(doc, "删除风管管件并重连两端连接器"))
+            //{
+            //    tx.Start();
+            //    foreach (var id in selIds)
+            //    {
+            //        Element e = doc.GetElement(id);
+            //        if (e == null) continue;
+            //        // 仅处理风管管件
+            //        if (!(e is FamilyInstance fi) ||
+            //            fi.Category == null ||
+            //            fi.Category.Id.IntegerValue != (int)BuiltInCategory.OST_DuctFitting)
+            //        {
+            //            continue;
+            //        }
+            //        using (var st = new SubTransaction(doc))
+            //        {
+            //            st.Start();
+            //            try
+            //            {
+            //                // 1) 获取该管件两端连接到的“外部连接器”（风管/附件/设备等的连接器）
+            //                //    必须在删除管件前取到，因为删除后引用关系会改变
+            //                var endConnectors = GetTwoEndNeighborConnectors(fi);
+            //                if (endConnectors == null || endConnectors.Count != 2)
+            //                {
+            //                    skipped++;
+            //                    st.RollBack(); // 本次子事务不做任何改变，回滚/不提交都可以；这里统一回滚
+            //                    continue;
+            //                }
+            //                Connector c1 = endConnectors[0];
+            //                Connector c2 = endConnectors[1];
+            //                // 记录“连接器id”：Revit 的 Connector.Id 是 int（同一 Owner 内唯一）
+            //                // 为便于唯一定位，记录 OwnerId + ConnectorId
+            //                string c1Key = $"{c1.Owner.Id.IntegerValue}:{c1.Id}";
+            //                string c2Key = $"{c2.Owner.Id.IntegerValue}:{c2.Id}";
+            //                logs.Add($"Fitting {fi.Id.IntegerValue} -> C1 {c1Key} ({SafeCatName(c1.Owner)}) , C2 {c2Key} ({SafeCatName(c2.Owner)})");
+            //                // 2) 删除管件
+            //                doc.Delete(fi.Id);
+            //                doc.Regenerate();
+            //                // 尝试强制生成新管件
+            //                bool created = TryCreateFitting(c1, c2, doc);
+            //                // 若失败，尝试反向
+            //                if (!created)
+            //                    created = TryCreateFitting(c2, c1, doc);
+            //                if (!created)
+            //                    throw new InvalidOperationException("无法生成新的风管管件");
+            //                st.Commit();
+            //                ok++;
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                failed++;
+            //                logs.Add($"Fitting {fi.Id.IntegerValue} FAILED: {ex.GetType().Name} - {ex.Message}");
+            //                st.RollBack();
+            //            }
+            //        }
+            //    }
+            //    tx.Commit();
+            //}
+            //TaskDialog.Show("结果", $"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
+
+            ////0205 查找特定属性风口构建
+            //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
+            //List<FamilyInstance> terminalNames = new List<FamilyInstance>();
+            //foreach (var item in allInstance)
+            //{
+            //    if ((item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctTerminal) && (item.Name == "风道末端_单层百叶风口"))
+            //    {
+            //        terminalNames.Add(item);
+            //    }
+            //}
+            //List<ElementId> selectedElementIds = new List<ElementId>();
+            ////foreach (var item in terminalNames)
+            ////{
+            ////    try
+            ////    {
+            ////        Parameter widthParameter = item.LookupParameter("风口宽度");
+            ////        Parameter heightParameter = item.LookupParameter("风口高度");
+            ////        //if (widthParameter != null && widthParameter.AsDouble() == 600 / 304.8 && heightParameter != null && heightParameter.AsDouble() == 500 / 304.8)
+            ////        if (widthParameter != null && widthParameter.AsDouble() == 1000 / 304.8)
+            ////        //if (heightParameter != null && heightParameter.AsDouble() == 600 / 304.8)
+            ////        {
+            ////            selectedElementIds.Add(item.Id);
+            ////        }
+            ////    }
+            ////    catch (Exception)
+            ////    {
+            ////        throw;
+            ////    }
+            ////}
+            ////TaskDialog.Show("tt", selectedElementIds.Count().ToString());
+            //StringBuilder stringBuilder = new StringBuilder();
+            //foreach (var item in terminalNames)
+            //{
+            //    selectedElementIds.Add(item.Id);
+            //    stringBuilder.Append(item.Id.ToString() + ",");
+            //}
+            //TaskDialog.Show("tt", stringBuilder.ToString());
+            ////uiDoc.Selection.SetElementIds(selectedElementIds);
+
+            //////1105 批量左右镜像.OK
+            //try
+            //{
+            //    FamilyInstance familyInstance;
+            //    ICollection<ElementId> selectedIds = new HashSet<ElementId>();
+            //    selectedIds = uiDoc.Selection.GetElementIds();
+            //    using (Transaction tx = new Transaction(doc))
+            //    {
+            //        tx.Start("Mirror Element");
+            //        if (selectedIds.Count == 0)
+            //        {
+            //            var reference = uiDoc.Selection.PickObjects(ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
+            //            foreach (var item in reference)
+            //            {
+            //                selectedIds.Add(item.ElementId);
+            //            }
+            //        }
+            //        foreach (var id in selectedIds)
+            //        {
+            //            familyInstance = doc.GetElement(id) as FamilyInstance;
+            //            // 获取构件的中心点
+            //            LocationPoint locationPoint = familyInstance.Location as LocationPoint;
+            //            XYZ centerPoint = locationPoint.Point;
+            //            // 获取构件的局部坐标系
+            //            Transform transform = familyInstance.GetTotalTransform();
+            //            // 获取局部 X 轴方向（左右方向）
+            //            XYZ xAxis = transform.BasisX;
+            //            // 创建镜像平面（通过中心点和局部 X 轴方向）
+            //            Plane mirrorPlane = Plane.CreateByNormalAndOrigin(xAxis, centerPoint);
+            //            // 镜像构件
+            //            ElementTransformUtils.MirrorElements(doc, new List<ElementId> { familyInstance.Id }, mirrorPlane, false);
+            //        }
+            //        tx.Commit();
+            //    }
+            //    //TaskDialog.Show("成功", "构件已按中心轴线镜像");
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    // 用户取消操作
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    TaskDialog.Show("错误", ex.Message);
+            //    return Result.Failed;
+            //}
+            //例程结束
+
+            //////1029 管道属性批量填写,系统族批量可参考.OK
+            //using (Transaction tx = new Transaction(doc, "管道属性批写入"))
+            //{
+            //    tx.Start();
+            //    try
+            //    {
+            //        List<Pipe> allPipesInModel = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).Cast<Pipe>().ToList();
+            //        foreach (var pipe in allPipesInModel)
+            //        {
+            //            //TaskDialog.Show("tt", ((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8).ToString());
+            //            double diameter = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble() * 304.8;
+            //            double length = pipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() * 304.8;
+            //            // 参数配置字典
+            //            var parameterConfigs = new Dictionary<string, string>
+            //            {
+            //                { "尺寸规格", $"DN{(int)diameter}" },
+            //                { "直径", $"DN{(int)diameter}" },
+            //                { "材质1", "钢管" },
+            //                { "压力等级", "1.6MPa" },
+            //                { "长度", $"{(int)length}mm" },
+            //                { "系统类型", "喷淋" },
+            //                { "坡度", "0" },
+            //                { "保温材料", "柔性泡沫橡塑管壳" },
+            //                { "保温厚度", "55mm" }
+            //            };
+            //            foreach (var config in parameterConfigs)
+            //            {
+            //                Parameter param = pipe.LookupParameter(config.Key);
+            //                param?.Set(config.Value);
+            //            }
+            //            //简化前代码
+            //            //Parameter parameter1 = item.LookupParameter("尺寸规格");
+            //            //if (parameter1 != null)
+            //            //{
+            //            //    parameter1.Set($"DN{(int)((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8)}");
+            //            //}
+            //            //Parameter parameter2 = item.LookupParameter("直径");
+            //            //if (parameter2 != null)
+            //            //{
+            //            //    parameter2.Set($"DN{(int)((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8)}");
+            //            //}
+            //        }
+            //        //////属性测试
+            //        ////Pipe item = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, new filterPipe()).ElementId) as Pipe;
+            //        ////TaskDialog.Show("tt", ((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8).ToString());
+            //        ////TaskDialog.Show("tt", ((item.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble()) * 304.8).ToString("F0"));
+            //        ////TaskDialog.Show("tt", ((int)((item.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble()) * 304.8)).ToString());
+            //        //TaskDialog.Show("tt", item.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsValueString());
+            //    }
+            //    catch (Exception)
+            //    {
+            //        throw;
+            //    }
+            //    tx.Commit();
+            //}
+            ////例程结束
 
             ////0511 找轴线交叉点坐标测试
             //// 2. 收集所有轴线 (Grid) 图元
@@ -1890,229 +2060,6 @@ namespace CreatePipe
 
 
 
-            ////1125 三管、四管连接试验,顺序会导致连接失败需要优化X
-            //// 1. 拾取第一根管道
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
-            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //// 2. 拾取第二根管道
-            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
-            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
-            //Reference ref3 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
-            //Pipe pipe3 = doc.GetElement(ref2) as Pipe;
-            //ConnectPipes(doc, ref1.ElementId, ref2.ElementId, ref3.ElementId);
-            ////1125 查找模型中所有垂直立管,并给出不同管径的管道数量OK
-            //try
-            //{
-            //    // 1. 获取模型中所有管道
-            //    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(Pipe));
-            //    // 管径统计字典：键=管径（毫米或英寸），值=数量
-            //    Dictionary<string, int> diameterCount = new Dictionary<string, int>();
-            //    foreach (Pipe pipe in collector)
-            //    {
-            //        LocationCurve lc = pipe.Location as LocationCurve;
-            //        if (lc == null) continue;
-            //        Line line = lc.Curve as Line;
-            //        if (line == null) continue;
-            //        // 2. 判断是否为垂直方向（通过方向向量判断）
-            //        XYZ dir = line.Direction.Normalize();
-            //        // 容差判断：方向Z分量 ≈ 1 或 ≈ -1
-            //        if (Math.Abs(Math.Abs(dir.Z) - 1.0) < 0.001)
-            //        {
-            //            // 3. 获取管径
-            //            double diameterFeet = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
-            //            // 转为毫米（英尺 * 304.8）
-            //            double diameterMM = diameterFeet * 304.8;
-            //            string diameterStr = $"{Math.Round(diameterMM, 0)} mm";
-            //            if (!diameterCount.ContainsKey(diameterStr))
-            //                diameterCount[diameterStr] = 0;
-            //            diameterCount[diameterStr]++;
-            //        }
-            //    }
-            //    // 4. 输出结果
-            //    string resultMsg = "垂直立管管径统计：\n";
-            //    if (diameterCount.Count == 0)
-            //    {
-            //        resultMsg += "未找到垂直立管。";
-            //    }
-            //    else
-            //    {
-            //        foreach (var kvp in diameterCount.OrderBy(k => k.Key))
-            //        {
-            //            resultMsg += $"{kvp.Key} ： {kvp.Value} 条";
-            //        }
-            //    }
-            //    TaskDialog.Show("立管统计", resultMsg);
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
-            ////////1207 风口清理和连接
-            //try
-            //{
-            //    // 1. 选择风口
-            //    using (Transaction trans = new Transaction(doc, "修改风管系统"))
-            //    {
-            //        trans.Start();
-            //        //Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new AirTerminalSelectionFilter(), "请选择一个风口");
-            //        //Element terminal = doc.GetElement(reference);
-            //        ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-            //        if (selectedIds == null || selectedIds.Count == 0)
-            //        {
-            //            TaskDialog.Show("错误", "未选择任意");
-            //            return Result.Failed;
-            //        }
-            //        List<Element> ductTerminals = new List<Element>();
-            //        foreach (var id in selectedIds)
-            //        {
-            //            Element element = doc.GetElement(id);
-            //            if (element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctTerminal)
-            //            {
-            //                ductTerminals.Add(element);
-            //            }
-            //        }
-            //        if (ductTerminals == null)
-            //        {
-            //            TaskDialog.Show("错误", "未选择风口");
-            //            return Result.Failed;
-            //        }
-            //        foreach (var item in ductTerminals)
-            //        {
-            //            // 2. 获取风口的所有连接器
-            //            List<Connector> connectors = GetConnectors(item);
-            //            if (connectors.Count == 0)
-            //            {
-            //                TaskDialog.Show("提示", "该风口没有连接器");
-            //                return Result.Failed;
-            //            }
-            //            // 3. 获取所有相连的管件和风管
-            //            List<ElementId> connectedElements = GetAllConnectedElements(connectors, doc);
-            //            // 4. 删除所有相连的管件和风管
-            //            DeleteConnectedElements(doc, connectedElements);
-            //            // 5. 设置风口高度
-            //            SetTerminalHeight(item, 3000);
-            //        }
-            //        trans.Commit();
-            //        //TaskDialog.Show("完成",$"已删除 {connectedElements.Count} 个相连元素，并将风口高度设置为4000mm");
-            //    }
-            //    return Result.Succeeded;
-            //}
-            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //{
-            //    return Result.Cancelled;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
-
-            //////1105 批量左右镜像.OK
-            //try
-            //{
-            //    FamilyInstance familyInstance;
-            //    ICollection<ElementId> selectedIds = new HashSet<ElementId>();
-            //    selectedIds = uiDoc.Selection.GetElementIds();
-            //    using (Transaction tx = new Transaction(doc))
-            //    {
-            //        tx.Start("Mirror Element");
-            //        if (selectedIds.Count == 0)
-            //        {
-            //            var reference = uiDoc.Selection.PickObjects(ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
-            //            foreach (var item in reference)
-            //            {
-            //                selectedIds.Add(item.ElementId);
-            //            }
-            //        }
-            //        foreach (var id in selectedIds)
-            //        {
-            //            familyInstance = doc.GetElement(id) as FamilyInstance;
-            //            // 获取构件的中心点
-            //            LocationPoint locationPoint = familyInstance.Location as LocationPoint;
-            //            XYZ centerPoint = locationPoint.Point;
-            //            // 获取构件的局部坐标系
-            //            Transform transform = familyInstance.GetTotalTransform();
-            //            // 获取局部 X 轴方向（左右方向）
-            //            XYZ xAxis = transform.BasisX;
-            //            // 创建镜像平面（通过中心点和局部 X 轴方向）
-            //            Plane mirrorPlane = Plane.CreateByNormalAndOrigin(xAxis, centerPoint);
-            //            // 镜像构件
-            //            ElementTransformUtils.MirrorElements(doc, new List<ElementId> { familyInstance.Id }, mirrorPlane, false);
-            //        }
-            //        tx.Commit();
-            //    }
-            //    //TaskDialog.Show("成功", "构件已按中心轴线镜像");
-            //}
-            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //{
-            //    // 用户取消操作
-            //    return Result.Cancelled;
-            //}
-            //catch (Exception ex)
-            //{
-            //    TaskDialog.Show("错误", ex.Message);
-            //    return Result.Failed;
-            //}
-            //例程结束
-
-            //////1029 管道属性批量填写,系统族批量可参考.OK
-            //using (Transaction tx = new Transaction(doc, "管道属性批写入"))
-            //{
-            //    tx.Start();
-            //    try
-            //    {
-            //        List<Pipe> allPipesInModel = new FilteredElementCollector(doc).OfClass(typeof(Pipe)).Cast<Pipe>().ToList();
-            //        foreach (var pipe in allPipesInModel)
-            //        {
-            //            //TaskDialog.Show("tt", ((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8).ToString());
-            //            double diameter = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble() * 304.8;
-            //            double length = pipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() * 304.8;
-            //            // 参数配置字典
-            //            var parameterConfigs = new Dictionary<string, string>
-            //            {
-            //                { "尺寸规格", $"DN{(int)diameter}" },
-            //                { "直径", $"DN{(int)diameter}" },
-            //                { "材质1", "钢管" },
-            //                { "压力等级", "1.6MPa" },
-            //                { "长度", $"{(int)length}mm" },
-            //                { "系统类型", "喷淋" },
-            //                { "坡度", "0" },
-            //                { "保温材料", "柔性泡沫橡塑管壳" },
-            //                { "保温厚度", "55mm" }
-            //            };
-            //            foreach (var config in parameterConfigs)
-            //            {
-            //                Parameter param = pipe.LookupParameter(config.Key);
-            //                param?.Set(config.Value);
-            //            }
-            //            //简化前代码
-            //            //Parameter parameter1 = item.LookupParameter("尺寸规格");
-            //            //if (parameter1 != null)
-            //            //{
-            //            //    parameter1.Set($"DN{(int)((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8)}");
-            //            //}
-            //            //Parameter parameter2 = item.LookupParameter("直径");
-            //            //if (parameter2 != null)
-            //            //{
-            //            //    parameter2.Set($"DN{(int)((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8)}");
-            //            //}
-            //        }
-            //        //////属性测试
-            //        ////Pipe item = doc.GetElement(uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, new filterPipe()).ElementId) as Pipe;
-            //        ////TaskDialog.Show("tt", ((item.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble()) * 304.8).ToString());
-            //        ////TaskDialog.Show("tt", ((item.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble()) * 304.8).ToString("F0"));
-            //        ////TaskDialog.Show("tt", ((int)((item.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble()) * 304.8)).ToString());
-            //        //TaskDialog.Show("tt", item.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsValueString());
-            //    }
-            //    catch (Exception)
-            //    {
-            //        throw;
-            //    }
-            //    tx.Commit();
-            //}
-            ////例程结束
             //////1014 补充沟体替换
             //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
             //circleGaugePlaceView.Show();
@@ -2389,166 +2336,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", "实例属性：" + stringBuilderInstance.ToString() + "\n" + "类型属性：" + stringBuilderSymbol.ToString() + "\n" + "（待复核）共同属性：" + stringBuilderBoth.ToString());
 
-            //////0331 批量改族类型方法，考虑封装一个类型转化方法
-            //try
-            //{
-            //    // 选择文件
-            //    var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            //    {
-            //        Title = "选择要修改族类别的 RFA 文件",
-            //        Filter = "Revit Family Files (*.rfa)|*.rfa",
-            //        Multiselect = true
-            //    };
-            //    if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
-            //    string[] selectedFiles = openFileDialog.FileNames;
-            //    if (selectedFiles.Length == 0)
-            //    {
-            //        TaskDialog.Show("提示", "未选择任何文件");
-            //        return Result.Cancelled;
-            //    }
-            //    // 确认操作
-            //    var result = TaskDialog.Show(
-            //        "确认操作",
-            //        $"即将修改 {selectedFiles.Length} 个族文件的类别为\"电气装置\"。\n\n是否继续？",
-            //        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-            //    if (result != TaskDialogResult.Yes) return Result.Cancelled;
-            //    // 处理文件
-            //    var successFiles = new List<string>();
-            //    var failedFiles = new List<string>();
-            //    var skippedFiles = new List<string>();
-            //    foreach (string filePath in selectedFiles)
-            //    {
-            //        string resultMessage;
-            //        if (ProcessFamilyFile(uiApp, filePath, out resultMessage))
-            //        {
-            //            successFiles.Add(Path.GetFileName(filePath));
-            //        }
-            //        else if (resultMessage.Contains("已是"))
-            //        {
-            //            skippedFiles.Add(Path.GetFileName(filePath));
-            //        }
-            //        else
-            //        {
-            //            failedFiles.Add($"{Path.GetFileName(filePath)} - {resultMessage}");
-            //        }
-            //    }
-            //    ShowResult(successFiles, failedFiles, skippedFiles);
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
-
-
-            ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
-            //var selIds = uiDoc.Selection.GetElementIds();
-            //if (selIds == null || selIds.Count == 0)
-            //{
-            //    message = "请先在选集中选择风管管件（Duct Fitting）。";
-            //    return Result.Failed;
-            //}
-            //var logs = new List<string>();
-            //int ok = 0, skipped = 0, failed = 0;
-            //using (var tx = new Transaction(doc, "删除风管管件并重连两端连接器"))
-            //{
-            //    tx.Start();
-            //    foreach (var id in selIds)
-            //    {
-            //        Element e = doc.GetElement(id);
-            //        if (e == null) continue;
-            //        // 仅处理风管管件
-            //        if (!(e is FamilyInstance fi) ||
-            //            fi.Category == null ||
-            //            fi.Category.Id.IntegerValue != (int)BuiltInCategory.OST_DuctFitting)
-            //        {
-            //            continue;
-            //        }
-            //        using (var st = new SubTransaction(doc))
-            //        {
-            //            st.Start();
-            //            try
-            //            {
-            //                // 1) 获取该管件两端连接到的“外部连接器”（风管/附件/设备等的连接器）
-            //                //    必须在删除管件前取到，因为删除后引用关系会改变
-            //                var endConnectors = GetTwoEndNeighborConnectors(fi);
-            //                if (endConnectors == null || endConnectors.Count != 2)
-            //                {
-            //                    skipped++;
-            //                    st.RollBack(); // 本次子事务不做任何改变，回滚/不提交都可以；这里统一回滚
-            //                    continue;
-            //                }
-            //                Connector c1 = endConnectors[0];
-            //                Connector c2 = endConnectors[1];
-            //                // 记录“连接器id”：Revit 的 Connector.Id 是 int（同一 Owner 内唯一）
-            //                // 为便于唯一定位，记录 OwnerId + ConnectorId
-            //                string c1Key = $"{c1.Owner.Id.IntegerValue}:{c1.Id}";
-            //                string c2Key = $"{c2.Owner.Id.IntegerValue}:{c2.Id}";
-            //                logs.Add($"Fitting {fi.Id.IntegerValue} -> C1 {c1Key} ({SafeCatName(c1.Owner)}) , C2 {c2Key} ({SafeCatName(c2.Owner)})");
-            //                // 2) 删除管件
-            //                doc.Delete(fi.Id);
-            //                doc.Regenerate();
-            //                // 尝试强制生成新管件
-            //                bool created = TryCreateFitting(c1, c2, doc);
-            //                // 若失败，尝试反向
-            //                if (!created)
-            //                    created = TryCreateFitting(c2, c1, doc);
-            //                if (!created)
-            //                    throw new InvalidOperationException("无法生成新的风管管件");
-            //                st.Commit();
-            //                ok++;
-            //            }
-            //            catch (Exception ex)
-            //            {
-            //                failed++;
-            //                logs.Add($"Fitting {fi.Id.IntegerValue} FAILED: {ex.GetType().Name} - {ex.Message}");
-            //                st.RollBack();
-            //            }
-            //        }
-            //    }
-            //    tx.Commit();
-            //}
-            //TaskDialog.Show("结果", $"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
-
-            ////0205 查找特定属性风口构建
-            //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
-            //List<FamilyInstance> terminalNames = new List<FamilyInstance>();
-            //foreach (var item in allInstance)
-            //{
-            //    if ((item.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctTerminal) && (item.Name == "风道末端_单层百叶风口"))
-            //    {
-            //        terminalNames.Add(item);
-            //    }
-            //}
-            //List<ElementId> selectedElementIds = new List<ElementId>();
-            ////foreach (var item in terminalNames)
-            ////{
-            ////    try
-            ////    {
-            ////        Parameter widthParameter = item.LookupParameter("风口宽度");
-            ////        Parameter heightParameter = item.LookupParameter("风口高度");
-            ////        //if (widthParameter != null && widthParameter.AsDouble() == 600 / 304.8 && heightParameter != null && heightParameter.AsDouble() == 500 / 304.8)
-            ////        if (widthParameter != null && widthParameter.AsDouble() == 1000 / 304.8)
-            ////        //if (heightParameter != null && heightParameter.AsDouble() == 600 / 304.8)
-            ////        {
-            ////            selectedElementIds.Add(item.Id);
-            ////        }
-            ////    }
-            ////    catch (Exception)
-            ////    {
-            ////        throw;
-            ////    }
-            ////}
-            ////TaskDialog.Show("tt", selectedElementIds.Count().ToString());
-            //StringBuilder stringBuilder = new StringBuilder();
-            //foreach (var item in terminalNames)
-            //{
-            //    selectedElementIds.Add(item.Id);
-            //    stringBuilder.Append(item.Id.ToString() + ",");
-            //}
-            //TaskDialog.Show("tt", stringBuilder.ToString());
-            ////uiDoc.Selection.SetElementIds(selectedElementIds);
             return Result.Succeeded;
         }
         //private int _maximum;

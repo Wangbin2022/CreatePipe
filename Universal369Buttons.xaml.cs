@@ -48,17 +48,17 @@ namespace CreatePipe
             foreach (UIElement child in MainGrid.Children)
             {
                 // 获取当前控件属于第几行 (0代表第一行, 1代表第二行...)
-                int rowIndex = Grid.GetRow(child);
+                int rowIndex = System.Windows.Controls.Grid.GetRow(child);
 
                 // 如果控件所在行小于当前允许显示的行数，就显示，否则折叠隐藏
                 if (rowIndex < _visibleRowCount)
                 {
-                    child.Visibility = Visibility.Visible;
+                    child.Visibility = System.Windows.Visibility.Visible;
                 }
                 else
                 {
                     // Collapsed 会让控件完全消失，且不占位
-                    child.Visibility = Visibility.Collapsed;
+                    child.Visibility = System.Windows.Visibility.Collapsed;
                 }
             }
         }

@@ -80,10 +80,14 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BasePointMover.xaml.cs">
+    <Compile Include="Form\BacthDelModelElementView.xaml.cs">
+      <DependentUpon>BacthDelModelElementView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Obselete\BasePointMover.xaml.cs">
       <DependentUpon>BasePointMover.xaml</DependentUpon>
     </Compile>
-    <Compile Include="ConnectorService.cs" />
+    <Compile Include="Obselete\ConnectorService.cs" />
+    <Compile Include="Form\UserControls\DrawerButton.cs" />
     <Compile Include="ErrorHandling.cs" />
     <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\AirTerminalSelectionFilter.cs" />
@@ -567,7 +571,7 @@
     <Compile Include="OfficalSamples\ZoneEditorWindow.xaml.cs">
       <DependentUpon>ZoneEditorWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="ProjectParameterData.cs" />
+    <Compile Include="Obselete\ProjectParameterData.cs" />
     <Compile Include="RevitOperationLogger.cs" />
     <Compile Include="Form\RevitStylePopup\ToastWindow.xaml.cs">
       <DependentUpon>ToastWindow.xaml</DependentUpon>
@@ -932,10 +936,14 @@
     <Compile Include="Obselete\ViewManagerViewModel.cs" />
     <Compile Include="Obselete\WallSurfaceFunc.cs" />
     <Compile Include="Obselete\VisibilityControlCmd.cs" />
-    <Compile Include="VocabularyReverse.cs" />
+    <Compile Include="Utils\VocabularyReverse.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="BasePointMover.xaml">
+    <Page Include="Form\BacthDelModelElementView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Obselete\BasePointMover.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -1783,6 +1791,15 @@
   <ItemGroup>
     <Resource Include="Resources\5九宫格16.png" />
     <Resource Include="Resources\5九宫格32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\contentPic\minus16.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\contentPic\plus16.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="DrawerButton\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using Autodesk.Revit.UI;
+using System.Windows;
 
 namespace CreatePipe
 {
@@ -14,6 +15,12 @@ namespace CreatePipe
 
         private void btn_OK_Click(object sender, RoutedEventArgs e)
         {
+            this.Close();
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            TaskDialog.Show("tt", "PASS");
             this.Close();
         }
     }
