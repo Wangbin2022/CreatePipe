@@ -35,7 +35,7 @@
             </StackPanel>
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <TextBlock Text="{Binding Collection.Count,UpdateSourceTrigger=LostFocus,Converter={StaticResource IntToStringConverter}}" VerticalAlignment="Center"/>
-                <Button Content="删除未放置房间"  Width="80" Margin="5"  Command="{Binding DeleteElementCommand}"
+                <Button Content="删未放置房间"  Width="80" Margin="5"  Command="{Binding DeleteElementCommand}"
       HorizontalAlignment="Right"/>
                 <Button Width="80" Margin="5" Content="删除选中房间" Command="{Binding DeleteElementsCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
@@ -161,10 +161,9 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                                                 <Button Content="编码比对"   Margin="5,2,2,2" Width="80" IsEnabled="{Binding HasLoadCsv}"
                         Command="{Binding RoomCompareCommand}"
                         />
-                                                <!--<Button Content="全部赋码"  Margin="2,2,5,2"
-                        Command="{Binding CodeAllCommand}"
-                                IsEnabled="{Binding HasLoadCsv}"
-                        HorizontalAlignment="Right"/> -->
+                                                <Button Content="全部赋属性"  Margin="2,2,5,2" Width="90"  Command="{Binding CodeAllCommand}"  
+                         IsEnabled="{Binding IsProjectConfigured}" ToolTip="{Binding ConfigWarning}"  HorizontalAlignment="Right"
+                                                        ToolTipService.ShowOnDisabled="True"/> 
                                             </StackPanel>
                                         </Grid>
                                         <DataGrid RowHeight="25"  
@@ -181,12 +180,10 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                                                 <DataGridTextColumn Header="缩写" Width="60"
                                           Binding="{Binding roomAbbreviation,UpdateSourceTrigger=PropertyChanged}"
                                           SortMemberPath="roomAbbreviation"/>
-                                                <DataGridTextColumn Header="房间编码" Width="80"
-                                          Binding="{Binding roomCode}"/>
-                                                <DataGridTextColumn Header="数量" Width="45"
-                                          Binding="{Binding roomNumber}"
-                                          SortMemberPath="roomNumber"/>
-                                                <DataGridTemplateColumn Header="是否赋码" Width="60"
+                                                <DataGridTextColumn Header="房间数量" Width="60" Binding="{Binding roomNumber}" SortMemberPath="roomNumber"/>
+                                                <DataGridTextColumn Header="已编码数" Width="60"
+                                          Binding="{Binding hasCodeNum}"/>                                           
+                                                <DataGridTemplateColumn Header="" Width="50"
                        SortMemberPath="IsRoomCoded">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
@@ -213,11 +210,11 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
-                                                <DataGridTemplateColumn Header="单类房间操作" Width="80">
+                                                <DataGridTemplateColumn Header="" Width="85">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Button Content="当前房间编码" Width="80"  Command="{Binding DataContext.CodeEntityCommand,                                        RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding }" 
-                                             />
+                                                            <Button Content="当前房间编码" Width="80"  Command="{Binding DataContext.CodeEntityCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+        CommandParameter="{Binding }" ToolTipService.ShowOnDisabled="True"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
@@ -252,7 +249,7 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                                 </GroupBox>
                             </Grid>
                         </TabItem>
-                        <TabItem Header="深圳T2项目" FontSize="12">
+                        <TabItem Header="深圳Sz-ifc" FontSize="12">
 
                         </TabItem>
                     </TabControl>

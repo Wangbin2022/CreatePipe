@@ -831,45 +831,9 @@ namespace CreatePipe
             UIApplication uiApp = commandData.Application;
 
 
-            //0603 房间功能扩展修改
+            ////0603 房间功能扩展修改
             RoomManagerView roomManagerView = new RoomManagerView(uiApp);
             roomManagerView.Show();
-
-            //// 1. 收集当前文档中的所有房间
-            //FilteredElementCollector collector = new FilteredElementCollector(doc);
-            //ICollection<Element> allRooms = collector
-            //    .OfCategory(BuiltInCategory.OST_Rooms)
-            //    .WhereElementIsNotElementType()
-            //    .ToElements();
-
-            //// 2. 筛选出“未放置”的房间
-            //List<ElementId> unplacedRoomIds = new List<ElementId>();
-            //foreach (Element elem in allRooms)
-            //{
-            //    Room room = elem as Room;
-            //    if (room != null && room.Location == null)
-            //    {
-            //        unplacedRoomIds.Add(room.Id);
-            //    }
-            //}
-
-            //// 3. 开启事务，执行删除操作
-            //using (Transaction trans = new Transaction(doc, "彻底删除未放置房间"))
-            //{
-            //    trans.Start();
-            //    if (unplacedRoomIds.Count > 0)
-            //    {
-            //        // 一次性删除所有收集到的未放置房间ID
-            //        doc.Delete(unplacedRoomIds);
-            //        TaskDialog.Show("完成", $"已彻底删除 {unplacedRoomIds.Count} 个未放置房间。");
-            //    }
-            //    else
-            //    {
-            //        TaskDialog.Show("提示", "没有找到未放置的房间。");
-            //    }
-            //    trans.Commit();
-            //}
-
 
             //0602 整合删除各类元素功能
             //BacthDelModelElementView bacthDelModelElementView = new BacthDelModelElementView(uiApp);

@@ -824,7 +824,7 @@
       <DependentUpon>RoomAttrForm.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\RoomAttr\RoomAttrViewModel.cs" />
-    <Compile Include="Obselete\RoomAttr\RoomEntity.cs" />
+    <Compile Include="Obselete\RoomAttr\DLRoomEntity.cs" />
     <Compile Include="Obselete\TableTemplateViewModel.cs" />
     <Compile Include="Obselete\Test07_0402.cs" />
     <Compile Include="Obselete\Test5_0101.cs" />

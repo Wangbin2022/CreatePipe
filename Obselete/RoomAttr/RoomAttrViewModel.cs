@@ -39,8 +39,8 @@ namespace CreatePipe.Obselete.RoomAttr
             }
         }
         //写入单个Entity修改信息（类别、空间设计编号（缩写加序号）、空间编码）
-        public ICommand CodeEntityCommand => new RelayCommand<RoomEntity>(RewriteEntityRoom);
-        private void RewriteEntityRoom(RoomEntity entity)
+        public ICommand CodeEntityCommand => new RelayCommand<DLRoomEntity>(RewriteEntityRoom);
+        private void RewriteEntityRoom(DLRoomEntity entity)
         {
             XmlDoc.Instance.Task.Run(app =>
             {
@@ -70,13 +70,13 @@ namespace CreatePipe.Obselete.RoomAttr
         private void RewriteAllRoom(Object para)
         {
             //RewriteRoom();
-            foreach (RoomEntity room in RoomModels)
+            foreach (DLRoomEntity room in RoomModels)
             {
                 RewriteEntityRoom(room);
                 CheckAllCoded(room);
             }
         }
-        private void CheckAllCoded(RoomEntity roomEntity)
+        private void CheckAllCoded(DLRoomEntity roomEntity)
         {
             FilteredElementCollector elems = new FilteredElementCollector(Doc).OfCategory(BuiltInCategory.OST_Rooms);
             List<Room> roomQuery = elems.OfType<Room>().ToList();
@@ -116,7 +116,7 @@ namespace CreatePipe.Obselete.RoomAttr
         //赋码
         private void RoomCompare(object obj)
         {
-            foreach (RoomEntity item in RoomModels)
+            foreach (DLRoomEntity item in RoomModels)
             {
                 foreach (var unit in showList)
                 {
@@ -133,8 +133,8 @@ namespace CreatePipe.Obselete.RoomAttr
         private void GetEntity(Object para)
         {
             RoomModels.Clear();
-            ObservableCollection<RoomEntity> roomEntities = new ObservableCollection<RoomEntity>();
-            RoomEntity entity = null;
+            ObservableCollection<DLRoomEntity> roomEntities = new ObservableCollection<DLRoomEntity>();
+            DLRoomEntity entity = null;
             FilteredElementCollector elems = new FilteredElementCollector(Doc).OfCategory(BuiltInCategory.OST_Rooms);
             IEnumerable<Room> roomQuery = elems.OfType<Room>();
             // 如果 Keyword 为空，则获取所有房间；否则，只获取包含 Keyword 的房间
@@ -158,7 +158,7 @@ namespace CreatePipe.Obselete.RoomAttr
                         roomList.Add(room);
                     }
                 }
-                entity = new RoomEntity(roomList, Doc);
+                entity = new DLRoomEntity(roomList, Doc);
                 CheckAllCoded(entity);
                 roomEntities.Add(entity);
             }
@@ -167,8 +167,8 @@ namespace CreatePipe.Obselete.RoomAttr
         }
 
         public string RoomCount => RoomModels.Count.ToString();
-        private ObservableCollection<RoomEntity> roomModels = new ObservableCollection<RoomEntity>();
-        public ObservableCollection<RoomEntity> RoomModels
+        private ObservableCollection<DLRoomEntity> roomModels = new ObservableCollection<DLRoomEntity>();
+        public ObservableCollection<DLRoomEntity> RoomModels
         {
             get => roomModels;
             set
