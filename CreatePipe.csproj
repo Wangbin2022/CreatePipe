@@ -83,6 +83,12 @@
     <Compile Include="Form\BacthDelModelElementView.xaml.cs">
       <DependentUpon>BacthDelModelElementView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\BacthFamilyEditorView.xaml.cs">
+      <DependentUpon>BacthFamilyEditorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\UniversalDoubleComboboxWindow.xaml.cs">
+      <DependentUpon>UniversalDoubleComboboxWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Obselete\BasePointMover.xaml.cs">
       <DependentUpon>BasePointMover.xaml</DependentUpon>
     </Compile>
@@ -940,6 +946,14 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="Form\BacthDelModelElementView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\BacthFamilyEditorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\UniversalDoubleComboboxWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

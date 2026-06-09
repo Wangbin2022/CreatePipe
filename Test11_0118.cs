@@ -16,131 +16,111 @@ using System.IO;
 using System.Linq;
 using System.Windows.Controls;
 using static CreatePipe.Utils.HelpersSelection;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 //service.Update(++index, id.Value.ToString());
 //set => SetProperty(ref _maximum, value);
 
 namespace CreatePipe
 {
+    //内置类展示
+    public class CategoryItem
+    {
+        public string Name { get; set; }
+        public BuiltInCategory BuiltInCategory { get; set; }
+        public CategoryItem(string name, int categoryId)
+        {
+            Name = name;
+            // 将整数 ID 强转为 Revit 的 BuiltInCategory 枚举
+            BuiltInCategory = (BuiltInCategory)categoryId;
+        }
+        // 【魔法就在这里】：WPF 的 ComboBox 默认会调用对象的 ToString() 作为界面显示的文本
+        public override string ToString()
+        {
+            return Name;
+        }
+    }
     [Transaction(TransactionMode.Manual)]
     public class Test11_0118 : Decorator, IExternalCommand
     {
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        private void CheckMEPCurveSlope(Document document, List<ElementId> ids, double angle)
-        {
-            foreach (ElementId id in ids)
-            {
-                Element elem = document.GetElement(id);
-                if (!(elem is MEPCurve mepCurve)) { continue; }
-                switch (mepCurve)
-                {
-                    case Pipe pipe:
-                        if (pipe.get_Parameter(BuiltInParameter.RBS_PIPE_SLOPE).AsDouble() == angle)
-                        {
+        //private Category GetElectricalEquipmentCategory(Document doc)
+        //{
+        //    return Category.GetCategory(doc, BuiltInCategory.OST_ElectricalFixtures);
+        //}
+        //private bool ProcessFamilyFile(UIApplication app, string filePath, out string message)
+        //{
+        //    message = string.Empty;
+        //    Document familyDoc = null;
+        //    try
+        //    {
+        //        familyDoc = app.Application.OpenDocumentFile(filePath);
 
-                        }
-                        TaskDialog.Show("提示", $"检查了x个管道系统,坡度异常管道清单: {pipe.Name}");
-                        break;
-                    case Duct duct:
-                        if (duct.get_Parameter(BuiltInParameter.RBS_DUCT_SLOPE).AsDouble() == angle)
-                        {
+        //        if (!familyDoc.IsFamilyDocument)
+        //        {
+        //            message = "不是有效的族文件";
+        //            return false;
+        //        }
+        //        Category currentCategory = familyDoc.OwnerFamily.FamilyCategory;
+        //        // 检查是否已经是电气装置
+        //        if (currentCategory?.Id.IntegerValue == (int)BuiltInCategory.OST_ElectricalFixtures)
+        //        {
+        //            message = "已是电气装置类别";
+        //            return false;
+        //        }
+        //        // 获取电气装置类别
+        //        Category electricalCategory = GetElectricalEquipmentCategory(familyDoc);
+        //        if (electricalCategory == null)
+        //        {
+        //            message = "未找到'电气装置'类别";
+        //            return false;
+        //        }
+        //        using (Transaction trans = new Transaction(familyDoc, "修改族类别"))
+        //        {
+        //            trans.Start();
+        //            familyDoc.OwnerFamily.FamilyCategory = electricalCategory;
+        //            trans.Commit();
+        //        }
+        //        familyDoc.Save();
+        //        message = "修改成功";
+        //        return true;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        message = $"错误: {ex.Message}";
+        //        return false;
+        //    }
+        //    finally
+        //    {
+        //        familyDoc?.Close(false);
+        //    }
+        //}
+        //private void ShowResult(List<string> success, List<string> failed, List<string> skipped)
+        //{
+        //    string resultMessage = "";
 
-                        }
-                        TaskDialog.Show("提示", $"检查了x个风管系统,坡度异常风管清单: {duct.Name}");
-                        break;
-                    case CableTray tray:
-                        if (tray.get_Parameter(BuiltInParameter.RBS_START_OFFSET_PARAM).AsDouble() != tray.get_Parameter(BuiltInParameter.RBS_END_OFFSET_PARAM).AsDouble())
-                        {
+        //    if (success.Count > 0)
+        //    {
+        //        resultMessage += $"✅ 成功修改 ({success.Count} 个):\n{string.Join("\n", success)}\n\n";
+        //    }
 
-                        }
-                        TaskDialog.Show("提示", $"检查了x个桥架系统,坡度异常风管清单: {tray.Name}");
-                        break;
-                    case Conduit conduit:
-                        TaskDialog.Show("提示", "暂不支持线管检查");
-                        break;
-                    default:
-                        // 其他未定义的 MEPCurve 类型
-                        break;
-                }
-            }
-        }
-        private Category GetElectricalEquipmentCategory(Document doc)
-        {
-            return Category.GetCategory(doc, BuiltInCategory.OST_ElectricalFixtures);
-        }
-        private bool ProcessFamilyFile(UIApplication app, string filePath, out string message)
-        {
-            message = string.Empty;
-            Document familyDoc = null;
-            try
-            {
-                familyDoc = app.Application.OpenDocumentFile(filePath);
+        //    if (skipped.Count > 0)
+        //    {
+        //        resultMessage += $"⚠️ 已跳过 ({skipped.Count} 个 - 已是电气装置):\n{string.Join("\n", skipped)}\n\n";
+        //    }
 
-                if (!familyDoc.IsFamilyDocument)
-                {
-                    message = "不是有效的族文件";
-                    return false;
-                }
-                Category currentCategory = familyDoc.OwnerFamily.FamilyCategory;
-                // 检查是否已经是电气装置
-                if (currentCategory?.Id.IntegerValue == (int)BuiltInCategory.OST_ElectricalFixtures)
-                {
-                    message = "已是电气装置类别";
-                    return false;
-                }
-                // 获取电气装置类别
-                Category electricalCategory = GetElectricalEquipmentCategory(familyDoc);
-                if (electricalCategory == null)
-                {
-                    message = "未找到'电气装置'类别";
-                    return false;
-                }
-                using (Transaction trans = new Transaction(familyDoc, "修改族类别"))
-                {
-                    trans.Start();
-                    familyDoc.OwnerFamily.FamilyCategory = electricalCategory;
-                    trans.Commit();
-                }
-                familyDoc.Save();
-                message = "修改成功";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                message = $"错误: {ex.Message}";
-                return false;
-            }
-            finally
-            {
-                familyDoc?.Close(false);
-            }
-        }
-        private void ShowResult(List<string> success, List<string> failed, List<string> skipped)
-        {
-            string resultMessage = "";
+        //    if (failed.Count > 0)
+        //    {
+        //        resultMessage += $"❌ 修改失败 ({failed.Count} 个):\n{string.Join("\n", failed)}\n\n";
+        //    }
 
-            if (success.Count > 0)
-            {
-                resultMessage += $"✅ 成功修改 ({success.Count} 个):\n{string.Join("\n", success)}\n\n";
-            }
+        //    if (string.IsNullOrEmpty(resultMessage))
+        //    {
+        //        resultMessage = "没有处理任何文件";
+        //    }
 
-            if (skipped.Count > 0)
-            {
-                resultMessage += $"⚠️ 已跳过 ({skipped.Count} 个 - 已是电气装置):\n{string.Join("\n", skipped)}\n\n";
-            }
-
-            if (failed.Count > 0)
-            {
-                resultMessage += $"❌ 修改失败 ({failed.Count} 个):\n{string.Join("\n", failed)}\n\n";
-            }
-
-            if (string.IsNullOrEmpty(resultMessage))
-            {
-                resultMessage = "没有处理任何文件";
-            }
-
-            TaskDialog.Show("批量修改完成", resultMessage);
-        }
+        //    TaskDialog.Show("批量修改完成", resultMessage);
+        //}
         //找实例共同文字属性列表     
         public Dictionary<string, string> GetCommonStringParameterNames(Document doc)
         {
@@ -830,18 +810,138 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            //0609 批量改族
+            BacthFamilyEditorView bacthFamilyEditorView = new BacthFamilyEditorView(uiApp);
+            bacthFamilyEditorView.ShowDialog();
 
-            ////0603 房间功能扩展修改
-            RoomManagerView roomManagerView = new RoomManagerView(uiApp);
-            roomManagerView.Show();
 
-            //0602 整合删除各类元素功能
-            //BacthDelModelElementView bacthDelModelElementView = new BacthDelModelElementView(uiApp);
-            //bacthDelModelElementView.ShowDialog();
+            ////0605 双combobox 另存族类型测试
+            ////TestWindow testWindow = new TestWindow(uiApp);
+            ////testWindow.ShowDialog();
+            //        if (!doc.IsFamilyDocument) return Result.Cancelled;
 
-            ////0602 测试抽屉弹出控件
-            //TestWindow testWindow = new TestWindow(uiApp);
-            //testWindow.ShowDialog();
+            //        //// 1. 准备你的映射字典,构建数据源 (Key 是 CategoryItem 对象，Value 是 PartType 集合)
+            //        var partTypeMap = new Dictionary<CategoryItem, List<PartType>>
+            //        {
+            //            { new CategoryItem("常规模型", -2000151), new List<PartType> { PartType.Normal} },
+            //            { new CategoryItem("专用设备", -2001350), new List<PartType> { PartType.Normal} },
+            //{ new CategoryItem("风道末端", -2008013), new List<PartType> { PartType.Normal} },
+            //{ new CategoryItem("桥架配件", -2008126), new List<PartType> { PartType.ChannelCableTrayCross, PartType.ChannelCableTrayElbow, PartType.ChannelCableTrayMultiPort, PartType.ChannelCableTrayOffset, PartType.ChannelCableTrayTee, PartType.ChannelCableTrayTransition, PartType.ChannelCableTrayUnion, PartType.ChannelCableTrayVerticalElbow, PartType.LadderCableTrayCross, PartType.LadderCableTrayElbow, PartType.LadderCableTrayMultiPort, PartType.LadderCableTrayOffset, PartType.LadderCableTrayTee, PartType.LadderCableTrayTransition, PartType.LadderCableTrayUnion, PartType.LadderCableTrayVerticalElbow } },
+            //{ new CategoryItem("通讯设备", -2008081), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            //{ new CategoryItem("线管配件", -2008128), new List<PartType> { PartType.Cap,PartType.Cross, PartType.Elbow, PartType.JunctionBoxElbow, PartType.MultiPort, PartType.Tee, PartType.Transition, PartType.Union } },
+            //{ new CategoryItem("数据设备", -2008083), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            //{ new CategoryItem("风管附件", -2008016), new List<PartType> { PartType.AttachesTo, PartType.BreaksInto, PartType.Damper } },
+            //{ new CategoryItem("风管管件", -2008010), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.LateralCross, PartType.LateralTee, PartType.MultiPort, PartType.Offset, PartType.Pants, PartType.TapAdjustable, PartType.TapPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
+            //{ new CategoryItem("电气设备", -2001040), new List<PartType> { PartType.EquipmentSwitch, PartType.OtherPanel, PartType.PanelBoard, PartType.SwitchBoard, PartType.Transformer } },
+            //{ new CategoryItem("电气装置", -2001060), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            //{ new CategoryItem("火灾报警设备", -2008085), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            //{ new CategoryItem("照明设备（开关）", -2008087), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            //{ new CategoryItem("照明设备 (灯具)", -2001120), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            //{ new CategoryItem("机械设备", -2001140), new List<PartType> { PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor, PartType.Normal, PartType.ValveBreaksInto } },
+            //{ new CategoryItem("护士呼叫设备", -2008077), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            //{ new CategoryItem("管道附件", -2008055), new List<PartType> { PartType.Normal, PartType.AttachesTo, PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor,  PartType.Sensor, PartType.ValveBreaksInto, PartType.ValveNormal } },
+            //{ new CategoryItem("管道管件", -2008049), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.PipeFlange, PartType.LateralCross, PartType.LateralTee, PartType.PipeMechanicalCoupling, PartType.MultiPort, PartType.SpudAdjustable, PartType.SpudPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
+            //{ new CategoryItem("卫浴装置", -2001160), new List<PartType> { PartType.Normal } },
+            //{ new CategoryItem("安防设备", -2008079), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            //{ new CategoryItem("喷头", -2008099), new List<PartType> { PartType.Normal } },
+            //{ new CategoryItem("电话设备", -2008075), new List<PartType> { PartType.Normal, PartType.JunctionBox } }
+            //        };
+            //        try
+            //        {
+
+            //            ////// 2. 实例化通用窗口，并传入标题、提示文本和数据字典
+            //            var dialog = new UniversalDoubleComboboxWindow(
+            //                windowTitle: "设置族参数", header1: "1. 请选择族类别 (Family Category):",
+            //                header2: "2. 请选择零件类型 (PartType):", dataMap: partTypeMap);
+            //            if (dialog.ShowDialog() == true)
+            //            {
+            //                // 1. 获取选中的目标类别和目标 PartType
+            //                CategoryItem selectedCatItem = (CategoryItem)dialog.SelectedItem1;
+            //                BuiltInCategory targetRevitCat = selectedCatItem.BuiltInCategory;
+            //                PartType selectedPartType = (PartType)dialog.SelectedItem2;
+            //                // 2. 安全地获取当前的 族类别ID 和 PartType值
+            //                int currentCatId = doc.OwnerFamily.FamilyCategory?.Id.IntegerValue ?? -1;
+            //                Parameter partTypeParam = doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
+            //                // 如果该参数存在，则获取其整型值，否则给个默认值 -1
+            //                int currentPartType = partTypeParam != null ? partTypeParam.AsInteger() : -1;
+            //                // 3. 判断是否与当前完全一致
+            //                if (currentCatId == (int)targetRevitCat && currentPartType == (int)selectedPartType)
+            //                {
+            //                    TaskDialog.Show("提示", "当前族已是所选择类型，无需转换");
+            //                    return Result.Cancelled; // 既然无需操作，返回 Cancelled 或 Succeeded 都可以
+            //                }
+            //                // 4. 执行转换事务
+            //                NewTransaction.Execute(doc, "修改族类型", () =>
+            //                {
+            //                    doc.OwnerFamily.FamilyCategory = Category.GetCategory(doc, targetRevitCat);
+            //                    // 注意：修改类别后，PartType 参数可能才出现，所以必须重新获取一遍！！！
+            //                    Parameter newPartTypeParam = doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
+            //                    if (newPartTypeParam != null && !newPartTypeParam.IsReadOnly)
+            //                    {
+            //                        newPartTypeParam.Set((int)selectedPartType);
+            //                    }
+            //                });
+            //            }
+            //        }
+            //        catch (Exception)
+            //        {
+
+            //            throw;
+            //        }
+
+
+
+            //////////0331 批量改族类型方法，考虑封装一个类型转化方法
+            //try
+            //{
+            //    // 选择文件
+            //    var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            //    {
+            //        Title = "选择要修改族类别的 RFA 文件",
+            //        Filter = "Revit Family Files (*.rfa)|*.rfa",
+            //        Multiselect = true
+            //    };
+            //    if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
+            //    string[] selectedFiles = openFileDialog.FileNames;
+            //    if (selectedFiles.Length == 0)
+            //    {
+            //        TaskDialog.Show("提示", "未选择任何文件");
+            //        return Result.Cancelled;
+            //    }
+            //    // 确认操作
+            //    var result = TaskDialog.Show(
+            //        "确认操作",
+            //        $"即将修改 {selectedFiles.Length} 个族文件的类别为\"电气装置\"。\n\n是否继续？",
+            //        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+            //    if (result != TaskDialogResult.Yes) return Result.Cancelled;
+            //    // 处理文件
+            //    var successFiles = new List<string>();
+            //    var failedFiles = new List<string>();
+            //    var skippedFiles = new List<string>();
+            //    foreach (string filePath in selectedFiles)
+            //    {
+            //        string resultMessage;
+            //        if (ProcessFamilyFile(uiApp, filePath, out resultMessage))
+            //        {
+            //            successFiles.Add(Path.GetFileName(filePath));
+            //        }
+            //        else if (resultMessage.Contains("已是"))
+            //        {
+            //            skippedFiles.Add(Path.GetFileName(filePath));
+            //        }
+            //        else
+            //        {
+            //            failedFiles.Add($"{Path.GetFileName(filePath)} - {resultMessage}");
+            //        }
+            //    }
+            //    ShowResult(successFiles, failedFiles, skippedFiles);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
 
             ////0529 管道交接方法
             //NewTransaction.Execute(doc,"test",() => {
@@ -959,7 +1059,6 @@ namespace CreatePipe
             //{
             //    throw;
             //}
-
 
             ////1125 三管、四管连接试验,顺序会导致连接失败需要优化X
             //// 1. 拾取第一根管道
@@ -1080,57 +1179,7 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
 
-            ////////0331 批量改族类型方法，考虑封装一个类型转化方法
-            //try
-            //{
-            //    // 选择文件
-            //    var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            //    {
-            //        Title = "选择要修改族类别的 RFA 文件",
-            //        Filter = "Revit Family Files (*.rfa)|*.rfa",
-            //        Multiselect = true
-            //    };
-            //    if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
-            //    string[] selectedFiles = openFileDialog.FileNames;
-            //    if (selectedFiles.Length == 0)
-            //    {
-            //        TaskDialog.Show("提示", "未选择任何文件");
-            //        return Result.Cancelled;
-            //    }
-            //    // 确认操作
-            //    var result = TaskDialog.Show(
-            //        "确认操作",
-            //        $"即将修改 {selectedFiles.Length} 个族文件的类别为\"电气装置\"。\n\n是否继续？",
-            //        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-            //    if (result != TaskDialogResult.Yes) return Result.Cancelled;
-            //    // 处理文件
-            //    var successFiles = new List<string>();
-            //    var failedFiles = new List<string>();
-            //    var skippedFiles = new List<string>();
-            //    foreach (string filePath in selectedFiles)
-            //    {
-            //        string resultMessage;
-            //        if (ProcessFamilyFile(uiApp, filePath, out resultMessage))
-            //        {
-            //            successFiles.Add(Path.GetFileName(filePath));
-            //        }
-            //        else if (resultMessage.Contains("已是"))
-            //        {
-            //            skippedFiles.Add(Path.GetFileName(filePath));
-            //        }
-            //        else
-            //        {
-            //            failedFiles.Add($"{Path.GetFileName(filePath)} - {resultMessage}");
-            //        }
-            //    }
-            //    ShowResult(successFiles, failedFiles, skippedFiles);
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
+
 
 
             ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方

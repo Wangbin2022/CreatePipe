@@ -64,14 +64,27 @@
                          Height="30" Margin="0,5"/>
             <TextBlock Text="{Binding IntegerValue, StringFormat='当前值: {0}'}" 
                            Foreground="Gray"/>
-        </StackPanel>
+            <!-- 第一个下拉框：选择类别 -->
+            <TextBlock Text="选择族类别 (Category):" Foreground="Gray" Margin="0,0,0,5"/>
+            <ComboBox ItemsSource="{Binding CategoryList}" 
+       SelectedItem="{Binding SelectedCategory}" 
+       Margin="0,0,0,15" Height="26"/>
 
-        <db:DrawerButton Content="点击展开抽屉菜单" 
+            <!-- 第二个下拉框：选择零件类型 -->
+            <TextBlock Text="选择零件类型 (PartType):" Foreground="Gray" Margin="0,0,0,5"/>
+            <ComboBox ItemsSource="{Binding AvailablePartTypes}" 
+       SelectedItem="{Binding SelectedPartType}" 
+       Height="26"/>
+        </StackPanel>
+  
+       
+ 
+        <!--<db:DrawerButton Content="点击展开抽屉菜单" 
                             HorizontalAlignment="Center" 
                             VerticalAlignment="Top" 
                             Grid.Row="2">
 
-            <!-- 定义抽屉里面显示的内容 (支持任意复杂布局) -->
+            --><!-- 定义抽屉里面显示的内容 (支持任意复杂布局) --><!--
             <db:DrawerButton.DrawerContent>
                 <StackPanel Width="auto">
                     <TextBlock Text="新建任务参数" FontWeight="Bold" FontSize="16" Margin="0,0,0,15"/>
@@ -89,12 +102,12 @@
                 </StackPanel>
             </db:DrawerButton.DrawerContent>
 
-        </db:DrawerButton>
+        </db:DrawerButton>-->
 
-        <!--<DockPanel Grid.Row="2" Margin="0,5,5,5">
-            <Button  Content="查找并高亮显示" Command="{Binding DrawTableCommand}"
+        <DockPanel Grid.Row="2" Margin="0,5,5,5">
+            <Button  Content="test " Command="{Binding DrawTableCommand}"
                      HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
-        </DockPanel>-->
+        </DockPanel>
     </Grid>
 </Window>
 
