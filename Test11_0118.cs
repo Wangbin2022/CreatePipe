@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows.Controls;
 using static CreatePipe.Utils.HelpersSelection;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
@@ -44,83 +45,6 @@ namespace CreatePipe
     public class Test11_0118 : Decorator, IExternalCommand
     {
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        //private Category GetElectricalEquipmentCategory(Document doc)
-        //{
-        //    return Category.GetCategory(doc, BuiltInCategory.OST_ElectricalFixtures);
-        //}
-        //private bool ProcessFamilyFile(UIApplication app, string filePath, out string message)
-        //{
-        //    message = string.Empty;
-        //    Document familyDoc = null;
-        //    try
-        //    {
-        //        familyDoc = app.Application.OpenDocumentFile(filePath);
-
-        //        if (!familyDoc.IsFamilyDocument)
-        //        {
-        //            message = "不是有效的族文件";
-        //            return false;
-        //        }
-        //        Category currentCategory = familyDoc.OwnerFamily.FamilyCategory;
-        //        // 检查是否已经是电气装置
-        //        if (currentCategory?.Id.IntegerValue == (int)BuiltInCategory.OST_ElectricalFixtures)
-        //        {
-        //            message = "已是电气装置类别";
-        //            return false;
-        //        }
-        //        // 获取电气装置类别
-        //        Category electricalCategory = GetElectricalEquipmentCategory(familyDoc);
-        //        if (electricalCategory == null)
-        //        {
-        //            message = "未找到'电气装置'类别";
-        //            return false;
-        //        }
-        //        using (Transaction trans = new Transaction(familyDoc, "修改族类别"))
-        //        {
-        //            trans.Start();
-        //            familyDoc.OwnerFamily.FamilyCategory = electricalCategory;
-        //            trans.Commit();
-        //        }
-        //        familyDoc.Save();
-        //        message = "修改成功";
-        //        return true;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        message = $"错误: {ex.Message}";
-        //        return false;
-        //    }
-        //    finally
-        //    {
-        //        familyDoc?.Close(false);
-        //    }
-        //}
-        //private void ShowResult(List<string> success, List<string> failed, List<string> skipped)
-        //{
-        //    string resultMessage = "";
-
-        //    if (success.Count > 0)
-        //    {
-        //        resultMessage += $"✅ 成功修改 ({success.Count} 个):\n{string.Join("\n", success)}\n\n";
-        //    }
-
-        //    if (skipped.Count > 0)
-        //    {
-        //        resultMessage += $"⚠️ 已跳过 ({skipped.Count} 个 - 已是电气装置):\n{string.Join("\n", skipped)}\n\n";
-        //    }
-
-        //    if (failed.Count > 0)
-        //    {
-        //        resultMessage += $"❌ 修改失败 ({failed.Count} 个):\n{string.Join("\n", failed)}\n\n";
-        //    }
-
-        //    if (string.IsNullOrEmpty(resultMessage))
-        //    {
-        //        resultMessage = "没有处理任何文件";
-        //    }
-
-        //    TaskDialog.Show("批量修改完成", resultMessage);
-        //}
         //找实例共同文字属性列表     
         public Dictionary<string, string> GetCommonStringParameterNames(Document doc)
         {
@@ -810,138 +734,20 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0609 批量改族
-            BacthFamilyEditorView bacthFamilyEditorView = new BacthFamilyEditorView(uiApp);
-            bacthFamilyEditorView.ShowDialog();
-
-
-            ////0605 双combobox 另存族类型测试
-            ////TestWindow testWindow = new TestWindow(uiApp);
-            ////testWindow.ShowDialog();
-            //        if (!doc.IsFamilyDocument) return Result.Cancelled;
-
-            //        //// 1. 准备你的映射字典,构建数据源 (Key 是 CategoryItem 对象，Value 是 PartType 集合)
-            //        var partTypeMap = new Dictionary<CategoryItem, List<PartType>>
-            //        {
-            //            { new CategoryItem("常规模型", -2000151), new List<PartType> { PartType.Normal} },
-            //            { new CategoryItem("专用设备", -2001350), new List<PartType> { PartType.Normal} },
-            //{ new CategoryItem("风道末端", -2008013), new List<PartType> { PartType.Normal} },
-            //{ new CategoryItem("桥架配件", -2008126), new List<PartType> { PartType.ChannelCableTrayCross, PartType.ChannelCableTrayElbow, PartType.ChannelCableTrayMultiPort, PartType.ChannelCableTrayOffset, PartType.ChannelCableTrayTee, PartType.ChannelCableTrayTransition, PartType.ChannelCableTrayUnion, PartType.ChannelCableTrayVerticalElbow, PartType.LadderCableTrayCross, PartType.LadderCableTrayElbow, PartType.LadderCableTrayMultiPort, PartType.LadderCableTrayOffset, PartType.LadderCableTrayTee, PartType.LadderCableTrayTransition, PartType.LadderCableTrayUnion, PartType.LadderCableTrayVerticalElbow } },
-            //{ new CategoryItem("通讯设备", -2008081), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            //{ new CategoryItem("线管配件", -2008128), new List<PartType> { PartType.Cap,PartType.Cross, PartType.Elbow, PartType.JunctionBoxElbow, PartType.MultiPort, PartType.Tee, PartType.Transition, PartType.Union } },
-            //{ new CategoryItem("数据设备", -2008083), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            //{ new CategoryItem("风管附件", -2008016), new List<PartType> { PartType.AttachesTo, PartType.BreaksInto, PartType.Damper } },
-            //{ new CategoryItem("风管管件", -2008010), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.LateralCross, PartType.LateralTee, PartType.MultiPort, PartType.Offset, PartType.Pants, PartType.TapAdjustable, PartType.TapPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
-            //{ new CategoryItem("电气设备", -2001040), new List<PartType> { PartType.EquipmentSwitch, PartType.OtherPanel, PartType.PanelBoard, PartType.SwitchBoard, PartType.Transformer } },
-            //{ new CategoryItem("电气装置", -2001060), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            //{ new CategoryItem("火灾报警设备", -2008085), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            //{ new CategoryItem("照明设备（开关）", -2008087), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            //{ new CategoryItem("照明设备 (灯具)", -2001120), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            //{ new CategoryItem("机械设备", -2001140), new List<PartType> { PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor, PartType.Normal, PartType.ValveBreaksInto } },
-            //{ new CategoryItem("护士呼叫设备", -2008077), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            //{ new CategoryItem("管道附件", -2008055), new List<PartType> { PartType.Normal, PartType.AttachesTo, PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor,  PartType.Sensor, PartType.ValveBreaksInto, PartType.ValveNormal } },
-            //{ new CategoryItem("管道管件", -2008049), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.PipeFlange, PartType.LateralCross, PartType.LateralTee, PartType.PipeMechanicalCoupling, PartType.MultiPort, PartType.SpudAdjustable, PartType.SpudPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
-            //{ new CategoryItem("卫浴装置", -2001160), new List<PartType> { PartType.Normal } },
-            //{ new CategoryItem("安防设备", -2008079), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            //{ new CategoryItem("喷头", -2008099), new List<PartType> { PartType.Normal } },
-            //{ new CategoryItem("电话设备", -2008075), new List<PartType> { PartType.Normal, PartType.JunctionBox } }
-            //        };
-            //        try
-            //        {
-
-            //            ////// 2. 实例化通用窗口，并传入标题、提示文本和数据字典
-            //            var dialog = new UniversalDoubleComboboxWindow(
-            //                windowTitle: "设置族参数", header1: "1. 请选择族类别 (Family Category):",
-            //                header2: "2. 请选择零件类型 (PartType):", dataMap: partTypeMap);
-            //            if (dialog.ShowDialog() == true)
-            //            {
-            //                // 1. 获取选中的目标类别和目标 PartType
-            //                CategoryItem selectedCatItem = (CategoryItem)dialog.SelectedItem1;
-            //                BuiltInCategory targetRevitCat = selectedCatItem.BuiltInCategory;
-            //                PartType selectedPartType = (PartType)dialog.SelectedItem2;
-            //                // 2. 安全地获取当前的 族类别ID 和 PartType值
-            //                int currentCatId = doc.OwnerFamily.FamilyCategory?.Id.IntegerValue ?? -1;
-            //                Parameter partTypeParam = doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
-            //                // 如果该参数存在，则获取其整型值，否则给个默认值 -1
-            //                int currentPartType = partTypeParam != null ? partTypeParam.AsInteger() : -1;
-            //                // 3. 判断是否与当前完全一致
-            //                if (currentCatId == (int)targetRevitCat && currentPartType == (int)selectedPartType)
-            //                {
-            //                    TaskDialog.Show("提示", "当前族已是所选择类型，无需转换");
-            //                    return Result.Cancelled; // 既然无需操作，返回 Cancelled 或 Succeeded 都可以
-            //                }
-            //                // 4. 执行转换事务
-            //                NewTransaction.Execute(doc, "修改族类型", () =>
-            //                {
-            //                    doc.OwnerFamily.FamilyCategory = Category.GetCategory(doc, targetRevitCat);
-            //                    // 注意：修改类别后，PartType 参数可能才出现，所以必须重新获取一遍！！！
-            //                    Parameter newPartTypeParam = doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
-            //                    if (newPartTypeParam != null && !newPartTypeParam.IsReadOnly)
-            //                    {
-            //                        newPartTypeParam.Set((int)selectedPartType);
-            //                    }
-            //                });
-            //            }
-            //        }
-            //        catch (Exception)
-            //        {
-
-            //            throw;
-            //        }
-
-
-
-            //////////0331 批量改族类型方法，考虑封装一个类型转化方法
-            //try
+            ////0609 批量改族.OK
+            //BacthFamilyEditorView bacthFamilyEditorView = new BacthFamilyEditorView(uiApp);
+            //bacthFamilyEditorView.ShowDialog();
+            //UniversalNewListString universalNewListString = new UniversalNewListString("test");
+            //if (universalNewListString.ShowDialog() != false)
             //{
-            //    // 选择文件
-            //    var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            //    {
-            //        Title = "选择要修改族类别的 RFA 文件",
-            //        Filter = "Revit Family Files (*.rfa)|*.rfa",
-            //        Multiselect = true
-            //    };
-            //    if (openFileDialog.ShowDialog() != true) return Result.Cancelled;
-            //    string[] selectedFiles = openFileDialog.FileNames;
-            //    if (selectedFiles.Length == 0)
-            //    {
-            //        TaskDialog.Show("提示", "未选择任何文件");
-            //        return Result.Cancelled;
-            //    }
-            //    // 确认操作
-            //    var result = TaskDialog.Show(
-            //        "确认操作",
-            //        $"即将修改 {selectedFiles.Length} 个族文件的类别为\"电气装置\"。\n\n是否继续？",
-            //        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
-            //    if (result != TaskDialogResult.Yes) return Result.Cancelled;
-            //    // 处理文件
-            //    var successFiles = new List<string>();
-            //    var failedFiles = new List<string>();
-            //    var skippedFiles = new List<string>();
-            //    foreach (string filePath in selectedFiles)
-            //    {
-            //        string resultMessage;
-            //        if (ProcessFamilyFile(uiApp, filePath, out resultMessage))
-            //        {
-            //            successFiles.Add(Path.GetFileName(filePath));
-            //        }
-            //        else if (resultMessage.Contains("已是"))
-            //        {
-            //            skippedFiles.Add(Path.GetFileName(filePath));
-            //        }
-            //        else
-            //        {
-            //            failedFiles.Add($"{Path.GetFileName(filePath)} - {resultMessage}");
-            //        }
-            //    }
-            //    ShowResult(successFiles, failedFiles, skippedFiles);
-            //    return Result.Succeeded;
+            //    List<string> result = universalNewListString.ViewModel.NewName;
+            //    TaskDialog.Show("tt", result.Count().ToString());
             //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
+            //0610 共享参数测试
+            var ts = new Transaction(doc);
+            ts.Start("新建共享参数");
+            SharedParaFactory.CreatePara(doc, new List<string>() { "标签1", "标签2" }, BuiltInCategory.OST_Walls);
+            ts.Commit();
 
             ////0529 管道交接方法
             //NewTransaction.Execute(doc,"test",() => {
@@ -3056,6 +2862,111 @@ namespace CreatePipe
             {
                 return bic.ToString();
             }
+        }
+    }
+    //0610  共享参数批量创建
+    public static class DefinitionInfo
+    {
+        private static DefinitionFile _instance;
+        public static DefinitionFile GetInstance(Document doc)
+        {
+            if (_instance == null)
+            {
+                // 每次修改前最好记录原始的共享参数文件路径（Revit全局唯一的），用完后可以考虑恢复
+                var path = SharedParaFactory.EnsureSharedParameterFile();
+                doc.Application.SharedParametersFilename = path;
+                _instance = doc.Application.OpenSharedParameterFile();
+            }
+            return _instance;
+        }
+    }
+    public static class SharedParaFactory
+    {
+        /// <summary>
+        /// 批量创建项目参数 (请确保外部调用此方法时已开启 Transaction)
+        /// </summary>
+        public static void CreatePara(Document doc, List<string> names, params BuiltInCategory[] builtInCategories)
+        {
+            DefinitionFile definitionFile = DefinitionInfo.GetInstance(doc);
+            if (definitionFile == null) return;
+            // 获取或创建共享参数组
+            var group = definitionFile.Groups.get_Item("dd") ?? definitionFile.Groups.Create("dd");
+            // 优化：提前将所有受绑定类别的实体实例化（移出内层循环，避免重复创建）
+            var categorySet = doc.Application.Create.NewCategorySet();
+            foreach (var item in builtInCategories)
+            {
+                Category category = Category.GetCategory(doc, item);
+                if (category != null)
+                {
+                    categorySet.Insert(category);
+                }
+            }
+            var binding = doc.Application.Create.NewInstanceBinding(categorySet);
+            // 优化：一次性获取项目中已存在的所有参数名称，存入 HashSet，把时间复杂度降至 O(1)
+            var existingParams = new HashSet<string>();
+            var proIterator = doc.ParameterBindings.ForwardIterator();
+            while (proIterator.MoveNext())
+            {
+                existingParams.Add(proIterator.Key.Name);
+            }
+            // 遍历需要创建的参数名
+            foreach (var definitionName in names)
+            {
+                // 如果项目中已存在此参数，则直接跳过
+                if (existingParams.Contains(definitionName)) continue;
+                // 检查共享参数txt中是否已有该定义，没有则创建
+                var definition = group.Definitions.get_Item(definitionName);
+                if (definition == null)
+                {
+                    // 注意：ParameterType.Text 在 Revit 2022+ 中已过时，若您使用新版需改为 SpecTypeId.String.Text
+                    var options = new ExternalDefinitionCreationOptions(definitionName, ParameterType.Text);
+                    definition = group.Definitions.Create(options);
+                }
+                // 将参数绑定到项目
+                doc.ParameterBindings.Insert(definition, binding, BuiltInParameterGroup.PG_TEXT);
+            }
+        }
+        /// <summary>
+        /// 删除项目中所有的自定义参数绑定 (警告：危险操作，会清空所有参数)
+        /// </summary>
+        public static void DeletePara(Document doc)
+        {
+            var proMap = doc.ParameterBindings;
+            var proIterator = proMap.ForwardIterator();
+            var defsToDelete = new List<Definition>();
+            // 先收集所有需要删除的定义
+            while (proIterator.MoveNext())
+            {
+                defsToDelete.Add(proIterator.Key);
+            }
+            // 然后集中移除
+            foreach (var def in defsToDelete)
+            {
+                proMap.Remove(def);
+            }
+        }
+        /// <summary>
+        /// 确保共享参数文件存在，并返回文件绝对路径
+        /// （合并了原来冗余的 GetShareParPath、GetSharedParPath、HGetSharedParPath）
+        /// </summary>
+        public static string EnsureSharedParameterFile()
+        {
+            // 推荐放在插件所在目录 或 系统的 Temp 目录，避免没有写入权限
+            string directoryPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            string shareFilePath = Path.Combine(directoryPath, "RevitSharedParameters.txt");
+            // 纯净的内容模板
+            string content = "# This is a Revit shared parameter file.\r\n" +
+                             "# Do not edit manually.\r\n" +
+                             "*META\tVERSION\tMINVERSION\r\n" +
+                             "META\t2\t1\r\n" +
+                             "*GROUP\tID\tNAME\r\n" +
+                             "GROUP\t1\tGroup1\r\n" +
+                             "*PARAM\tGUID\tNAME\tDATATYPE\tDATACATEGORY\tGROUP\tVISIBLE\r\n" +
+                             "PARAM\t858bd7ed-5acf-4d20-9d7c-31269a0c0e9a\tShared_Length\tLENGTH\t\t1\t1";
+            // 优化：File.WriteAllText 会自动判断，如果文件不存在则创建，如果存在则直接覆盖。
+            // 无需手动 File.Create -> Close -> File.WriteAllBytes 这么繁琐，且不会抛出流占用的异常。
+            File.WriteAllText(shareFilePath, content, Encoding.UTF8);
+            return shareFilePath;
         }
     }
 }

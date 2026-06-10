@@ -89,6 +89,9 @@
     <Compile Include="Form\UniversalDoubleComboboxWindow.xaml.cs">
       <DependentUpon>UniversalDoubleComboboxWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\UniversalNewListString.xaml.cs">
+      <DependentUpon>UniversalNewListString.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Obselete\BasePointMover.xaml.cs">
       <DependentUpon>BasePointMover.xaml</DependentUpon>
     </Compile>
@@ -954,6 +957,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\UniversalDoubleComboboxWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\UniversalNewListString.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -80,82 +80,114 @@ namespace CreatePipe.Form
     //批量处理族的格式转换,批量改类型，批量删除文本属性，批量升级到当前版本
     public class BacthFamilyEditorViewModel : ObserverableObject
     {
-        private Document doc;
-        private UIDocument uiDoc;
-        private UIApplication uIApplication;
-        private View activeView;
+        private UIApplication _uiApp;
+        private Autodesk.Revit.ApplicationServices.Application _app;
         public BacthFamilyEditorViewModel(UIApplication uiApp)
         {
-            uIApplication = uiApp;
-            uiDoc = uiApp.ActiveUIDocument;
-            doc = uiDoc.Document;
-            activeView = uiApp.ActiveUIDocument.ActiveView;
+            _uiApp = uiApp;
+            _app = uiApp.Application;
+        }
+        /// <summary>
+        /// 提取1：通用选择多文件逻辑
+        /// </summary>
+        private List<string> SelectRevitFiles(string title, string filter = "Revit 族文件 (*.rfa)|*.rfa")
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Title = title,
+                Filter = filter,
+                Multiselect = true,
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            };
+            return openFileDialog.ShowDialog() == true ? openFileDialog.FileNames.ToList() : new List<string>();
+        }
+        /// <summary>
+        /// 提取2：通用检查文件是否满足处理条件（防崩溃、防报错）
+        /// </summary>
+        private bool IsValidForProcessing(string filePath, int currentVersion, out string skipReason)
+        {
+            skipReason = string.Empty;
+            try
+            {
+                BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
+
+                // 检查：是否高于当前 Revit 版本
+                if (fileInfo.IsSavedInLaterVersion)
+                {
+                    skipReason = "文件版本高于当前 Revit 版本";
+                    return false;
+                }
+                if (int.TryParse(fileInfo.Format, out int fileVersion) && fileVersion > currentVersion)
+                {
+                    skipReason = $"文件版本({fileVersion})高于当前版本";
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                skipReason = $"无法读取文件信息: {ex.Message}";
+                return false;
+            }
+        }
+        /// <summary>
+        /// 提取3：通用批量处理结果报告弹窗
+        /// </summary>
+        private void ShowBatchReport(string taskName, int totalCount, List<string> successList, List<string> failList)
+        {
+            string resultMessage = $"共选中 {totalCount} 个文件。\n\n";
+            resultMessage += $"处理成功 ({successList.Count} 个)：\n";
+            resultMessage += successList.Count > 0 ? string.Join("\n", successList.Take(15)) + (successList.Count > 15 ? "\n... (省略显示更多)" : "") : "无";
+            resultMessage += $"\n\n失败或跳过 ({failList.Count} 个)：\n";
+            resultMessage += failList.Count > 0 ? string.Join("\n", failList.Take(15)) + (failList.Count > 15 ? "\n... (省略显示更多)" : "") : "无";
+            TaskDialog.Show(taskName + " 报告", resultMessage);
         }
         public string TVCommandName1 { get; set; } = "批量升级族版本";
         public ICommand TVCommand1 => new BaseBindingCommand(TVControl1);
         public void TVControl1(object obj)
         {
             ExecuteClose(null);
-            // 1. 使用 Win32.OpenFileDialog 选择多个文件
-            OpenFileDialog openFileDialog = new OpenFileDialog
+            var files = SelectRevitFiles("请选择需要升级的 Revit 族文件");
+            if (files.Count == 0) return;
+            int currentVersion = int.Parse(_app.VersionNumber);
+            List<string> successList = new List<string>(), failList = new List<string>();
+            NoTransactionWithProgressBarHelper.Execute(files.Count, "批量升级族版本", (progress) =>
             {
-                Title = "请选择需要转换的 Revit 模型（按住 Ctrl/Shift 可多选）",
-                Filter = "Revit 文件 (*.rvt)|*.rvt",
-                Multiselect = true, // 关键：允许选中多个文件
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            };
-            // 如果用户关闭对话框或取消选择，直接结束命令
-            if (openFileDialog.ShowDialog() != true)
-            {
-                return;
-            }
-            string[] selectedFiles = openFileDialog.FileNames;
-            if (selectedFiles.Length == 0) return;
-
-            for (int i = 0; i < selectedFiles.Length; i++)
-            {
-                string filePath = selectedFiles[i];
-                string fileName = Path.GetFileName(filePath);
-                string fileDir = Path.GetDirectoryName(filePath);
-                string nameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-                try
+                progress.UpdateMax(files.Count);
+                for (int i = 0; i < files.Count; i++)
                 {
-                    // 在主窗口激活并打开文档
-                    UIDocument newUiDoc = uIApplication.OpenAndActivateDocument(filePath);
-                    Document currentDoc = newUiDoc.Document;
-                    if (!currentDoc.IsFamilyDocument) return;
-                    BasicFileInfo basicFileInfo = BasicFileInfo.Extract(fileName);
-                    if (basicFileInfo.IsSavedInLaterVersion) return;
-                    var doc = uIApplication.Application.OpenDocumentFile(fileName);
-                    doc.Close();
+                    string filePath = files[i];
+                    string fileName = Path.GetFileName(filePath);
+                    progress.Update(i + 1, fileName);
+                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    {
+                        failList.Add($"{fileName} [跳过: {reason}]");
+                        continue;
+                    }
+                    try
+                    {
+                        // 使用后台静默打开，会自动升级到当前版本
+                        Document familyDoc = _app.OpenDocumentFile(filePath);
+                        if (!familyDoc.IsFamilyDocument) { familyDoc.Close(false); continue; }
+                        // 保存覆盖并关闭
+                        familyDoc.Close(true);
+                        successList.Add(fileName);
+                    }
+                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
                 }
-                catch (Exception) { throw; }
-            }
+            });
+            ShowBatchReport("批量升级族版本", files.Count, successList, failList);
         }
         public string TVCommandName2 { get; set; } = "批量修改族类型";
         public ICommand TVCommand2 => new BaseBindingCommand(TVControl2);
         public void TVControl2(object obj)
         {
             ExecuteClose(null);
-            // 1. 使用 Win32.OpenFileDialog 选择多个文件
-            OpenFileDialog openFileDialog = new OpenFileDialog
-            {
-                Title = "请选择需要转换的 Revit 模型（按住 Ctrl/Shift 可多选）",
-                Filter = "Revit 文件 (*.rvt)|*.rvt",
-                Multiselect = true, // 关键：允许选中多个文件
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            };
-            // 如果用户关闭对话框或取消选择，直接结束命令
-            if (openFileDialog.ShowDialog() != true)
-            {
-                return;
-            }
-            string[] selectedFiles = openFileDialog.FileNames;
-            if (selectedFiles.Length == 0) return;
+            var files = SelectRevitFiles("请选择需要转换类型的族文件");
+            if (files.Count == 0) return;
 
-            //// 1. 准备你的映射字典,构建数据源 (Key 是 CategoryItem 对象，Value 是 PartType 集合)
             var partTypeMap = new Dictionary<CategoryItem, List<PartType>>
-                    {
+        {
                         { new CategoryItem("常规模型", -2000151), new List<PartType> { PartType.Normal} },
                         { new CategoryItem("专用设备", -2001350), new List<PartType> { PartType.Normal} },
             { new CategoryItem("风道末端", -2008013), new List<PartType> { PartType.Normal} },
@@ -179,343 +211,145 @@ namespace CreatePipe.Form
             { new CategoryItem("喷头", -2008099), new List<PartType> { PartType.Normal } },
             { new CategoryItem("电话设备", -2008075), new List<PartType> { PartType.Normal, PartType.JunctionBox } }
                     };
-            try
-            {
 
-                ////// 2. 实例化通用窗口，并传入标题、提示文本和数据字典
-                var dialog = new UniversalDoubleComboboxWindow(
-                    windowTitle: "设置族参数", header1: "1. 请选择族类别 (Family Category):",
-                    header2: "2. 请选择零件类型 (PartType):", dataMap: partTypeMap);
-                if (dialog.ShowDialog() == true)
+            var dialog = new UniversalDoubleComboboxWindow("设置族参数", "1. 请选择族类别:", "2. 请选择零件类型:", partTypeMap);
+            if (dialog.ShowDialog() != true) return;
+
+            CategoryItem catItem = (CategoryItem)dialog.SelectedItem1;
+            PartType partType = (PartType)dialog.SelectedItem2;
+
+            int currentVersion = int.Parse(_app.VersionNumber);
+            List<string> successList = new List<string>(), failList = new List<string>();
+
+            NoTransactionWithProgressBarHelper.Execute(files.Count, "批量修改族类型", (progress) =>
+            {
+                progress.UpdateMax(files.Count);
+                for (int i = 0; i < files.Count; i++)
                 {
-                    // 1. 获取选中的目标类别和目标 PartType
-                    CategoryItem selectedCatItem = (CategoryItem)dialog.SelectedItem1;
-                    BuiltInCategory targetRevitCat = selectedCatItem.BuiltInCategory;
-                    PartType selectedPartType = (PartType)dialog.SelectedItem2;
-                    // 2. 安全地获取当前的 族类别ID 和 PartType值
-                    int currentCatId = doc.OwnerFamily.FamilyCategory?.Id.IntegerValue ?? -1;
-                    Parameter partTypeParam = doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
-                    // 如果该参数存在，则获取其整型值，否则给个默认值 -1
-                    int currentPartType = partTypeParam != null ? partTypeParam.AsInteger() : -1;
-                    // 3. 判断是否与当前完全一致
-                    if (currentCatId == (int)targetRevitCat && currentPartType == (int)selectedPartType)
+                    string filePath = files[i];
+                    string fileName = Path.GetFileName(filePath);
+                    progress.Update(i + 1, fileName);
+
+                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
                     {
-                        TaskDialog.Show("提示", "当前族已是所选择类型，无需转换");
-                        return; // 既然无需操作，返回 Cancelled 或 Succeeded 都可以
+                        failList.Add($"{fileName} [跳过: {reason}]"); continue;
                     }
-                    // 4. 执行转换事务
-                    NewTransaction.Execute(doc, "修改族类型", () =>
+
+                    try
                     {
-                        for (int i = 0; i < selectedFiles.Length; i++)
+                        Document familyDoc = _app.OpenDocumentFile(filePath);
+                        if (!familyDoc.IsFamilyDocument) { familyDoc.Close(false); failList.Add($"{fileName} [非族文件]"); continue; }
+                        // 【修复核心Bug】：必须在正在修改的 familyDoc 内部开启事务，而不是外部的 doc
+                        NewTransaction.Execute(familyDoc, "修改类型", () =>
                         {
-                            string filePath = selectedFiles[i];
-                            string fileName = Path.GetFileName(filePath);
-                            string fileDir = Path.GetDirectoryName(filePath);
-                            string nameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-                            try
-                            {
-                                //// 在主窗口激活并打开文档
-                                UIDocument newUiDoc = uIApplication.OpenAndActivateDocument(filePath);
-                                Document currentDoc = newUiDoc.Document;
-                                if (!currentDoc.IsFamilyDocument) return;
-                                BasicFileInfo basicFileInfo = BasicFileInfo.Extract(fileName);
-                                if (basicFileInfo.IsSavedInLaterVersion) return;
-                                var doc = uIApplication.Application.OpenDocumentFile(fileName);
-                                doc.OwnerFamily.FamilyCategory = Category.GetCategory(doc, targetRevitCat);
-                                // 注意：修改类别后，PartType 参数可能才出现，所以必须重新获取一遍！！！
-                                Parameter newPartTypeParam = doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
-                                if (newPartTypeParam != null && !newPartTypeParam.IsReadOnly)
-                                {
-                                    newPartTypeParam.Set((int)selectedPartType);
-                                }
-                                doc.Close();
-                            }
-                            catch (Exception) { throw; }
-                        }
-                    });
+                            familyDoc.OwnerFamily.FamilyCategory = Category.GetCategory(familyDoc, catItem.BuiltInCategory);
+                            Parameter p = familyDoc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
+                            if (p != null && !p.IsReadOnly) p.Set((int)partType);
+                        });
+                        // 【修复核心Bug】：执行完毕后必须保存 true
+                        familyDoc.Close(true);
+                        successList.Add(fileName);
+                    }
+                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
                 }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-
-
-
-
-
-
-
+            });
+            ShowBatchReport("批量修改族类型", files.Count, successList, failList);
         }
         public string TVCommandName3 { get; set; } = "批量转换为FBX格式";
         public ICommand TVCommand3 => new BaseBindingCommand(TVControl3);
         public void TVControl3(object obj)
         {
             ExecuteClose(null);
-            // 1. 使用 Win32.OpenFileDialog 选择多个文件
-            OpenFileDialog openFileDialog = new OpenFileDialog
+            var files = SelectRevitFiles("请选择需要导出的 Revit 模型", "Revit 文件 (*.rvt;*.rfa)|*.rvt;*.rfa");
+            if (files.Count == 0) return;
+            int currentVersion = int.Parse(_app.VersionNumber);
+            List<string> successList = new List<string>(), failList = new List<string>();
+            NoTransactionWithProgressBarHelper.Execute(files.Count, "准备批量转换 FBX...", (progress) =>
             {
-                Title = "请选择需要转换的 Revit 模型（按住 Ctrl/Shift 可多选）",
-                Filter = "Revit 文件 (*.rvt)|*.rvt",
-                Multiselect = true, // 关键：允许选中多个文件
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            };
-            // 如果用户关闭对话框或取消选择，直接结束命令
-            if (openFileDialog.ShowDialog() != true)
-            {
-                return;
-            }
-            string[] selectedFiles = openFileDialog.FileNames;
-            if (selectedFiles.Length == 0) return;
-            // 用于记录处理结果的清单
-            List<string> successList = new List<string>();
-            List<string> failList = new List<string>();
-            // 2. 使用封装的无事务进度条执行核心逻辑
-            Result processResult = NoTransactionWithProgressBarHelper.Execute(selectedFiles.Length, "准备批量转换 FBX...", (progress) =>
-            {
-                for (int i = 0; i < selectedFiles.Length; i++)
+                progress.UpdateMax(files.Count);
+                for (int i = 0; i < files.Count; i++)
                 {
-                    string filePath = selectedFiles[i];
+                    string filePath = files[i];
                     string fileName = Path.GetFileName(filePath);
                     string fileDir = Path.GetDirectoryName(filePath);
                     string nameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+                    progress.Update(i + 1, fileName);
+                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    {
+                        failList.Add($"{fileName} [跳过: {reason}]"); continue;
+                    }
                     try
                     {
-                        // 在主窗口激活并打开文档
-                        UIDocument newUiDoc = uIApplication.OpenAndActivateDocument(filePath);
-                        Document currentDoc = newUiDoc.Document;
-                        // 【注意】这里假设你的进度条有 Update 方法。
-                        // 如果你的方法叫 SetProgress / StepIt 等，请修改此处
-                        progress.Update(i + 1, fileName);
-                        // 查找有效的三维视图 (排除视图模板)
-                        View3D exportView = new FilteredElementCollector(currentDoc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+                        // 【修复核心Bug】: FBX 导出完全支持后台静默文档处理，不需要在界面中弹窗激活！
+                        Document doc = _app.OpenDocumentFile(filePath);
+                        View3D exportView = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
                         if (exportView != null)
                         {
                             ViewSet viewSet = new ViewSet();
                             viewSet.Insert(exportView);
-                            FBXExportOptions options = new FBXExportOptions();
-                            // 导出文件
-                            currentDoc.Export(fileDir, nameWithoutExt, viewSet, options);
+                            doc.Export(fileDir, nameWithoutExt, viewSet, new FBXExportOptions());
                             successList.Add(fileName);
                         }
                         else
                         {
-                            failList.Add($"{fileName} [跳过: 未找到三维视图]");
+                            failList.Add($"{fileName} [跳过: 未找到有效三维视图]");
                         }
+                        // 只读操作，关闭时不保存
+                        doc.Close(false);
                     }
-                    catch (Exception ex)
-                    {
-                        failList.Add($"{fileName} [失败: {ex.Message}]");
-                    }
+                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
                 }
             });
-            if (processResult == Result.Succeeded)
-            {
-                ShowResultDialog3(selectedFiles.Length, successList, failList);
-            }
-        }
-        private void ShowResultDialog3(int totalCount, List<string> successList, List<string> failList)
-        {
-            string resultMessage = $"共选中 {totalCount} 个文件。\n\n";
-
-            // 成功清单展示
-            resultMessage += $"成功导出 ({successList.Count} 个)：\n";
-            if (successList.Count > 0)
-            {
-                // 为防止选了几百个文件导致对话框文字超限，这里限制最多显示前20个
-                var displaySuccess = successList.Take(20).ToList();
-                resultMessage += string.Join("\n", displaySuccess);
-                if (successList.Count > 20) resultMessage += "\n... (省略显示更多)";
-            }
-            else
-            {
-                resultMessage += "无\n";
-            }
-            resultMessage += "\n\n";
-            // 失败/跳过清单展示
-            resultMessage += $"失败或跳过 ({failList.Count} 个)：\n";
-            if (failList.Count > 0)
-            {
-                var displayFail = failList.Take(20).ToList();
-                resultMessage += string.Join("\n", displayFail);
-                if (failList.Count > 20) resultMessage += "\n... (省略显示更多)";
-            }
-            else
-            {
-                resultMessage += "无";
-            }
-            // 调用 Revit 原生 TaskDialog 显示
-            TaskDialog resultDialog = new TaskDialog("批量转换 FBX 报告")
-            {
-                MainInstruction = "批量处理任务已结束",
-                MainContent = resultMessage
-            };
-            resultDialog.Show();
+            ShowBatchReport("批量转换 FBX", files.Count, successList, failList);
         }
         public string TVCommandName4 { get; set; } = "批量删除族文本属性";
         public ICommand TVCommand4 => new BaseBindingCommand(TVControl4);
         public void TVControl4(object obj)
         {
             ExecuteClose(null);
-            Autodesk.Revit.ApplicationServices.Application app = uIApplication.Application;
-            // 获取当前 Revit 的版本号 (如 "2024")
-            int currentRevitVersion = int.Parse(app.VersionNumber);
-            List<string> selectedFiles = new List<string>();
-            // 1. 使用 Win32 OpenFileDialog 实现多选文件
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Title = "请选择要处理的族文件（可按住 Ctrl/Shift 多选）";
-            openFileDialog.Filter = "Revit 族文件 (*.rfa)|*.rfa";
-            openFileDialog.Multiselect = true;
-            if (openFileDialog.ShowDialog() != true)
+            var files = SelectRevitFiles("请选择要处理的族文件");
+            if (files.Count == 0) return;
+            int currentVersion = int.Parse(_app.VersionNumber);
+            List<string> successList = new List<string>(), failList = new List<string>();
+            NoTransactionWithProgressBarHelper.Execute(files.Count, "批量删除文字属性", (progress) =>
             {
-                return ;
-            }
-            selectedFiles = openFileDialog.FileNames.ToList();
-            if (selectedFiles.Count == 0) return ;
-            List<string> successList = new List<string>();
-            List<string> failList = new List<string>(); // 包含了失败和跳过的记录
-                                                        // 2. 遍历处理文件（后台静默处理）
-            NoTransactionWithProgressBarHelper.Execute(selectedFiles.Count, "批量删除文字属性", (service) =>
-            {
-                service.UpdateMax(selectedFiles.Count());
-                int index = 0;
-                foreach (string filePath in selectedFiles)
+                progress.UpdateMax(files.Count);
+                for (int i = 0; i < files.Count; i++)
                 {
+                    string filePath = files[i];
                     string fileName = Path.GetFileName(filePath);
-                    service.Update(++index, filePath);
+                    progress.Update(i + 1, fileName);
+                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    {
+                        failList.Add($"{fileName} [跳过: {reason}]"); continue;
+                    }
                     try
                     {
-                        // 3. 版本检查防崩溃
-                        BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
-                        if (int.TryParse(fileInfo.Format, out int fileVersion))
-                        {
-                            if (fileVersion > currentRevitVersion)
-                            {
-                                failList.Add($"{fileName} (跳过：文件版本 {fileVersion} 高于当前 Revit 版本)");
-                                continue;
-                            }
-                        }
-                        // 4. 后台静默打开文档
-                        Document familyDoc = app.OpenDocumentFile(filePath);
-                        if (!familyDoc.IsFamilyDocument)
-                        {
-                            familyDoc.Close(false);
-                            failList.Add($"{fileName} (跳过：不是族文件)");
-                            continue;
-                        }
+                        Document familyDoc = _app.OpenDocumentFile(filePath);
+                        if (!familyDoc.IsFamilyDocument) { familyDoc.Close(false); continue; }
                         FamilyManager familyManager = familyDoc.FamilyManager;
-                        List<FamilyParameter> parameters = familyManager.GetParameters().ToList();
-                        // 专门用于存放需要删除的参数的列表
-                        List<FamilyParameter> paramsToDelete = new List<FamilyParameter>();
-                        // 5. 遍历并收集符合条件的参数
-                        foreach (FamilyParameter param in parameters)
-                        {
-                            Definition definition = param.Definition;
-                            if (definition is InternalDefinition internalDef &&
-                                internalDef.BuiltInParameter == BuiltInParameter.INVALID)
-                            {
-                                // 【兼容多版本】判断是否为文字类型
-                                bool isTextParam = false;
-                                if (currentRevitVersion >= 2022)
-                                {
-                                    //// Revit 2022 及以上版本的新 API 判定方式
-                                    //ForgeTypeId dataType = definition.GetDataType();
-                                    //if (dataType == SpecTypeId.String.Text)
-                                    //{
-                                    //    isTextParam = true;
-                                    //}
-                                }
-                                else
-                                {
-                                    // Revit 2021 及以下版本的老 API 判定方式 (使用反射或ToString规避编译报错)
-#pragma warning disable CS0618
-                                    if (definition.ParameterType.ToString() == "Text")
-                                    {
-                                        isTextParam = true;
-                                    }
-#pragma warning restore CS0618
-                                }
-                                if (isTextParam)
-                                {
-                                    paramsToDelete.Add(param);
-                                }
-                            }
-                        }
-                        // 6. 核心逻辑调整：判断是否包含文字属性
+                        var paramsToDelete = familyManager.GetParameters().Where(p =>
+                            p.Definition is InternalDefinition id
+                            && id.BuiltInParameter == BuiltInParameter.INVALID
+                            && p.Definition.ParameterType.ToString() == "Text"
+                        ).ToList();
                         if (paramsToDelete.Count == 0)
                         {
-                            // 没有找到任何需要删除的文字属性，直接不保存关闭！
                             familyDoc.Close(false);
                             failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
-                            continue; // 进入下一个文件
+                            continue;
                         }
-                        // 7. 找到了文字属性，开启事务进行删除
-                        using (Transaction trans = new Transaction(familyDoc, "批量删除文字属性"))
-                        {
-                            trans.Start();
-                            foreach (FamilyParameter paramToDelete in paramsToDelete)
-                            {
-                                familyManager.RemoveParameter(paramToDelete);
-                            }
-                            trans.Commit();
-                        }
-                        // 8. 保存并关闭后台文档
+                        NewTransaction.Execute(familyDoc, "删除文字属性", () => { foreach (var p in paramsToDelete) familyManager.RemoveParameter(p); });
                         familyDoc.Close(true);
-                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个文字属性)");
+                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个)");
                     }
-                    catch (Exception ex)
-                    {
-                        failList.Add($"{fileName} (报错：{ex.Message})");
-                    }
+                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
                 }
             });
-            // 9. 调用统计弹窗
-            ShowResultDialog4(selectedFiles.Count, successList, failList);
-        }
-        private void ShowResultDialog4(int totalCount, List<string> successList, List<string> failList)
-        {
-            string resultMessage = $"共选中 {totalCount} 个文件。\n\n";
-
-            // 成功清单展示
-            resultMessage += $"处理成功 ({successList.Count} 个)：\n";
-            if (successList.Count > 0)
-            {
-                var displaySuccess = successList.Take(15).ToList();
-                resultMessage += string.Join("\n", displaySuccess);
-                if (successList.Count > 15) resultMessage += "\n... (省略显示更多)";
-            }
-            else
-            {
-                resultMessage += "无\n";
-            }
-            resultMessage += "\n\n";
-
-            // 失败/跳过清单展示
-            resultMessage += $"失败或跳过 ({failList.Count} 个)：\n";
-            if (failList.Count > 0)
-            {
-                var displayFail = failList.Take(15).ToList();
-                resultMessage += string.Join("\n", displayFail);
-                if (failList.Count > 15) resultMessage += "\n... (省略显示更多)";
-            }
-            else
-            {
-                resultMessage += "无";
-            }
-
-            TaskDialog resultDialog = new TaskDialog("批量处理报告")
-            {
-                MainInstruction = "批量删除族文字属性已完成！",
-                MainContent = resultMessage
-            };
-            resultDialog.Show();
+            ShowBatchReport("批量删除族文本属性", files.Count, successList, failList);
         }
         // 关闭主窗口方法，定义一个委托
         public Action CloseAction { get; set; }
-        private void ExecuteClose(Object obj)
-        {
-            // 执行委托
-            CloseAction?.Invoke();
-        }
+        private void ExecuteClose(object obj) => CloseAction?.Invoke();
     }
 }
