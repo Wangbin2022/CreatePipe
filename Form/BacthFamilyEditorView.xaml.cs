@@ -14,7 +14,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
-
+using Binding = Autodesk.Revit.DB.Binding;
 
 namespace CreatePipe.Form
 {
@@ -186,36 +186,36 @@ namespace CreatePipe.Form
             var files = SelectRevitFiles("请选择需要转换类型的族文件");
             if (files.Count == 0) return;
 
-            var partTypeMap = new Dictionary<CategoryItem, List<PartType>>
+            var partTypeMap = new Dictionary<CategoryItemWrapper, List<PartType>>
         {
-                        { new CategoryItem("常规模型", -2000151), new List<PartType> { PartType.Normal} },
-                        { new CategoryItem("专用设备", -2001350), new List<PartType> { PartType.Normal} },
-            { new CategoryItem("风道末端", -2008013), new List<PartType> { PartType.Normal} },
-            { new CategoryItem("桥架配件", -2008126), new List<PartType> { PartType.ChannelCableTrayCross, PartType.ChannelCableTrayElbow, PartType.ChannelCableTrayMultiPort, PartType.ChannelCableTrayOffset, PartType.ChannelCableTrayTee, PartType.ChannelCableTrayTransition, PartType.ChannelCableTrayUnion, PartType.ChannelCableTrayVerticalElbow, PartType.LadderCableTrayCross, PartType.LadderCableTrayElbow, PartType.LadderCableTrayMultiPort, PartType.LadderCableTrayOffset, PartType.LadderCableTrayTee, PartType.LadderCableTrayTransition, PartType.LadderCableTrayUnion, PartType.LadderCableTrayVerticalElbow } },
-            { new CategoryItem("通讯设备", -2008081), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            { new CategoryItem("线管配件", -2008128), new List<PartType> { PartType.Cap,PartType.Cross, PartType.Elbow, PartType.JunctionBoxElbow, PartType.MultiPort, PartType.Tee, PartType.Transition, PartType.Union } },
-            { new CategoryItem("数据设备", -2008083), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            { new CategoryItem("风管附件", -2008016), new List<PartType> { PartType.AttachesTo, PartType.BreaksInto, PartType.Damper } },
-            { new CategoryItem("风管管件", -2008010), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.LateralCross, PartType.LateralTee, PartType.MultiPort, PartType.Offset, PartType.Pants, PartType.TapAdjustable, PartType.TapPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
-            { new CategoryItem("电气设备", -2001040), new List<PartType> { PartType.EquipmentSwitch, PartType.OtherPanel, PartType.PanelBoard, PartType.SwitchBoard, PartType.Transformer } },
-            { new CategoryItem("电气装置", -2001060), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            { new CategoryItem("火灾报警设备", -2008085), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            { new CategoryItem("照明设备（开关）", -2008087), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            { new CategoryItem("照明设备 (灯具)", -2001120), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
-            { new CategoryItem("机械设备", -2001140), new List<PartType> { PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor, PartType.Normal, PartType.ValveBreaksInto } },
-            { new CategoryItem("护士呼叫设备", -2008077), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            { new CategoryItem("管道附件", -2008055), new List<PartType> { PartType.Normal, PartType.AttachesTo, PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor,  PartType.Sensor, PartType.ValveBreaksInto, PartType.ValveNormal } },
-            { new CategoryItem("管道管件", -2008049), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.PipeFlange, PartType.LateralCross, PartType.LateralTee, PartType.PipeMechanicalCoupling, PartType.MultiPort, PartType.SpudAdjustable, PartType.SpudPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
-            { new CategoryItem("卫浴装置", -2001160), new List<PartType> { PartType.Normal } },
-            { new CategoryItem("安防设备", -2008079), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
-            { new CategoryItem("喷头", -2008099), new List<PartType> { PartType.Normal } },
-            { new CategoryItem("电话设备", -2008075), new List<PartType> { PartType.Normal, PartType.JunctionBox } }
+                        { new CategoryItemWrapper("常规模型", -2000151), new List<PartType> { PartType.Normal} },
+                        { new CategoryItemWrapper("专用设备", -2001350), new List<PartType> { PartType.Normal} },
+            { new CategoryItemWrapper("风道末端", -2008013), new List<PartType> { PartType.Normal} },
+            { new CategoryItemWrapper("桥架配件", -2008126), new List<PartType> { PartType.ChannelCableTrayCross, PartType.ChannelCableTrayElbow, PartType.ChannelCableTrayMultiPort, PartType.ChannelCableTrayOffset, PartType.ChannelCableTrayTee, PartType.ChannelCableTrayTransition, PartType.ChannelCableTrayUnion, PartType.ChannelCableTrayVerticalElbow, PartType.LadderCableTrayCross, PartType.LadderCableTrayElbow, PartType.LadderCableTrayMultiPort, PartType.LadderCableTrayOffset, PartType.LadderCableTrayTee, PartType.LadderCableTrayTransition, PartType.LadderCableTrayUnion, PartType.LadderCableTrayVerticalElbow } },
+            { new CategoryItemWrapper("通讯设备", -2008081), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            { new CategoryItemWrapper("线管配件", -2008128), new List<PartType> { PartType.Cap,PartType.Cross, PartType.Elbow, PartType.JunctionBoxElbow, PartType.MultiPort, PartType.Tee, PartType.Transition, PartType.Union } },
+            { new CategoryItemWrapper("数据设备", -2008083), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            { new CategoryItemWrapper("风管附件", -2008016), new List<PartType> { PartType.AttachesTo, PartType.BreaksInto, PartType.Damper } },
+            { new CategoryItemWrapper("风管管件", -2008010), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.LateralCross, PartType.LateralTee, PartType.MultiPort, PartType.Offset, PartType.Pants, PartType.TapAdjustable, PartType.TapPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
+            { new CategoryItemWrapper("电气设备", -2001040), new List<PartType> { PartType.EquipmentSwitch, PartType.OtherPanel, PartType.PanelBoard, PartType.SwitchBoard, PartType.Transformer } },
+            { new CategoryItemWrapper("电气装置", -2001060), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            { new CategoryItemWrapper("火灾报警设备", -2008085), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            { new CategoryItemWrapper("照明设备（开关）", -2008087), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            { new CategoryItemWrapper("照明设备 (灯具)", -2001120), new List<PartType> { PartType.Normal, PartType.JunctionBox } },
+            { new CategoryItemWrapper("机械设备", -2001140), new List<PartType> { PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor, PartType.Normal, PartType.ValveBreaksInto } },
+            { new CategoryItemWrapper("护士呼叫设备", -2008077), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            { new CategoryItemWrapper("管道附件", -2008055), new List<PartType> { PartType.Normal, PartType.AttachesTo, PartType.BreaksInto, PartType.EndCap, PartType.InlineSensor,  PartType.Sensor, PartType.ValveBreaksInto, PartType.ValveNormal } },
+            { new CategoryItemWrapper("管道管件", -2008049), new List<PartType> { PartType.Cap, PartType.Cross, PartType.Elbow, PartType.PipeFlange, PartType.LateralCross, PartType.LateralTee, PartType.PipeMechanicalCoupling, PartType.MultiPort, PartType.SpudAdjustable, PartType.SpudPerpendicular, PartType.Tee, PartType.Transition, PartType.Union, PartType.Wye } },
+            { new CategoryItemWrapper("卫浴装置", -2001160), new List<PartType> { PartType.Normal } },
+            { new CategoryItemWrapper("安防设备", -2008079), new List<PartType> { PartType.Normal, PartType.JunctionBox, PartType.Switch } },
+            { new CategoryItemWrapper("喷头", -2008099), new List<PartType> { PartType.Normal } },
+            { new CategoryItemWrapper("电话设备", -2008075), new List<PartType> { PartType.Normal, PartType.JunctionBox } }
                     };
 
             var dialog = new UniversalDoubleComboboxWindow("设置族参数", "1. 请选择族类别:", "2. 请选择零件类型:", partTypeMap);
             if (dialog.ShowDialog() != true) return;
 
-            CategoryItem catItem = (CategoryItem)dialog.SelectedItem1;
+            CategoryItemWrapper catItem = (CategoryItemWrapper)dialog.SelectedItem1;
             PartType partType = (PartType)dialog.SelectedItem2;
 
             int currentVersion = int.Parse(_app.VersionNumber);
@@ -348,8 +348,307 @@ namespace CreatePipe.Form
             });
             ShowBatchReport("批量删除族文本属性", files.Count, successList, failList);
         }
+        public string TVCommandName5 { get; set; } = "批量添加属性";
+        public ICommand TVCommand5 => new BaseBindingCommand(TVControl5);
+        public void TVControl5(object obj)
+        {
+            var files = SelectRevitFiles("请选择需要添加属性的 Revit 模型", "Revit 文件 (*.rvt;*.rfa)|*.rvt;*.rfa");
+            if (files.Count == 0) return;
+            ////输入参数名称
+            UniversalNewListString universalNewListString = new UniversalNewListString("请输入待建立属性，以分号分隔");
+            if (universalNewListString.ShowDialog() == false) return;
+            List<string> resultNames = universalNewListString.ViewModel.NewName;
+            //选择参数类型
+            var parameterTypeOptions = new List<ParameterTypeWrapper>
+            {
+            new ParameterTypeWrapper { DisplayName = "文本", Value = ParameterType.Text },
+            new ParameterTypeWrapper { DisplayName = "数值", Value = ParameterType.Number},
+            new ParameterTypeWrapper { DisplayName = "材质", Value = ParameterType.Material},
+            new ParameterTypeWrapper { DisplayName = "URL", Value = ParameterType.URL},
+            new ParameterTypeWrapper { DisplayName = "是否", Value = ParameterType.YesNo }
+            };
+            var dataMap = new Dictionary<string, List<ParameterTypeWrapper>>
+            {                { "类型属性", parameterTypeOptions },            { "实例属性", parameterTypeOptions }        };
+
+            var window = new UniversalDoubleComboboxWindow("设置属性参数", "1. 请选择属性类别:", "2. 请选择参数类型:", dataMap);
+            if (window.ShowDialog() != true) return;
+            // 获取第一个下拉框的选中项 (这是一个string)
+            string selectedScope = window.SelectedItem1 as string;
+            bool isInstancePara = (selectedScope == "实例属性");
+            // 获取第二个下拉框的选中项 (这是一个ParameterTypeWrapper对象)
+            ParameterTypeWrapper selectedWrapper = window.SelectedItem2 as ParameterTypeWrapper;
+            // 安全检查
+            if (selectedScope == null || selectedWrapper == null) return;
+            ParameterType finalParameterType = selectedWrapper.Value;
+
+            int currentVersion = int.Parse(_uiApp.Application.VersionNumber);
+            List<string> successList = new List<string>(), failList = new List<string>();
+            NoTransactionWithProgressBarHelper.Execute(files.Count, "准备批量添加属性", (progress) =>
+            {
+                progress.UpdateMax(files.Count);
+                for (int i = 0; i < files.Count; i++)
+                {
+                    string filePath = files[i];
+                    string fileName = Path.GetFileName(filePath);
+                    progress.Update(i + 1, fileName);
+                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    {
+                        failList.Add($"{fileName} [跳过: {reason}]");
+                        continue;
+                    }
+                    Document openedDoc = null; // 用于确保文档能被关闭
+                    try
+                    {
+                        openedDoc = _uiApp.Application.OpenDocumentFile(filePath);
+                        NewTransaction.Execute(openedDoc, "新建共享参数", () =>
+                        {
+                            if (openedDoc.IsFamilyDocument)
+                            {
+                                SharedParaFactory.CreateFamilyPara(openedDoc, resultNames, isInstancePara, finalParameterType);
+                            }
+                            else
+                            {
+                                SharedParaFactory.CreateProjectPara(openedDoc, resultNames, isInstancePara, finalParameterType);
+                            }
+                        });
+                        openedDoc.Save();
+                        successList.Add(fileName);
+                    }
+                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
+                    finally
+                    {
+                        // 【关键修正】确保无论成功或失败，打开的文档都会被关闭
+                        if (openedDoc != null)
+                        {
+                            openedDoc.Close(false); // false表示不保存更改，因为我们已经在事务成功后手动保存了
+                        }
+                    }
+                }
+            });
+            string finalReport = $"批量处理完成！\n\n" +
+                     $"成功处理 {successList.Count} 个文件:\n" +
+                     $"{(successList.Any() ? string.Join("\n", successList) : "无")}\n\n" +
+                     $"失败或跳过 {failList.Count} 个文件:\n" +
+                     $"{(failList.Any() ? string.Join("\n", failList) : "无")}";
+            TaskDialog.Show("处理报告", finalReport);
+        }
+        public static class DefinitionInfo
+        {
+            private static DefinitionFile _instance;
+            public static DefinitionFile GetInstance(Document doc)
+            {
+                //// 每次修改前最好记录原始的共享参数文件路径（Revit全局唯一的），用完后可以考虑恢复
+                try
+                {
+                    string path = SharedParaFactory.EnsureSharedParameterFile();
+                    doc.Application.SharedParametersFilename = path;
+                    _instance = doc.Application.OpenSharedParameterFile();
+                    return _instance;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+        public static class SharedParaFactory
+        {
+            public static void CreateFamilyPara(Document doc, List<string> names, bool isInstancePara, ParameterType paraType)
+            {
+                if (!doc.IsFamilyDocument) return;
+                FamilyManager familyManager = doc.FamilyManager;
+                // 1. 获取族内所有已存在的参数名称，用于后续检查，效率高
+                var existingParaNames = new HashSet<string>(familyManager.Parameters.Cast<FamilyParameter>().Select(p => p.Definition.Name));
+                // 2. 准备共享参数文件和组
+                DefinitionFile definitionFile = DefinitionInfo.GetInstance(doc);
+                if (definitionFile == null)
+                {
+                    TaskDialog.Show("错误", "无法加载或创建共享参数文件。");
+                    return;
+                }
+                DefinitionGroup group = definitionFile.Groups.get_Item("CACC") ?? definitionFile.Groups.Create("CACC");
+                var createdParams = new List<string>();
+                var skippedParams = new List<string>();
+                // 3. 遍历用户输入的每一个参数名
+                foreach (string paraName in names)
+                {
+                    if (string.IsNullOrWhiteSpace(paraName)) continue;
+                    // 4. 【核心检查】检查参数是否已存在于族中
+                    if (existingParaNames.Contains(paraName))
+                    {
+                        skippedParams.Add(paraName);
+                        continue; // 如果已存在，则跳过此参数
+                    }
+                    // 5. 在共享参数文件中查找或创建参数定义 (Definition)
+                    ExternalDefinition definition = group.Definitions.get_Item(paraName) as ExternalDefinition;
+                    if (definition == null)
+                    {
+                        var options = new ExternalDefinitionCreationOptions(paraName, paraType);
+                        definition = group.Definitions.Create(options) as ExternalDefinition;
+                    }
+                    // 6. 【核心创建】使用 FamilyManager 将参数添加到族中
+                    try
+                    {
+                        // PG_DATA 是一个通用的好选择
+                        familyManager.AddParameter(definition, BuiltInParameterGroup.PG_DATA, isInstancePara);
+                        createdParams.Add(paraName);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        // 如果添加失败（例如，类型不匹配等），记录并继续
+                        skippedParams.Add($"{paraName} (创建失败: {ex.Message})");
+                    }
+                }
+                // 7. 向用户反馈结果
+                string report = $"操作完成。\n\n成功创建参数：\n{(createdParams.Any() ? string.Join("\n", createdParams) : "无")}\n\n" +
+                                $"跳过或失败的参数(已存在或创建失败)：\n{(skippedParams.Any() ? string.Join("\n", skippedParams) : "无")}";
+                TaskDialog.Show("结果报告", report);
+            }
+            ////重载不考虑类别，仅建立属性
+            public static void CreateProjectPara(Document doc, List<string> names, bool isInstancePara, ParameterType paraType)
+            {
+                if (doc.IsFamilyDocument) return;
+                // 1. 准备共享参数文件和组
+                DefinitionFile definitionFile = DefinitionInfo.GetInstance(doc);
+                if (definitionFile == null)
+                {
+                    TaskDialog.Show("错误", "无法加载或创建共享参数文件。");
+                    return;
+                }
+                DefinitionGroup group = definitionFile.Groups.get_Item("CACC") ?? definitionFile.Groups.Create("CACC");
+                // 2. 一次性获取项目中所有已绑定参数的名称，存入HashSet以提高查询效率
+                var existingParams = new HashSet<string>();
+                var proIterator = doc.ParameterBindings.ForwardIterator();
+                while (proIterator.MoveNext())
+                {
+                    existingParams.Add(proIterator.Key.Name);
+                }
+                var categorySet = doc.Application.Create.NewCategorySet();
+                Category category = Category.GetCategory(doc, BuiltInCategory.OST_Walls);
+                if (category != null)
+                {
+                    categorySet.Insert(category);
+                }
+                // 3. 根据'isInstancePara'创建合适的Binding对象。默认绑定给墙，因为空值或BuiltInCategory.Invalid都会失败
+                Binding binding = isInstancePara ? (Binding)doc.Application.Create.NewInstanceBinding(categorySet)
+                    : (Binding)doc.Application.Create.NewTypeBinding(categorySet);
+                var createdParams = new List<string>();
+                var skippedParams = new List<string>();
+                // 4. 遍历用户输入的每一个参数名
+                foreach (var paraName in names)
+                {
+                    if (string.IsNullOrWhiteSpace(paraName)) continue;
+                    // 5. 【核心检查】如果项目中已存在此参数，则直接跳过
+                    if (existingParams.Contains(paraName))
+                    {
+                        skippedParams.Add(paraName);
+                        continue;
+                    }
+                    // 6. 在共享参数文件中查找或创建参数定义 (Definition)
+                    Definition definition = group.Definitions.get_Item(paraName);
+                    if (definition == null)
+                    {
+                        // 【关键修复】使用传入的 paraType，并转换为现代API
+                        //                // 注意：ParameterType.Text 在 Revit 2022+ 中已过时，若您使用新版需改为 SpecTypeId.String.Text
+                        var options = new ExternalDefinitionCreationOptions(paraName, paraType);
+                        //var options = new ExternalDefinitionCreationOptions(definitionName, SpecTypeId.String.Text);
+                        //ExternalDefinitionCreationOptions options = new ExternalDefinitionCreationOptions(paraName, GetSpecTypeId(paraType));
+                        definition = group.Definitions.Create(options);
+                    }
+                    // 7. 【核心绑定】将定义与Binding一起插入到项目中
+                    try
+                    {
+                        // PG_DATA 是一个通用的好选择，显示在“数据”组下
+                        if (doc.ParameterBindings.Insert(definition, binding, BuiltInParameterGroup.PG_DATA))
+                        {
+                            createdParams.Add(paraName);
+                        }
+                        else
+                        {
+                            skippedParams.Add($"{paraName} (绑定失败)");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        skippedParams.Add($"{paraName} (绑定异常: {ex.Message})");
+                    }
+                }
+
+                // 8. 向用户反馈结果
+                string report = $"项目参数操作完成。\n\n成功创建参数：\n{(createdParams.Any() ? string.Join("\n", createdParams) : "无")}\n\n" +
+                                $"跳过或失败的参数(已存在或绑定失败)：\n{(skippedParams.Any() ? string.Join("\n", skippedParams) : "无")}";
+                TaskDialog.Show("结果报告", report);
+            }
+            // 确保共享参数文件存在，并返回文件绝对路径
+            public static string EnsureSharedParameterFile()
+            {
+                // 推荐放在插件所在目录 或 系统的 Temp 目录，避免没有写入权限
+                string directoryPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                string shareFilePath = Path.Combine(directoryPath, "RevitSharedParameters.txt");
+                if (!File.Exists(shareFilePath))
+                {
+                    //只有当文件不存在时，才创建并写入模板内容 纯净的内容模板
+                    string content = "# This is a Revit shared parameter file.\r\n" +
+                                 "# Do not edit manually.\r\n" +
+                                 "*META\tVERSION\tMINVERSION\r\n" +
+                                 "META\t2\t1\r\n" +
+                                 "*GROUP\tID\tNAME\r\n" +
+                                 "GROUP\t1\tGroup1\r\n" +
+                                 "*PARAM\tGUID\tNAME\tDATATYPE\tDATACATEGORY\tGROUP\tVISIBLE\r\n" +
+                                 "PARAM\t858bd7ed-5acf-4d20-9d7c-31269a0c0e9a\tShared_Length\tLENGTH\t\t1\t1";
+                    // 优化：File.WriteAllText 会自动判断，如果文件不存在则创建，如果存在则直接覆盖。
+                    // 无需手动 File.Create -> Close -> File.WriteAllBytes 这么繁琐，且不会抛出流占用的异常。
+                    File.WriteAllText(shareFilePath, content, Encoding.UTF8);
+                }
+                return shareFilePath;
+            }
+
+            ///// <summary>
+            ///// 删除项目中所有的自定义参数绑定 (警告：危险操作，会清空所有参数)
+            ///// </summary>
+            //public static void DeletePara(Document doc)
+            //{
+            //    var proMap = doc.ParameterBindings;
+            //    var proIterator = proMap.ForwardIterator();
+            //    var defsToDelete = new List<Definition>();
+            //    // 先收集所有需要删除的定义
+            //    while (proIterator.MoveNext())
+            //    {
+            //        defsToDelete.Add(proIterator.Key);
+            //    }
+            //    // 然后集中移除
+            //    foreach (var def in defsToDelete)
+            //    {
+            //        proMap.Remove(def);
+            //    }
+            //}
+        }
         // 关闭主窗口方法，定义一个委托
         public Action CloseAction { get; set; }
         private void ExecuteClose(object obj) => CloseAction?.Invoke();
+    }
+    //内置类展示
+    public class CategoryItemWrapper
+    {
+        public string Name { get; set; }
+        public BuiltInCategory BuiltInCategory { get; set; }
+        public CategoryItemWrapper(string name, int categoryId)
+        {
+            Name = name;
+            // 将整数 ID 强转为 Revit 的 BuiltInCategory 枚举
+            BuiltInCategory = (BuiltInCategory)categoryId;
+        }
+        // 【魔法就在这里】：WPF 的 ComboBox 默认会调用对象的 ToString() 作为界面显示的文本
+        public override string ToString() { return Name; }
+    }
+    public class ParameterTypeWrapper
+    {
+        public string DisplayName { get; set; }
+        public ParameterType Value { get; set; }
+        public override string ToString()
+        {
+            // 直接返回DisplayName属性即可
+            return DisplayName;
+        }
     }
 }

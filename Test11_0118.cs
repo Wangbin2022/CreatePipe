@@ -10,6 +10,7 @@ using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.Utils;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,23 +25,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace CreatePipe
 {
-    //内置类展示
-    public class CategoryItem
-    {
-        public string Name { get; set; }
-        public BuiltInCategory BuiltInCategory { get; set; }
-        public CategoryItem(string name, int categoryId)
-        {
-            Name = name;
-            // 将整数 ID 强转为 Revit 的 BuiltInCategory 枚举
-            BuiltInCategory = (BuiltInCategory)categoryId;
-        }
-        // 【魔法就在这里】：WPF 的 ComboBox 默认会调用对象的 ToString() 作为界面显示的文本
-        public override string ToString()
-        {
-            return Name;
-        }
-    }
+
     [Transaction(TransactionMode.Manual)]
     public class Test11_0118 : Decorator, IExternalCommand
     {
@@ -737,18 +722,9 @@ namespace CreatePipe
             ////0609 批量改族.OK
             //BacthFamilyEditorView bacthFamilyEditorView = new BacthFamilyEditorView(uiApp);
             //bacthFamilyEditorView.ShowDialog();
-            //UniversalNewListString universalNewListString = new UniversalNewListString("test");
-            //if (universalNewListString.ShowDialog() != false)
-            //{
-            //    List<string> result = universalNewListString.ViewModel.NewName;
-            //    TaskDialog.Show("tt", result.Count().ToString());
-            //}
-            //0610 共享参数测试
-            var ts = new Transaction(doc);
-            ts.Start("新建共享参数");
-            SharedParaFactory.CreatePara(doc, new List<string>() { "标签1", "标签2" }, BuiltInCategory.OST_Walls);
-            ts.Commit();
+            ////0610 检查并共享参数测试 检查是否存在某个参数(含内置参数，共享参数)，如不存在则建立这个共享参数
 
+       
             ////0529 管道交接方法
             //NewTransaction.Execute(doc,"test",() => {
             //    // 1. 拾取第一根管道
@@ -2157,6 +2133,46 @@ namespace CreatePipe
 
             return Result.Succeeded;
         }
+        private List<string> SelectRevitFiles(string title, string filter = "Revit 族文件 (*.rfa)|*.rfa")
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Title = title,
+                Filter = filter,
+                Multiselect = true,
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
+            };
+            return openFileDialog.ShowDialog() == true ? openFileDialog.FileNames.ToList() : new List<string>();
+        }
+        /// <summary>
+        /// 提取2：通用检查文件是否满足处理条件（防崩溃、防报错）
+        /// </summary>
+        private bool IsValidForProcessing(string filePath, int currentVersion, out string skipReason)
+        {
+            skipReason = string.Empty;
+            try
+            {
+                BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
+
+                // 检查：是否高于当前 Revit 版本
+                if (fileInfo.IsSavedInLaterVersion)
+                {
+                    skipReason = "文件版本高于当前 Revit 版本";
+                    return false;
+                }
+                if (int.TryParse(fileInfo.Format, out int fileVersion) && fileVersion > currentVersion)
+                {
+                    skipReason = $"文件版本({fileVersion})高于当前版本";
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                skipReason = $"无法读取文件信息: {ex.Message}";
+                return false;
+            }
+        }
         //private int _maximum;
         //public int Maximum { get => _maximum; set => SetProperty(ref _maximum, value); }
         //0323 进度条调用模板，无需单独声明ProgressBar
@@ -2865,108 +2881,5 @@ namespace CreatePipe
         }
     }
     //0610  共享参数批量创建
-    public static class DefinitionInfo
-    {
-        private static DefinitionFile _instance;
-        public static DefinitionFile GetInstance(Document doc)
-        {
-            if (_instance == null)
-            {
-                // 每次修改前最好记录原始的共享参数文件路径（Revit全局唯一的），用完后可以考虑恢复
-                var path = SharedParaFactory.EnsureSharedParameterFile();
-                doc.Application.SharedParametersFilename = path;
-                _instance = doc.Application.OpenSharedParameterFile();
-            }
-            return _instance;
-        }
-    }
-    public static class SharedParaFactory
-    {
-        /// <summary>
-        /// 批量创建项目参数 (请确保外部调用此方法时已开启 Transaction)
-        /// </summary>
-        public static void CreatePara(Document doc, List<string> names, params BuiltInCategory[] builtInCategories)
-        {
-            DefinitionFile definitionFile = DefinitionInfo.GetInstance(doc);
-            if (definitionFile == null) return;
-            // 获取或创建共享参数组
-            var group = definitionFile.Groups.get_Item("dd") ?? definitionFile.Groups.Create("dd");
-            // 优化：提前将所有受绑定类别的实体实例化（移出内层循环，避免重复创建）
-            var categorySet = doc.Application.Create.NewCategorySet();
-            foreach (var item in builtInCategories)
-            {
-                Category category = Category.GetCategory(doc, item);
-                if (category != null)
-                {
-                    categorySet.Insert(category);
-                }
-            }
-            var binding = doc.Application.Create.NewInstanceBinding(categorySet);
-            // 优化：一次性获取项目中已存在的所有参数名称，存入 HashSet，把时间复杂度降至 O(1)
-            var existingParams = new HashSet<string>();
-            var proIterator = doc.ParameterBindings.ForwardIterator();
-            while (proIterator.MoveNext())
-            {
-                existingParams.Add(proIterator.Key.Name);
-            }
-            // 遍历需要创建的参数名
-            foreach (var definitionName in names)
-            {
-                // 如果项目中已存在此参数，则直接跳过
-                if (existingParams.Contains(definitionName)) continue;
-                // 检查共享参数txt中是否已有该定义，没有则创建
-                var definition = group.Definitions.get_Item(definitionName);
-                if (definition == null)
-                {
-                    // 注意：ParameterType.Text 在 Revit 2022+ 中已过时，若您使用新版需改为 SpecTypeId.String.Text
-                    var options = new ExternalDefinitionCreationOptions(definitionName, ParameterType.Text);
-                    definition = group.Definitions.Create(options);
-                }
-                // 将参数绑定到项目
-                doc.ParameterBindings.Insert(definition, binding, BuiltInParameterGroup.PG_TEXT);
-            }
-        }
-        /// <summary>
-        /// 删除项目中所有的自定义参数绑定 (警告：危险操作，会清空所有参数)
-        /// </summary>
-        public static void DeletePara(Document doc)
-        {
-            var proMap = doc.ParameterBindings;
-            var proIterator = proMap.ForwardIterator();
-            var defsToDelete = new List<Definition>();
-            // 先收集所有需要删除的定义
-            while (proIterator.MoveNext())
-            {
-                defsToDelete.Add(proIterator.Key);
-            }
-            // 然后集中移除
-            foreach (var def in defsToDelete)
-            {
-                proMap.Remove(def);
-            }
-        }
-        /// <summary>
-        /// 确保共享参数文件存在，并返回文件绝对路径
-        /// （合并了原来冗余的 GetShareParPath、GetSharedParPath、HGetSharedParPath）
-        /// </summary>
-        public static string EnsureSharedParameterFile()
-        {
-            // 推荐放在插件所在目录 或 系统的 Temp 目录，避免没有写入权限
-            string directoryPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            string shareFilePath = Path.Combine(directoryPath, "RevitSharedParameters.txt");
-            // 纯净的内容模板
-            string content = "# This is a Revit shared parameter file.\r\n" +
-                             "# Do not edit manually.\r\n" +
-                             "*META\tVERSION\tMINVERSION\r\n" +
-                             "META\t2\t1\r\n" +
-                             "*GROUP\tID\tNAME\r\n" +
-                             "GROUP\t1\tGroup1\r\n" +
-                             "*PARAM\tGUID\tNAME\tDATATYPE\tDATACATEGORY\tGROUP\tVISIBLE\r\n" +
-                             "PARAM\t858bd7ed-5acf-4d20-9d7c-31269a0c0e9a\tShared_Length\tLENGTH\t\t1\t1";
-            // 优化：File.WriteAllText 会自动判断，如果文件不存在则创建，如果存在则直接覆盖。
-            // 无需手动 File.Create -> Close -> File.WriteAllBytes 这么繁琐，且不会抛出流占用的异常。
-            File.WriteAllText(shareFilePath, content, Encoding.UTF8);
-            return shareFilePath;
-        }
-    }
+
 }
