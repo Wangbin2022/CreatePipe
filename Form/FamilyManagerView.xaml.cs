@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
 
@@ -24,28 +25,25 @@ namespace CreatePipe.Form
     /// </summary>
     public partial class FamilyManagerView : Window
     {
+        UIApplication App;
         public FamilyManagerView(UIApplication uiApp)
         {
             InitializeComponent();
             this.DataContext = new FamilyManagerViewModel(uiApp);
+            App = uiApp;
         }
         private void btn_OK_Click(object sender, System.Windows.RoutedEventArgs e)
         {
-            //try
-            //{
-            //    // 假设 directoryTreeView 是您 UI 中的树控件
-            //    if (directoryTreeView?.SelectedItem is Dirs selectedDirectory)
-            //    {
-            //        string output = selectedDirectory.Info.FullName;
-            //        System.Windows.Clipboard.SetText(output);
-            //        System.Windows.Clipboard.Flush();
-            //    }
-            //}
-            //catch (Exception ex)
-            //{
-            //    Debug.WriteLine($"复制剪贴板失败: {ex.Message}");
-            //}
             this.Close();
+        }
+        private async void FilesListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 获取当前选中的 FileSingle 对象
+            if (e.AddedItems.Count > 0 && e.AddedItems[0] is FileSingle selectedFile)
+            {
+                // 异步调用加载方法，UI不会被冻结
+                await selectedFile.LoadDetailsAsync(App);
+            }
         }
     }
     public class FamilyManagerViewModel : ObserverableObject, IQueryViewModel<FileSingle>

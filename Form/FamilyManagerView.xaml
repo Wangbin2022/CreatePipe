@@ -9,7 +9,7 @@
         xmlns:uc="clr-namespace:CreatePipe.Form.UserControls"
         xmlns:conv="clr-namespace:CreatePipe.Form.Converters"
        xmlns:bv="clr-namespace:CreatePipe.Form.Behaviors"
-        Height="450" Width="720">
+        Height="450" Width="880">
     <Grid Margin="10">
         <Grid.Resources>
             <conv:IntToStringConverter x:Key="IntToStringConverter"/>
@@ -48,14 +48,14 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         Margin="2" Command="{Binding MakeThumbCommand}"
                         CommandParameter="{Binding SelectedDirectory}"
                         Click="btn_OK_Click"/>
-                <Button Width="50"  Content="批量删除"   
+                <!--<Button Width="50"  Content="升级版本"   
+                        Margin="2" Command="{Binding UpgradeFamilyCommand}"
+                        CommandParameter="{Binding SelectedDirectory}"/>-->
+                <Button Width="60"  Content="导出清单"   
+                    Margin="2" Command="{Binding SaveCsvCommand}"/>
+                <Button Width="60"  Content="批量删除"   
                         Margin="2" Command="{Binding DeleteElementsCommand}"
                          CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
-                <Button Width="50"  Content="升级版本"   
-                        Margin="2" Command="{Binding UpgradeFamilyCommand}"
-                        CommandParameter="{Binding SelectedDirectory}"/>
-                <Button Width="50"  Content="导出清单"   
-                    Margin="2" Command="{Binding SaveCsvCommand}"/>
             </StackPanel>
         </Grid>
         <DataGrid x:Name="dataGrid"   Height="320" Margin="5"
@@ -63,7 +63,8 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
           VerticalAlignment="Top" HorizontalAlignment="Stretch"
           GridLinesVisibility="Vertical" VerticalGridLinesBrush="Gray" 
                      AutoGenerateColumns="False" CanUserAddRows="False"
-            SelectionMode="Extended" ItemsSource="{Binding Collection}">
+            SelectionMode="Extended" ItemsSource="{Binding Collection}"
+                  SelectionChanged="FilesListView_SelectionChanged">
             <DataGrid.Resources>
                 <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
                     <Setter Property="VerticalAlignment" Value="Center"/>
@@ -71,12 +72,14 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="族文件名称" Binding="{Binding name}" Width="135" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="name" />
+                <DataGridTextColumn Header="族类别" Binding="{Binding CategoryName}" Width="60" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="name" />
+                <DataGridTextColumn Header="子类别" Binding="{Binding PartTypeName}" Width="60" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="name" />
                 <DataGridTextColumn Header="族大小" Binding="{Binding DisplaySize}" Width="60" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="DisplaySize"/>
                 <DataGridTextColumn Header="版本" Binding="{Binding Version}" Width="45" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="Version"/>
                 <DataGridTemplateColumn Header="缩略图" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="打开图" Width="50"
+                            <Button Content="打开图" Width="48"
                             Command="{Binding DataContext.OpenThumbCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                             CommandParameter="{Binding}" 
                             IsEnabled="{Binding HasJpgFile}" 
@@ -125,7 +128,7 @@ ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <DataGridTemplateColumn Header="" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="导入当前" Width="60"
+                            <Button Content="导入" Width="45"
                             Command="{Binding DataContext.LoadFamilyCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                             CommandParameter="{Binding}" IsEnabled="{Binding IsBackup, Converter={StaticResource InverseBooleanConverter}}"
                             Height="auto" HorizontalAlignment="Stretch" />

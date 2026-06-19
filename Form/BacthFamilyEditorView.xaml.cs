@@ -8,11 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using Binding = Autodesk.Revit.DB.Binding;
 
@@ -82,6 +78,7 @@ namespace CreatePipe.Form
     {
         private UIApplication _uiApp;
         private Autodesk.Revit.ApplicationServices.Application _app;
+        public BaseExternalHandler ExternalHandler { get; } = new BaseExternalHandler();
         public BacthFamilyEditorViewModel(UIApplication uiApp)
         {
             _uiApp = uiApp;
@@ -214,46 +211,49 @@ namespace CreatePipe.Form
 
             var dialog = new UniversalDoubleComboboxWindow("设置族参数", "1. 请选择族类别:", "2. 请选择零件类型:", partTypeMap);
             if (dialog.ShowDialog() != true) return;
-
-            CategoryItemWrapper catItem = (CategoryItemWrapper)dialog.SelectedItem1;
-            PartType partType = (PartType)dialog.SelectedItem2;
-
-            int currentVersion = int.Parse(_app.VersionNumber);
-            List<string> successList = new List<string>(), failList = new List<string>();
-
-            NoTransactionWithProgressBarHelper.Execute(files.Count, "批量修改族类型", (progress) =>
+            ExternalHandler.Run(app =>
             {
-                progress.UpdateMax(files.Count);
-                for (int i = 0; i < files.Count; i++)
+                CategoryItemWrapper catItem = (CategoryItemWrapper)dialog.SelectedItem1;
+                PartType partType = (PartType)dialog.SelectedItem2;
+
+                int currentVersion = int.Parse(_app.VersionNumber);
+                List<string> successList = new List<string>(), failList = new List<string>();
+
+                NoTransactionWithProgressBarHelper.Execute(files.Count, "批量修改族类型", (progress) =>
                 {
-                    string filePath = files[i];
-                    string fileName = Path.GetFileName(filePath);
-                    progress.Update(i + 1, fileName);
-
-                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    progress.UpdateMax(files.Count);
+                    for (int i = 0; i < files.Count; i++)
                     {
-                        failList.Add($"{fileName} [跳过: {reason}]"); continue;
-                    }
+                        string filePath = files[i];
+                        string fileName = Path.GetFileName(filePath);
+                        progress.Update(i + 1, fileName);
 
-                    try
-                    {
-                        Document familyDoc = _app.OpenDocumentFile(filePath);
-                        if (!familyDoc.IsFamilyDocument) { familyDoc.Close(false); failList.Add($"{fileName} [非族文件]"); continue; }
-                        // 【修复核心Bug】：必须在正在修改的 familyDoc 内部开启事务，而不是外部的 doc
-                        NewTransaction.Execute(familyDoc, "修改类型", () =>
+                        if (!IsValidForProcessing(filePath, currentVersion, out string reason))
                         {
-                            familyDoc.OwnerFamily.FamilyCategory = Category.GetCategory(familyDoc, catItem.BuiltInCategory);
-                            Parameter p = familyDoc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
-                            if (p != null && !p.IsReadOnly) p.Set((int)partType);
-                        });
-                        // 【修复核心Bug】：执行完毕后必须保存 true
-                        familyDoc.Close(true);
-                        successList.Add(fileName);
+                            failList.Add($"{fileName} [跳过: {reason}]"); continue;
+                        }
+
+                        try
+                        {
+                            Document familyDoc = _app.OpenDocumentFile(filePath);
+                            using (Transaction tx = new Transaction(familyDoc, "修改类型属性"))
+                            {
+                                tx.Start();
+                                if (!familyDoc.IsFamilyDocument) { familyDoc.Close(false); failList.Add($"{fileName} [非族文件]"); return; }
+                                familyDoc.OwnerFamily.FamilyCategory = Category.GetCategory(familyDoc, catItem.BuiltInCategory);
+                                Parameter p = familyDoc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE);
+                                if (p != null && !p.IsReadOnly) p.Set((int)partType);
+                                // 【修复核心Bug】：执行完毕后必须保存 true
+                                tx.Commit();
+                                familyDoc.Close(true);
+                            }
+                            successList.Add(fileName);
+                        }
+                        catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
                     }
-                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
-                }
+                });
+                ShowBatchReport("批量修改族类型", files.Count, successList, failList);
             });
-            ShowBatchReport("批量修改族类型", files.Count, successList, failList);
         }
         public string TVCommandName3 { get; set; } = "批量转换为FBX格式";
         public ICommand TVCommand3 => new BaseBindingCommand(TVControl3);
@@ -309,49 +309,65 @@ namespace CreatePipe.Form
             ExecuteClose(null);
             var files = SelectRevitFiles("请选择要处理的族文件");
             if (files.Count == 0) return;
-            int currentVersion = int.Parse(_app.VersionNumber);
-            List<string> successList = new List<string>(), failList = new List<string>();
-            NoTransactionWithProgressBarHelper.Execute(files.Count, "批量删除文字属性", (progress) =>
+            ExternalHandler.Run(app =>
             {
-                progress.UpdateMax(files.Count);
-                for (int i = 0; i < files.Count; i++)
+                int currentVersion = int.Parse(_app.VersionNumber);
+                List<string> successList = new List<string>(), failList = new List<string>();
+                NoTransactionWithProgressBarHelper.Execute(files.Count, "批量删除文字属性", (progress) =>
                 {
-                    string filePath = files[i];
-                    string fileName = Path.GetFileName(filePath);
-                    progress.Update(i + 1, fileName);
-                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    progress.UpdateMax(files.Count);
+                    for (int i = 0; i < files.Count; i++)
                     {
-                        failList.Add($"{fileName} [跳过: {reason}]"); continue;
-                    }
-                    try
-                    {
-                        Document familyDoc = _app.OpenDocumentFile(filePath);
-                        if (!familyDoc.IsFamilyDocument) { familyDoc.Close(false); continue; }
-                        FamilyManager familyManager = familyDoc.FamilyManager;
-                        var paramsToDelete = familyManager.GetParameters().Where(p =>
-                            p.Definition is InternalDefinition id
-                            && id.BuiltInParameter == BuiltInParameter.INVALID
-                            && p.Definition.ParameterType.ToString() == "Text"
-                        ).ToList();
-                        if (paramsToDelete.Count == 0)
+                        string filePath = files[i];
+                        string fileName = Path.GetFileName(filePath);
+                        progress.Update(i + 1, fileName);
+                        if (!IsValidForProcessing(filePath, currentVersion, out string reason))
                         {
-                            familyDoc.Close(false);
-                            failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
-                            continue;
+                            failList.Add($"{fileName} [跳过: {reason}]"); continue;
                         }
-                        NewTransaction.Execute(familyDoc, "删除文字属性", () => { foreach (var p in paramsToDelete) familyManager.RemoveParameter(p); });
-                        familyDoc.Close(true);
-                        successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个)");
+                        try
+                        {
+                            Document familyDoc = _app.OpenDocumentFile(filePath);
+                            // 【关键修改】在这里使用标准的 Transaction，而不是帮助类，以获得更好的控制
+                            using (Transaction tx = new Transaction(familyDoc, "删除文字属性"))
+                            {
+                                tx.Start();
+
+                                FamilyManager familyManager = familyDoc.FamilyManager;
+                                var paramsToDelete = familyManager.GetParameters().Where(p =>
+                                    p.Definition is InternalDefinition id
+                                    && id.BuiltInParameter == BuiltInParameter.INVALID
+                                    && p.Definition.ParameterType.ToString() == "Text"
+                                ).ToList();
+
+                                if (paramsToDelete.Count == 0)
+                                {
+                                    failList.Add($"{fileName} (跳过：未包含自定义文字属性)");
+                                    tx.RollBack(); // 回滚空事务
+                                }
+                                else
+                                {
+                                    foreach (var p in paramsToDelete)
+                                    {
+                                        familyManager.RemoveParameter(p);
+                                    }
+                                    successList.Add($"{fileName} (成功：删除了 {paramsToDelete.Count} 个)");
+                                    tx.Commit();
+                                    familyDoc.Save(); // 只有成功提交后才保存
+                                }
+                            }
+                        }
+                        catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
                     }
-                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
-                }
+                });
+                ShowBatchReport("批量删除族文本属性", files.Count, successList, failList);
             });
-            ShowBatchReport("批量删除族文本属性", files.Count, successList, failList);
         }
         public string TVCommandName5 { get; set; } = "批量添加属性";
         public ICommand TVCommand5 => new BaseBindingCommand(TVControl5);
         public void TVControl5(object obj)
         {
+            ExecuteClose(null);
             var files = SelectRevitFiles("请选择需要添加属性的 Revit 模型", "Revit 文件 (*.rvt;*.rfa)|*.rvt;*.rfa");
             if (files.Count == 0) return;
             ////输入参数名称
@@ -380,57 +396,62 @@ namespace CreatePipe.Form
             // 安全检查
             if (selectedScope == null || selectedWrapper == null) return;
             ParameterType finalParameterType = selectedWrapper.Value;
-
-            int currentVersion = int.Parse(_uiApp.Application.VersionNumber);
-            List<string> successList = new List<string>(), failList = new List<string>();
-            NoTransactionWithProgressBarHelper.Execute(files.Count, "准备批量添加属性", (progress) =>
+            ExternalHandler.Run(app =>
             {
-                progress.UpdateMax(files.Count);
-                for (int i = 0; i < files.Count; i++)
+                int currentVersion = int.Parse(_uiApp.Application.VersionNumber);
+                List<string> successList = new List<string>(), failList = new List<string>();
+                NoTransactionWithProgressBarHelper.Execute(files.Count, "准备批量添加属性", (progress) =>
                 {
-                    string filePath = files[i];
-                    string fileName = Path.GetFileName(filePath);
-                    progress.Update(i + 1, fileName);
-                    if (!IsValidForProcessing(filePath, currentVersion, out string reason))
+                    progress.UpdateMax(files.Count);
+                    for (int i = 0; i < files.Count; i++)
                     {
-                        failList.Add($"{fileName} [跳过: {reason}]");
-                        continue;
-                    }
-                    Document openedDoc = null; // 用于确保文档能被关闭
-                    try
-                    {
-                        openedDoc = _uiApp.Application.OpenDocumentFile(filePath);
-                        NewTransaction.Execute(openedDoc, "新建共享参数", () =>
+                        string filePath = files[i];
+                        string fileName = Path.GetFileName(filePath);
+                        progress.Update(i + 1, fileName);
+                        if (!IsValidForProcessing(filePath, currentVersion, out string reason))
                         {
-                            if (openedDoc.IsFamilyDocument)
-                            {
-                                SharedParaFactory.CreateFamilyPara(openedDoc, resultNames, isInstancePara, finalParameterType);
-                            }
-                            else
-                            {
-                                SharedParaFactory.CreateProjectPara(openedDoc, resultNames, isInstancePara, finalParameterType);
-                            }
-                        });
-                        openedDoc.Save();
-                        successList.Add(fileName);
-                    }
-                    catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
-                    finally
-                    {
-                        // 【关键修正】确保无论成功或失败，打开的文档都会被关闭
-                        if (openedDoc != null)
+                            failList.Add($"{fileName} [跳过: {reason}]");
+                            continue;
+                        }
+                        Document openedDoc = null; // 用于确保文档能被关闭
+                        try
                         {
-                            openedDoc.Close(false); // false表示不保存更改，因为我们已经在事务成功后手动保存了
+                            openedDoc = _uiApp.Application.OpenDocumentFile(filePath);
+                            using (Transaction tx = new Transaction(openedDoc, "新建共享参数属性"))
+                            {
+                                tx.Start();
+                                if (openedDoc.IsFamilyDocument)
+                                {
+                                    SharedParaFactory.CreateFamilyPara(openedDoc, resultNames, isInstancePara, finalParameterType);
+                                }
+                                else
+                                {
+                                    SharedParaFactory.CreateProjectPara(openedDoc, resultNames, isInstancePara, finalParameterType);
+                                }
+                                tx.Commit();
+                                openedDoc.Save();
+                            }
+                            successList.Add(fileName);
+                        }
+                        catch (Exception ex) { failList.Add($"{fileName} [失败: {ex.Message}]"); }
+                        finally
+                        {
+                            // 【关键修正】确保无论成功或失败，打开的文档都会被关闭
+                            if (openedDoc != null)
+                            {
+                                openedDoc.Close(false); // false表示不保存更改，因为我们已经在事务成功后手动保存了
+                            }
                         }
                     }
-                }
+                });
+                ShowBatchReport("批量新建族属性处理完成", files.Count, successList, failList);
+                //string finalReport = $"批量处理完成！\n\n" +
+                //         $"成功处理 {successList.Count} 个文件:\n" +
+                //         $"{(successList.Any() ? string.Join("\n", successList) : "无")}\n\n" +
+                //         $"失败或跳过 {failList.Count} 个文件:\n" +
+                //         $"{(failList.Any() ? string.Join("\n", failList) : "无")}";
+                //TaskDialog.Show("处理报告", finalReport);
             });
-            string finalReport = $"批量处理完成！\n\n" +
-                     $"成功处理 {successList.Count} 个文件:\n" +
-                     $"{(successList.Any() ? string.Join("\n", successList) : "无")}\n\n" +
-                     $"失败或跳过 {failList.Count} 个文件:\n" +
-                     $"{(failList.Any() ? string.Join("\n", failList) : "无")}";
-            TaskDialog.Show("处理报告", finalReport);
         }
         public static class DefinitionInfo
         {

@@ -1,7 +1,5 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Architecture;
-using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
@@ -13,604 +11,19 @@ using CreatePipe.Utils;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
+using System.Management;
 using System.Windows.Controls;
-using static CreatePipe.Utils.HelpersSelection;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 //service.Update(++index, id.Value.ToString());
 //set => SetProperty(ref _maximum, value);
 
 namespace CreatePipe
 {
-
     [Transaction(TransactionMode.Manual)]
     public class Test11_0118 : Decorator, IExternalCommand
     {
         private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
-        //找实例共同文字属性列表     
-        public Dictionary<string, string> GetCommonStringParameterNames(Document doc)
-        {
-            // 1. 收集文档中所有的族实例
-            var allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).WhereElementIsNotElementType()
-                .Where(e => e.HasPhases()).Cast<FamilyInstance>().ToList();
-            if (allInstances.Count == 0) return new Dictionary<string, string>();
-            // 分别追踪实例参数和类型参数的交集
-            HashSet<string> commonInstanceParams = null;
-            HashSet<string> commonSymbolParams = null;
-            // 2. 遍历所有实例，分别求交集
-            foreach (FamilyInstance instance in allInstances)
-            {
-                // 收集当前实例的实例参数
-                var currentInstanceParams = new HashSet<string>();
-                foreach (Parameter param in instance.Parameters)
-                {
-                    if (param.StorageType == StorageType.String && !param.IsReadOnly)
-                    {
-                        currentInstanceParams.Add(param.Definition.Name);
-                    }
-                }
-                // 收集当前实例的类型参数
-                var currentSymbolParams = new HashSet<string>();
-                FamilySymbol symbol = instance.Symbol;
-                if (symbol != null)
-                {
-                    foreach (Parameter param in symbol.Parameters)
-                    {
-                        if (param.StorageType == StorageType.String && !param.IsReadOnly)
-                        {
-                            currentSymbolParams.Add(param.Definition.Name);
-                        }
-                    }
-                }
-                // 求交集
-                if (commonInstanceParams == null)
-                {
-                    commonInstanceParams = new HashSet<string>(currentInstanceParams);
-                }
-                else
-                {
-                    commonInstanceParams.IntersectWith(currentInstanceParams);
-                }
-                if (commonSymbolParams == null)
-                {
-                    commonSymbolParams = new HashSet<string>(currentSymbolParams);
-                }
-                else
-                {
-                    commonSymbolParams.IntersectWith(currentSymbolParams);
-                }
-                // 提前退出
-                if (commonInstanceParams.Count == 0 && commonSymbolParams.Count == 0)
-                    break;
-            }
-            // 3. 组装字典结果，标记来源
-            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            // 标记仅实例共有的参数
-            foreach (var name in commonInstanceParams ?? Enumerable.Empty<string>())
-            {
-                result[name] = "实例";
-            }
-            // 标记仅类型共有的参数，或两者共有
-            foreach (var name in commonSymbolParams ?? Enumerable.Empty<string>())
-            {
-                if (result.ContainsKey(name))
-                {
-                    // 实例和类型都有同名参数
-                    result[name] = "两者";
-                }
-                else
-                {
-                    result[name] = "类型";
-                }
-            }
-            return result;
-        }
-        //0428 原TEst10方法
-        //生成柱子
-        // 截断小数位数的方法
-        private double CutDecimalWithN(double value, int decimalPlaces)
-        {
-            double factor = Math.Pow(10, decimalPlaces);
-            return Math.Truncate(value * factor) / factor;
-        }
-        private void CreatColu(Document doc, XYZ point, double b, double h)
-        {
-            FilteredElementCollector fil = new FilteredElementCollector(doc);
-            fil.OfClass(typeof(FamilySymbol));
-            string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
-            List<FamilySymbol> listFa = new List<FamilySymbol>();
-            foreach (FamilySymbol fa in fil)
-            {
-                // 更安全的参数获取方式
-                Parameter familyNameParam = fa.LookupParameter("族名称");
-                if (familyNameParam != null && familyNameParam.AsString() == "CADC_柱-混凝土-矩形")
-                {
-                    listFa.Add(fa);
-                }
-            }
-            if (listFa.Count == 0)
-            {
-                TaskDialog.Show("错误", "未找到名为'CADC_柱-混凝土-矩形'的族类型");
-                return;
-            }
-            FamilySymbol targetSymbol = null;
-            // 查找匹配的族类型
-            foreach (FamilySymbol symbol in listFa)
-            {
-                if (bh == symbol.Name)
-                {
-                    targetSymbol = symbol;
-                    break;
-                }
-            }
-            if (targetSymbol != null)
-            {
-                // 确保族类型已激活
-                if (!targetSymbol.IsActive) targetSymbol.Activate();
-                doc.Create.NewFamilyInstance(point, targetSymbol, StructuralType.Column);
-            }
-            else
-            {
-                // 复制创建新的族类型
-                FamilySymbol fam = listFa[0];
-                // 确保族类型已激活
-                if (!fam.IsActive) fam.Activate();
-                try
-                {
-                    FamilySymbol newSymbol = fam.Duplicate(bh) as FamilySymbol;
-                    // 设置参数 - 使用更安全的参数查找方式
-                    Parameter widthParam = newSymbol.LookupParameter("b");
-                    Parameter heightParam = newSymbol.LookupParameter("h");
-                    if (widthParam != null && heightParam != null)
-                    {
-                        using (Transaction t = new Transaction(doc, "设置柱参数"))
-                        {
-                            t.Start();
-                            widthParam.Set(b);
-                            heightParam.Set(h);
-                            t.Commit();
-                        }
-                        doc.Create.NewFamilyInstance(point, newSymbol, StructuralType.Column);
-                    }
-                    else
-                    {
-                        TaskDialog.Show("错误", "找不到截面宽度或截面高度参数");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    TaskDialog.Show("错误", $"创建族类型失败: {ex.Message}");
-                }
-            }
-        }
-        //private void CreatColu(Document doc, XYZ point, double b, double h)
-        //{
-        //    FilteredElementCollector fil = new FilteredElementCollector(doc);
-        //    fil.OfClass(typeof(FamilySymbol));
-        //    string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
-        //    List<FamilySymbol> listFa = new List<FamilySymbol>();
-        //    foreach (FamilySymbol fa in fil)
-        //    {
-        //        if (fa.GetParameters("族名称")[0].AsString() == "砼矩形柱")
-        //        {
-        //            listFa.Add(fa);
-        //        }
-        //    }
-        //    int i = 0;
-        //    bool bo = false;
-        //    int j = 0;
-        //    for (i = 0; i < listFa.Count; i++)
-        //    {
-        //        if (bh == listFa[i].Name)
-        //        {
-        //            bo = true;
-        //            j = i;
-        //        }
-        //    }
-        //    if (bo == true)
-        //    {
-        //        doc.Create.NewFamilyInstance(point, listFa[j], StructuralType.Column);
-        //    }
-        //    else
-        //    {
-        //        FamilySymbol fam = listFa[0];
-        //        ElementType coluType = fam.Duplicate(bh);
-        //        coluType.GetParameters("截面宽度")[0].Set(b);
-        //        coluType.GetParameters("截面高度")[0].Set(h);
-        //        FamilySymbol fs = coluType as FamilySymbol;
-        //        doc.Create.NewFamilyInstance(point, fs, StructuralType.Column);
-        //    }
-        //}
-        ///// <summary>
-        ///// 在视图中绘制可见性分析的结果
-        ///// </summary>
-        private void DrawVisibilityResults(Document doc, View view, XYZ observerPoint, List<XYZ> visiblePoints)
-        {
-            // 创建新的图形样式以便区分
-            GraphicsStyle gs = GetOrCreateGraphicsStyle(doc, "可见性分析线");
-            if (visiblePoints.Count <= 1) return;
-            // 找到可见区域的边界点（一个简化的方法是找到凸包）
-            List<XYZ> boundaryPoints = FindConvexHull(visiblePoints);
-            // 1. 绘制可见区域在标记牌上的轮廓线 (最大最小范围)
-            for (int i = 0; i < boundaryPoints.Count; i++)
-            {
-                XYZ p1 = boundaryPoints[i];
-                XYZ p2 = boundaryPoints[(i + 1) % boundaryPoints.Count]; // 连接到下一个点，最后一个点连回第一个
-                Line line = Line.CreateBound(p1, p2);
-                doc.Create.NewModelCurve(line, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
-            }
-            // 2. 绘制从观察点到可见区域边界的“视锥”
-            foreach (XYZ boundaryPoint in boundaryPoints)
-            {
-                Line coneLine = Line.CreateBound(observerPoint, boundaryPoint);
-                ModelCurve mc = doc.Create.NewModelCurve(coneLine, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
-                mc.LineStyle = gs; // 应用自定义图形样式
-            }
-        }
-        ///// <summary>
-        ///// 找到一组点的2D凸包 (投影到XY平面)
-        ///// 这是一个简化的凸包算法 (Gift wrapping algorithm)
-        ///// </summary>
-        public List<XYZ> FindConvexHull(List<XYZ> points)
-        {
-            if (points.Count <= 2) return points;
-            List<XYZ> hull = new List<XYZ>();
-            // 找到最左边的点作为起点
-            XYZ startPoint = points.OrderBy(p => p.X).ThenBy(p => p.Y).First();
-            XYZ currentPoint = startPoint;
-            do
-            {
-                hull.Add(currentPoint);
-                XYZ nextPoint = points[0];
-                foreach (XYZ p in points)
-                {
-                    if (nextPoint == currentPoint || IsLeft(currentPoint, nextPoint, p) > 0)
-                    {
-                        nextPoint = p;
-                    }
-                }
-                currentPoint = nextPoint;
-            } while (currentPoint != startPoint);
-            return hull;
-        }
-        private double IsLeft(XYZ p1, XYZ p2, XYZ p3)
-        {
-            return (p2.X - p1.X) * (p3.Y - p1.Y) - (p2.Y - p1.Y) * (p3.X - p1.X);
-        }
-        ///// <summary>
-        ///// 获取或创建用于可视化的图形样式
-        ///// </summary>
-        private GraphicsStyle GetOrCreateGraphicsStyle(Document doc, string styleName)
-        {
-            var cat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
-            var subCat = cat.SubCategories.get_Item(styleName);
-            if (subCat == null)
-            {
-                subCat = doc.Settings.Categories.NewSubcategory(cat, styleName);
-                subCat.LineColor = new Color(255, 0, 0); // 红色
-                subCat.SetLineWeight(5, GraphicsStyleType.Projection);
-            }
-            return subCat.GetGraphicsStyle(GraphicsStyleType.Projection);
-        }
-        ///// <summary>
-        ///// 查找最适合进行射线检测的3D视图
-        ///// </summary>
-        //private View3D FindBest3DView(Document doc)
-        //{
-        //    var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
-        //    View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
-        //    return default3DView ?? collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-        //}
-        ///// <summary>
-        ///// 从楼板的实体几何体中提取其底面的所有轮廓环路。
-        ///// </summary>
-        ///// <param name="floor">要分析的楼板</param>
-        ///// <returns>包含所有轮廓的CurveArray列表</returns>
-        private List<CurveArray> GetFloorLoopsFromGeometry(Floor floor)
-        {
-            var loops = new List<CurveArray>();
-            Options geomOptions = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, View = floor.Document.ActiveView };
-            GeometryElement geoElem = floor.get_Geometry(geomOptions);
-            if (geoElem == null) return null;
-            Solid solid = geoElem.OfType<Solid>().FirstOrDefault(s => s.Volume > 0);
-            if (solid == null) return null;
-            PlanarFace bottomFace = null;
-            foreach (Autodesk.Revit.DB.Face face in solid.Faces)
-            {
-                PlanarFace pFace = face as PlanarFace;
-                if (pFace != null && pFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
-                {
-                    bottomFace = pFace;
-                    break;
-                }
-            }
-            if (bottomFace == null) return null;
-            // *** 这是修正的核心部分 ***
-            // bottomFace.EdgeLoops 返回 IList<EdgeArray>
-            var edgeLoopList = bottomFace.EdgeLoops;
-            // 遍历每个 EdgeArray (每个代表一个闭合环路)
-            foreach (EdgeArray edgeArray in edgeLoopList)
-            {
-                // 为每个环路创建一个新的 CurveArray 来存放曲线
-                CurveArray curveArray = new CurveArray();
-                // 遍历环路中的每一条边 (Edge)
-                foreach (Edge edge in edgeArray)
-                {
-                    // 从边中提取几何曲线 (Curve) 并添加到 CurveArray 中
-                    curveArray.Append(edge.AsCurve());
-                }
-                // 将转换好的 CurveArray 添加到结果列表中
-                loops.Add(curveArray);
-            }
-            return loops;
-        }
-        ///// <summary>
-        ///// 确保两个元素被连接，并且第一个元素切割第二个元素。
-        ///// </summary>
-        private void EnsureJoinOrder(Document doc, Element cutter, Element cuttee)
-        {
-            if (!JoinGeometryUtils.AreElementsJoined(doc, cutter, cuttee))
-            {
-                try
-                {
-                    JoinGeometryUtils.JoinGeometry(doc, cutter, cuttee);
-                }
-                catch (Exception ex)
-                {
-                    // 记录连接失败的日志，对于调试很重要
-                    System.Diagnostics.Debug.WriteLine($"无法连接元素 {cutter.Id} 和 {cuttee.Id}: {ex.Message}");
-                }
-            }
-            else
-            {
-                // 如果已经连接，检查顺序是否正确
-                if (!JoinGeometryUtils.IsCuttingElementInJoin(doc, cutter, cuttee))
-                {
-                    try
-                    {
-                        JoinGeometryUtils.SwitchJoinOrder(doc, cutter, cuttee);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"无法切换元素 {cutter.Id} 和 {cuttee.Id} 的连接顺序: {ex.Message}");
-                    }
-                }
-            }
-        }
-        ///// <summary>
-        ///// 获取与给定元素包围盒相交的元素（梁和楼板）。
-        ///// </summary>
-        private List<Element> GetIntersectingElements(Document doc, Element element, double expansionAmount)
-        {
-            // 使用 get_BoundingBox(null) 获取模型空间的完整3D包围盒
-            BoundingBoxXYZ bbox = element.get_BoundingBox(null);
-            if (bbox == null) return new List<Element>();
-            // 扩大包围盒以确保捕捉到所有接触的元素
-            Outline outline = new Outline(bbox.Min - new XYZ(expansionAmount, expansionAmount, expansionAmount),
-                                          bbox.Max + new XYZ(expansionAmount, expansionAmount, expansionAmount));
-            // 使用 BoundingBoxIntersectsFilter 时，公差应非常小
-            BoundingBoxIntersectsFilter bbFilter = new BoundingBoxIntersectsFilter(outline, 1e-9);
-            // 定义要查找的元素类别
-            var categoryFilters = new List<ElementFilter>
-            {
-                new ElementCategoryFilter(BuiltInCategory.OST_StructuralFraming),
-                new ElementCategoryFilter(BuiltInCategory.OST_Floors)
-            };
-            var logicalOrFilter = new LogicalOrFilter(categoryFilters);
-            var finalFilter = new LogicalAndFilter(bbFilter, logicalOrFilter);
-            return new FilteredElementCollector(doc).WherePasses(finalFilter)
-                .Where(e => e.Id != element.Id).ToList();
-        }
-        ////1003 
-        ///// <summary>
-        ///// 查找一个最适合进行射线检测的3D视图。
-        ///// 优先选择默认的 {3D} 视图，因为它通常包含所有模型元素。
-        ///// </summary>
-        ///// 重复方法回头看一下是否去重？
-        private static View3D FindBest3DView(Document doc)
-        {
-            var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
-            // 优先寻找默认的 {3D} 视图
-            View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
-            if (default3DView != null)
-            {
-                return default3DView;
-            }
-            // 如果找不到，再寻找任何一个非模板的3D视图作为备用
-            return collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
-        }
-        /////代码解析
-        ////输入：通过 PickPoint 和 PickObject(ObjectType.Face)，我们精确地获取了观察点和用户想要分析的那个面。这是最可靠的方式。
-        ////采样：
-        ////targetFace.GetBoundingBox() 获取了面的 UV 参数范围。
-        ////通过双重 for 循环，我们在 UV 空间中均匀地创建了一个网格。
-        ////targetFace.Evaluate(new UV(u, v)) 将二维的 UV 参数转换为了三维世界坐标 XYZ。
-        ////可见性检测：
-        ////ReferenceIntersector 的构造函数传入了 targetElement.Id，这是一个优化，它会忽略目标本身，防止射线总是命中自己。但为了逻辑的严谨性，我们还是通过比较距离来判断，这样更通用。
-        ////distanceToFace 是原始距离，hitDistance 是碰撞距离。Math.Abs(hitDistance - distanceToFace) < tolerance 是判断是否命中了目标本身的关键。
-        ////可视化：
-        ////"最大最小可见范围" 的最佳数学表达是可见区域的轮廓。
-        ////我提供了一个简化的 凸包（Convex Hull） 算法 FindConvexHull 来找到包围所有可见点的最小多边形。这个多边形就是可见区域的边界。
-        ////DrawVisibilityResults 方法做了两件事：
-        ////用模型线在标记牌上绘制出这个凸包轮廓。
-        ////从观察点向凸包的每个顶点发射连线，形成一个视锥（Viewing Frustum），直观地展示了可见范围。
-        ////为了让绘制的线更醒目，我写了一个 GetOrCreateGraphicsStyle 方法来创建一个红色的、较粗的线样式。
-        ///// <summary>
-        ///// 执行射线检测并返回最近的碰撞图元ID
-        ///// </summary>
-        ///// <param name="doc">Revit文档</param>
-        ///// <param name="origin">射线起点</param>
-        ///// <param name="direction">射线方向</param>
-        ///// <param name="view">用于检测的视图（可选）</param>
-        ///// <returns>碰撞到的第一个图元的ElementId，如果没有碰撞则返回ElementId.InvalidElementId</returns>
-        //public static ElementId RaycastNearest(Document doc, XYZ origin, XYZ direction, double deltaHeight, Autodesk.Revit.DB.View view = null)
-        //{
-        //    // 规范化方向向量
-        //    direction = direction.Normalize();
-        //    // 创建ReferenceIntersector
-        //    ReferenceIntersector intersector;
-        //    if (view != null)
-        //    {
-        //        intersector = new ReferenceIntersector((View3D)view);
-        //    }
-        //    else
-        //    {
-        //        // 使用3D视图设置进行检测
-        //        intersector = new ReferenceIntersector(Find3DView(doc) ?? throw new System.Exception("找不到可用的3D视图"));
-        //    }
-        //    // 设置查找最近的交点
-        //    intersector.TargetType = FindReferenceTarget.Face;
-        //    intersector.FindReferencesInRevitLinks = true;
-        //    XYZ originptWithHeight = new XYZ(origin.X, origin.Y, deltaHeight / 304.8);
-        //    // 执行射线检测
-        //    ReferenceWithContext referenceWithContext = intersector.FindNearest(originptWithHeight, direction);
-        //    //ReferenceWithContext referenceWithContext = intersector.FindNearest(origin, direction);
-        //    if (referenceWithContext == null) return ElementId.InvalidElementId;
-        //    // 获取碰撞图元的ElementId
-        //    Reference reference = referenceWithContext.GetReference();
-        //    return reference?.ElementId ?? ElementId.InvalidElementId;
-        //}
-        //private static View3D Find3DView(Document doc)
-        //{
-        //    FilteredElementCollector collector = new FilteredElementCollector(doc);
-        //    collector.OfClass(typeof(View3D));
-        //    foreach (View3D view in collector)
-        //    {
-        //        if (!view.IsTemplate && view.Name != "{3D}") return view;
-        //    }
-        //    return null;
-        //}
-        //Action<string> onSelected = selectedName =>
-        //{
-        //    Autodesk.Revit.UI.TaskDialog.Show("tt", selectedName);
-        //};
-        //public bool IsBoundingBoxContained(BoundingBoxXYZ container, BoundingBoxXYZ contained)
-        //{
-        //    // 检查 contained 的最小点是否在 container 内
-        //    bool minContained = container.Min.X <= contained.Min.X &&
-        //                        container.Min.Y <= contained.Min.Y &&
-        //                        container.Min.Z <= contained.Min.Z;
-
-        //    // 检查 contained 的最大点是否在 container 内
-        //    bool maxContained = container.Max.X >= contained.Max.X &&
-        //                        container.Max.Y >= contained.Max.Y &&
-        //                        container.Max.Z >= contained.Max.Z;
-
-        //    return minContained && maxContained;
-        //}
-        ///// <returns>如果在房间内则返回true，否则返回false</returns>
-        //public bool IsAnyPartOfStairInRoom(Stairs stair, Room room, Document doc)
-        //{
-        //    // 1. 检查所有梯段 (StairsRun)
-        //    foreach (ElementId runId in stair.GetStairsRuns())
-        //    {
-        //        Element runElem = doc.GetElement(runId);
-        //        if (IsElementCenterInRoom(runElem, room))
-        //        {
-        //            // TaskDialog.Show("Debug", $"梯段 {runId} 在房间内。"); // 用于调试
-        //            return true; // 只要有一个梯段在，就返回true
-        //        }
-        //    }
-        //    // 2. 检查所有平台 (StairsLanding)
-        //    foreach (ElementId landingId in stair.GetStairsLandings())
-        //    {
-        //        Element landingElem = doc.GetElement(landingId);
-        //        if (IsElementCenterInRoom(landingElem, room))
-        //        {
-        //            // TaskDialog.Show("Debug", $"平台 {landingId} 在房间内。"); // 用于调试
-        //            return true; // 只要有一个平台在，就返回true
-        //        }
-        //    }
-        //    // 如果所有子构件都不在房间内，则认为整个楼梯不在
-        //    return false;
-        //}
-        ///// <summary>
-        ///// 辅助方法：检查一个元素的包围盒中心点是否在房间内。物体与房间关系
-        ///// </summary>
-        //private bool IsElementCenterInRoom(Element elem, Room room)
-        //{
-        //    if (elem == null || room == null) return false;
-        //    BoundingBoxXYZ bbox = elem.get_BoundingBox(null); // 使用全局坐标，不依赖视图
-        //    if (bbox == null || !bbox.Enabled) return false;
-        //    XYZ centerPoint = (bbox.Min + bbox.Max) / 2.0;
-        //    return room.IsPointInRoom(centerPoint);
-        //}
-
-        //多管连接逻辑待后梳理
-        public void ConnectPipes(Document doc, ElementId pipeId1, ElementId pipeId2, ElementId pipeId3, ElementId pipeId4 = null)
-        {
-            using (Transaction trans = new Transaction(doc, "Connect Pipes"))
-            {
-                trans.Start();
-                try
-                {
-                    Pipe pipe1 = doc.GetElement(pipeId1) as Pipe;
-                    Pipe pipe2 = doc.GetElement(pipeId2) as Pipe;
-                    Pipe pipe3 = doc.GetElement(pipeId3) as Pipe;
-                    // 三管连接（T型）
-                    if (pipeId4 == null)
-                    {
-                        Connector c1 = MEPAnalysisExtension.GetUnusedConnector(pipe1);
-                        Connector c2 = MEPAnalysisExtension.GetUnusedConnector(pipe2);
-                        Connector c3 = MEPAnalysisExtension.GetUnusedConnector(pipe3);
-                        // 创建三通连接件
-                        FamilyInstance tee = doc.Create.NewTeeFitting(c1, c2, c3);
-                    }
-                    // 四管连接（十字型）
-                    else
-                    {
-                        //Pipe pipe4 = doc.GetElement(pipeId4) as Pipe;
-                        //Connector c4 = GetUnusedConnector(pipe4);
-                        //// 获取连接点并创建四通
-                        //ConnectorSet connSet = new ConnectorSet();
-                        //connSet.Insert(GetUnusedConnector(pipe1));
-                        //connSet.Insert(GetUnusedConnector(pipe2));
-                        //connSet.Insert(GetUnusedConnector(pipe3));
-                        //connSet.Insert(c4);
-                        //FamilyInstance cross = doc.Create.NewCrossFitting(connSet);
-                    }
-                    trans.Commit();
-                }
-                catch (Exception ex)
-                {
-                    trans.RollBack();
-                    TaskDialog.Show("Error", ex.Message);
-                }
-            }
-        }
-        // 设置风口高度
-        private void SetTerminalHeight(Element terminal, double heightMm)
-        {
-            // 将毫米转换为Revit内部单位（英尺）
-            double height = heightMm / 304.8;
-            // 获取高度参数
-            Parameter elevationParam = terminal.get_Parameter(BuiltInParameter.INSTANCE_ELEVATION_PARAM);
-            if (elevationParam != null && elevationParam.IsReadOnly == false)
-            {
-                elevationParam.Set(height);
-            }
-            else
-            {
-                // 尝试其他可能的高度参数
-                Parameter levelOffsetParam = terminal.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM);
-                if (levelOffsetParam != null && levelOffsetParam.IsReadOnly == false)
-                {
-                    levelOffsetParam.Set(height);
-                }
-                else
-                {
-                    // 尝试通过实例属性设置
-                    Parameter offsetParam = terminal.LookupParameter("Offset");
-                    if (offsetParam != null && offsetParam.IsReadOnly == false)
-                    {
-                        offsetParam.Set(height);
-                    }
-                }
-            }
-        }
         //0516 管道改平测试
         private bool ProcessPipe(Document doc, Pipe pipe)
         {
@@ -712,6 +125,48 @@ namespace CreatePipe
                 throw;
             }
         }
+        //多管连接逻辑待后梳理
+        public void ConnectPipes(Document doc, ElementId pipeId1, ElementId pipeId2, ElementId pipeId3, ElementId pipeId4 = null)
+        {
+            using (Transaction trans = new Transaction(doc, "Connect Pipes"))
+            {
+                trans.Start();
+                try
+                {
+                    Pipe pipe1 = doc.GetElement(pipeId1) as Pipe;
+                    Pipe pipe2 = doc.GetElement(pipeId2) as Pipe;
+                    Pipe pipe3 = doc.GetElement(pipeId3) as Pipe;
+                    // 三管连接（T型）
+                    if (pipeId4 == null)
+                    {
+                        Connector c1 = MEPAnalysisExtension.GetUnusedConnector(pipe1);
+                        Connector c2 = MEPAnalysisExtension.GetUnusedConnector(pipe2);
+                        Connector c3 = MEPAnalysisExtension.GetUnusedConnector(pipe3);
+                        // 创建三通连接件
+                        FamilyInstance tee = doc.Create.NewTeeFitting(c1, c2, c3);
+                    }
+                    // 四管连接（十字型）
+                    else
+                    {
+                        //Pipe pipe4 = doc.GetElement(pipeId4) as Pipe;
+                        //Connector c4 = GetUnusedConnector(pipe4);
+                        //// 获取连接点并创建四通
+                        //ConnectorSet connSet = new ConnectorSet();
+                        //connSet.Insert(GetUnusedConnector(pipe1));
+                        //connSet.Insert(GetUnusedConnector(pipe2));
+                        //connSet.Insert(GetUnusedConnector(pipe3));
+                        //connSet.Insert(c4);
+                        //FamilyInstance cross = doc.Create.NewCrossFitting(connSet);
+                    }
+                    trans.Commit();
+                }
+                catch (Exception ex)
+                {
+                    trans.RollBack();
+                    TaskDialog.Show("Error", ex.Message);
+                }
+            }
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -719,12 +174,115 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0609 批量改族.OK
-            //BacthFamilyEditorView bacthFamilyEditorView = new BacthFamilyEditorView(uiApp);
-            //bacthFamilyEditorView.ShowDialog();
-            ////0610 检查并共享参数测试 检查是否存在某个参数(含内置参数，共享参数)，如不存在则建立这个共享参数
+            //0617 管道L连接逻辑验证
+            //要先选管，默认已选的不作数
+            try
+            {
 
-       
+                Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根管道");
+                if (reference == null) return Result.Cancelled; ;
+                Pipe pipe = doc.GetElement(reference) as Pipe;
+                XYZ breakXYZ = reference.GlobalPoint;
+                //坡度比较验证OK
+                if (pipe.IsSlopeGreaterThan(0.02))
+                {
+                    TaskDialog.Show("tt", "暂不支持超过一定坡度管道连接，请手工调整");
+                    return Result.Cancelled;
+                }
+                //找到点击位置较近的连接器
+                Connector connector = pipe.GetClosestConnector(breakXYZ);
+                //获取管1的弯头样式
+                var pipeType = doc.GetElement(pipe.GetTypeId()) as PipeType;
+                RoutingPreferenceManager routePrefManager = pipeType.RoutingPreferenceManager;
+                string resultMsg = string.Empty;
+                int ruleCount = routePrefManager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Elbows);
+                if (ruleCount == 0)
+                {
+                    TaskDialog.Show("信息", $"管道类型 “{pipeType.Name}” 的路由首选项中没有定义任何弯头。");
+                    return Result.Failed;
+                }
+                // 获取索引为 0 的规则，即“首选”规则
+                RoutingPreferenceRule rule = routePrefManager.GetRule(RoutingPreferenceRuleGroupType.Elbows, 0);
+                //从规则中获取弯头族类型（FamilySymbol）的 ElementId
+                ElementId elbowFittingId = rule.MEPPartId;
+                if (elbowFittingId == ElementId.InvalidElementId) return Result.Failed;
+                Family elbowFamily = (doc.GetElement(elbowFittingId) as FamilySymbol).Family;
+                string prompt = "默认弯头：" + elbowFamily.Name;
+                //获取垂直间距策略
+                var dialog = new UniversalComboBoxSelection(new List<string> { "高概率", "中概率" }, prompt + "，请选择连接策略", _ => { });
+                if (dialog.ShowDialog() != true || !(dialog.DataContext is ComboboxStringViewModel vm) || string.IsNullOrWhiteSpace(vm.SelectName))
+                {
+                    return Result.Failed; // 用户取消或未输入
+                }
+                string gapSelect = vm.SelectName; // "高概率", "中概率" 
+                                                  //找第二根管
+                Reference reference2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根管道");
+                if (reference == null) return Result.Cancelled;
+                Pipe pipe2 = doc.GetElement(reference2) as Pipe;
+                XYZ breakXYZ2 = reference2.GlobalPoint;
+                //坡度比较验证OK
+                if (pipe2.IsSlopeGreaterThan(0.02))
+                {
+                    TaskDialog.Show("tt", "暂不支持超过一定坡度管道连接，请手工调整");
+                    return Result.Cancelled;
+                }
+                //找到点击位置较近的连接器
+                Connector connector2 = pipe2.GetClosestConnector(breakXYZ2);
+                XYZ conn1p = connector.Origin;
+                XYZ conn2p = connector2.Origin;
+                var p2pDistance = MEPAnalysisExtension.GetMinMaxDistances(conn1p, conn2p);
+                //防止太近或太远造成连接失败
+                if (connector2 == null || p2pDistance.MinDistance < 0.3 || p2pDistance.MaxDistance > 5)
+                {
+                    TaskDialog.Show("tt", "检测到管道连接器位置不合理，请手工调整");
+                    return Result.Failed;
+                }
+                Line l1 = null;
+                Line l2 = null;
+                if (pipe.Location is LocationCurve lc && lc.Curve is Line line) { l1 = line; }
+                if (pipe2.Location is LocationCurve lc2 && lc2.Curve is Line line2) { l2 = line2; }
+                //判断平行（含共线的情况）
+                if (l1 != null && l2 != null && l1.IsParallelTo(l2))
+                {
+
+                }
+                //判断不平行（同高或不同高）
+
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                // 用户按了 ESC 键取消操作
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("错误", ex.Message);
+                return Result.Failed;
+            }
+
+
+            //TaskDialog.Show("tt", elbowFamily.Name);
+            //TaskDialog.Show("tt", (connector.Radius * 304.8).ToString("F2"));
+
+            //0617 是不是可以把两点翻弯功能先补齐了
+
+            ////0618 完善族功能，查找类别和零件类型
+            //FamilyManagerView familyManagerView = new FamilyManagerView(uiApp);
+            //familyManagerView.ShowDialog();
+            ////找出显示parttype名称方法
+            ////TaskDialog.Show("tt", doc.OwnerFamily.get_Parameter(BuiltInParameter.FAMILY_CONTENT_PART_TYPE).AsValueString());
+            ////TaskDialog.Show("tt", doc.OwnerFamily.Document.Title.ToString());
+
+            //////0616 MEP构件连接器距离统计
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterMEPFitting(), "请选择第一根管道");
+            //Element fitting = doc.GetElement(ref1);           
+            //var conns = MEPAnalysisExtension.GetConnectors(fitting).Cast<Connector>().ToList();
+            //XYZ p1 = conns.FirstOrDefault().Origin;
+            //XYZ p2 = conns.LastOrDefault().Origin;
+            //var result2 = MEPAnalysisExtension.GetMinMaxDistances(new XYZ[] { p1, p2 });
+            ////var result2 = MEPAnalysisExtension.GetMinMaxDistances(p1, p2);
+            //TaskDialog.Show("tt", (result2.MaxDistance * 304.8).ToString("F2"));
+
             ////0529 管道交接方法
             //NewTransaction.Execute(doc,"test",() => {
             //    // 1. 拾取第一根管道
@@ -735,6 +293,65 @@ namespace CreatePipe
             //    Pipe pipe2 = doc.GetElement(ref2) as Pipe;
             //    MEPAnalysisExtension.NewElbowBy2MEPCurve(pipe1, pipe2);
             //});
+            ////1125 三管、四管连接试验,顺序会导致连接失败需要优化X
+            //// 1. 拾取第一根管道
+            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
+            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
+            //// 2. 拾取第二根管道
+            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
+            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
+            //Reference ref3 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
+            //Pipe pipe3 = doc.GetElement(ref2) as Pipe;
+            //ConnectPipes(doc, ref1.ElementId, ref2.ElementId, ref3.ElementId);
+            ////1125 查找模型中所有垂直立管,并给出不同管径的管道数量OK
+            //try
+            //{
+            //    // 1. 获取模型中所有管道
+            //    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(Pipe));
+            //    // 管径统计字典：键=管径（毫米或英寸），值=数量
+            //    Dictionary<string, int> diameterCount = new Dictionary<string, int>();
+            //    foreach (Pipe pipe in collector)
+            //    {
+            //        LocationCurve lc = pipe.Location as LocationCurve;
+            //        if (lc == null) continue;
+            //        Line line = lc.Curve as Line;
+            //        if (line == null) continue;
+            //        // 2. 判断是否为垂直方向（通过方向向量判断）
+            //        XYZ dir = line.Direction.Normalize();
+            //        // 容差判断：方向Z分量 ≈ 1 或 ≈ -1
+            //        if (Math.Abs(Math.Abs(dir.Z) - 1.0) < 0.001)
+            //        {
+            //            // 3. 获取管径
+            //            double diameterFeet = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
+            //            // 转为毫米（英尺 * 304.8）
+            //            double diameterMM = diameterFeet * 304.8;
+            //            string diameterStr = $"{Math.Round(diameterMM, 0)} mm";
+            //            if (!diameterCount.ContainsKey(diameterStr))
+            //                diameterCount[diameterStr] = 0;
+            //            diameterCount[diameterStr]++;
+            //        }
+            //    }
+            //    // 4. 输出结果
+            //    string resultMsg = "垂直立管管径统计：\n";
+            //    if (diameterCount.Count == 0)
+            //    {
+            //        resultMsg += "未找到垂直立管。";
+            //    }
+            //    else
+            //    {
+            //        foreach (var kvp in diameterCount.OrderBy(k => k.Key))
+            //        {
+            //            resultMsg += $"{kvp.Key} ： {kvp.Value} 条";
+            //        }
+            //    }
+            //    TaskDialog.Show("立管统计", resultMsg);
+            //    return Result.Succeeded;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    return Result.Failed;
+            //}
 
             //////////0516测试 管道改平改0 后续应节合instance尝试按指定高度放置，可能更实用 应把与立管之间弯头都删掉
             //var selectedIds = uiDoc.Selection.GetElementIds();
@@ -842,65 +459,6 @@ namespace CreatePipe
             //    throw;
             //}
 
-            ////1125 三管、四管连接试验,顺序会导致连接失败需要优化X
-            //// 1. 拾取第一根管道
-            //Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第一根水平管道");
-            //Pipe pipe1 = doc.GetElement(ref1) as Pipe;
-            //// 2. 拾取第二根管道
-            //Reference ref2 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
-            //Pipe pipe2 = doc.GetElement(ref2) as Pipe;
-            //Reference ref3 = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), "请选择第二根水平管道");
-            //Pipe pipe3 = doc.GetElement(ref2) as Pipe;
-            //ConnectPipes(doc, ref1.ElementId, ref2.ElementId, ref3.ElementId);
-            ////1125 查找模型中所有垂直立管,并给出不同管径的管道数量OK
-            //try
-            //{
-            //    // 1. 获取模型中所有管道
-            //    FilteredElementCollector collector = new FilteredElementCollector(doc).OfClass(typeof(Pipe));
-            //    // 管径统计字典：键=管径（毫米或英寸），值=数量
-            //    Dictionary<string, int> diameterCount = new Dictionary<string, int>();
-            //    foreach (Pipe pipe in collector)
-            //    {
-            //        LocationCurve lc = pipe.Location as LocationCurve;
-            //        if (lc == null) continue;
-            //        Line line = lc.Curve as Line;
-            //        if (line == null) continue;
-            //        // 2. 判断是否为垂直方向（通过方向向量判断）
-            //        XYZ dir = line.Direction.Normalize();
-            //        // 容差判断：方向Z分量 ≈ 1 或 ≈ -1
-            //        if (Math.Abs(Math.Abs(dir.Z) - 1.0) < 0.001)
-            //        {
-            //            // 3. 获取管径
-            //            double diameterFeet = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble();
-            //            // 转为毫米（英尺 * 304.8）
-            //            double diameterMM = diameterFeet * 304.8;
-            //            string diameterStr = $"{Math.Round(diameterMM, 0)} mm";
-            //            if (!diameterCount.ContainsKey(diameterStr))
-            //                diameterCount[diameterStr] = 0;
-            //            diameterCount[diameterStr]++;
-            //        }
-            //    }
-            //    // 4. 输出结果
-            //    string resultMsg = "垂直立管管径统计：\n";
-            //    if (diameterCount.Count == 0)
-            //    {
-            //        resultMsg += "未找到垂直立管。";
-            //    }
-            //    else
-            //    {
-            //        foreach (var kvp in diameterCount.OrderBy(k => k.Key))
-            //        {
-            //            resultMsg += $"{kvp.Key} ： {kvp.Value} 条";
-            //        }
-            //    }
-            //    TaskDialog.Show("立管统计", resultMsg);
-            //    return Result.Succeeded;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    return Result.Failed;
-            //}
             ////////1207 风口清理和连接
             //try
             //{
@@ -959,79 +517,7 @@ namespace CreatePipe
             //{
             //    message = ex.Message;
             //    return Result.Failed;
-            //}
-
-
-
-
-            ////0206 重新连接天圆地方 还是没成功，只能手工替换天圆地方
-            //var selIds = uiDoc.Selection.GetElementIds();
-            //if (selIds == null || selIds.Count == 0)
-            //{
-            //    message = "请先在选集中选择风管管件（Duct Fitting）。";
-            //    return Result.Failed;
-            //}
-            //var logs = new List<string>();
-            //int ok = 0, skipped = 0, failed = 0;
-            //using (var tx = new Transaction(doc, "删除风管管件并重连两端连接器"))
-            //{
-            //    tx.Start();
-            //    foreach (var id in selIds)
-            //    {
-            //        Element e = doc.GetElement(id);
-            //        if (e == null) continue;
-            //        // 仅处理风管管件
-            //        if (!(e is FamilyInstance fi) ||
-            //            fi.Category == null ||
-            //            fi.Category.Id.IntegerValue != (int)BuiltInCategory.OST_DuctFitting)
-            //        {
-            //            continue;
-            //        }
-            //        using (var st = new SubTransaction(doc))
-            //        {
-            //            st.Start();
-            //            try
-            //            {
-            //                // 1) 获取该管件两端连接到的“外部连接器”（风管/附件/设备等的连接器）
-            //                //    必须在删除管件前取到，因为删除后引用关系会改变
-            //                var endConnectors = GetTwoEndNeighborConnectors(fi);
-            //                if (endConnectors == null || endConnectors.Count != 2)
-            //                {
-            //                    skipped++;
-            //                    st.RollBack(); // 本次子事务不做任何改变，回滚/不提交都可以；这里统一回滚
-            //                    continue;
-            //                }
-            //                Connector c1 = endConnectors[0];
-            //                Connector c2 = endConnectors[1];
-            //                // 记录“连接器id”：Revit 的 Connector.Id 是 int（同一 Owner 内唯一）
-            //                // 为便于唯一定位，记录 OwnerId + ConnectorId
-            //                string c1Key = $"{c1.Owner.Id.IntegerValue}:{c1.Id}";
-            //                string c2Key = $"{c2.Owner.Id.IntegerValue}:{c2.Id}";
-            //                logs.Add($"Fitting {fi.Id.IntegerValue} -> C1 {c1Key} ({SafeCatName(c1.Owner)}) , C2 {c2Key} ({SafeCatName(c2.Owner)})");
-            //                // 2) 删除管件
-            //                doc.Delete(fi.Id);
-            //                doc.Regenerate();
-            //                // 尝试强制生成新管件
-            //                bool created = TryCreateFitting(c1, c2, doc);
-            //                // 若失败，尝试反向
-            //                if (!created)
-            //                    created = TryCreateFitting(c2, c1, doc);
-            //                if (!created)
-            //                    throw new InvalidOperationException("无法生成新的风管管件");
-            //                st.Commit();
-            //                ok++;
-            //            }
-            //            catch (Exception ex)
-            //            {
-            //                failed++;
-            //                logs.Add($"Fitting {fi.Id.IntegerValue} FAILED: {ex.GetType().Name} - {ex.Message}");
-            //                st.RollBack();
-            //            }
-            //        }
-            //    }
-            //    tx.Commit();
-            //}
-            //TaskDialog.Show("结果", $"成功: {ok}\n跳过(非两端或无法解析): {skipped}\n失败并回滚: {failed}\n" + string.Join("\n", logs.Take(20)) + (logs.Count > 20 ? "\n..." : ""));
+            //}      
 
             ////0205 查找特定属性风口构建
             //List<FamilyInstance> allInstance = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().ToList();
@@ -1071,54 +557,6 @@ namespace CreatePipe
             //}
             //TaskDialog.Show("tt", stringBuilder.ToString());
             ////uiDoc.Selection.SetElementIds(selectedElementIds);
-
-            //////1105 批量左右镜像.OK
-            //try
-            //{
-            //    FamilyInstance familyInstance;
-            //    ICollection<ElementId> selectedIds = new HashSet<ElementId>();
-            //    selectedIds = uiDoc.Selection.GetElementIds();
-            //    using (Transaction tx = new Transaction(doc))
-            //    {
-            //        tx.Start("Mirror Element");
-            //        if (selectedIds.Count == 0)
-            //        {
-            //            var reference = uiDoc.Selection.PickObjects(ObjectType.Element, new FamilyInstanceFilterClass(), "选择元素");
-            //            foreach (var item in reference)
-            //            {
-            //                selectedIds.Add(item.ElementId);
-            //            }
-            //        }
-            //        foreach (var id in selectedIds)
-            //        {
-            //            familyInstance = doc.GetElement(id) as FamilyInstance;
-            //            // 获取构件的中心点
-            //            LocationPoint locationPoint = familyInstance.Location as LocationPoint;
-            //            XYZ centerPoint = locationPoint.Point;
-            //            // 获取构件的局部坐标系
-            //            Transform transform = familyInstance.GetTotalTransform();
-            //            // 获取局部 X 轴方向（左右方向）
-            //            XYZ xAxis = transform.BasisX;
-            //            // 创建镜像平面（通过中心点和局部 X 轴方向）
-            //            Plane mirrorPlane = Plane.CreateByNormalAndOrigin(xAxis, centerPoint);
-            //            // 镜像构件
-            //            ElementTransformUtils.MirrorElements(doc, new List<ElementId> { familyInstance.Id }, mirrorPlane, false);
-            //        }
-            //        tx.Commit();
-            //    }
-            //    //TaskDialog.Show("成功", "构件已按中心轴线镜像");
-            //}
-            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //{
-            //    // 用户取消操作
-            //    return Result.Cancelled;
-            //}
-            //catch (Exception ex)
-            //{
-            //    TaskDialog.Show("错误", ex.Message);
-            //    return Result.Failed;
-            //}
-            //例程结束
 
             //////1029 管道属性批量填写,系统族批量可参考.OK
             //using (Transaction tx = new Transaction(doc, "管道属性批写入"))
@@ -2106,72 +1544,7 @@ namespace CreatePipe
             //    }
             //}
             //uiDoc.Selection.SetElementIds(ids);
-
-            //////0417查找全部实例共同文字属性.OK
-            //var list = GetCommonStringParameterNames(doc);
-            //// 筛选仅实例参数
-            //var instanceOnly = list.Where(x => x.Value == "实例").Select(x => x.Key);
-            //// 筛选仅类型参数
-            //var symbolOnly = list.Where(x => x.Value == "类型").Select(x => x.Key);
-            //var symbolBoth = list.Where(x => x.Value == "两者").Select(x => x.Key);
-            //StringBuilder stringBuilderInstance = new StringBuilder();
-            //StringBuilder stringBuilderSymbol = new StringBuilder();
-            //StringBuilder stringBuilderBoth = new StringBuilder();
-            //foreach (var item in instanceOnly)
-            //{
-            //    stringBuilderInstance.AppendLine(item);
-            //}
-            //foreach (var item in symbolOnly)
-            //{
-            //    stringBuilderSymbol.AppendLine(item);
-            //}
-            //foreach (var item in symbolBoth)
-            //{
-            //    stringBuilderBoth.AppendLine(item);
-            //}
-            //TaskDialog.Show("tt", "实例属性：" + stringBuilderInstance.ToString() + "\n" + "类型属性：" + stringBuilderSymbol.ToString() + "\n" + "（待复核）共同属性：" + stringBuilderBoth.ToString());
-
             return Result.Succeeded;
-        }
-        private List<string> SelectRevitFiles(string title, string filter = "Revit 族文件 (*.rfa)|*.rfa")
-        {
-            OpenFileDialog openFileDialog = new OpenFileDialog
-            {
-                Title = title,
-                Filter = filter,
-                Multiselect = true,
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-            };
-            return openFileDialog.ShowDialog() == true ? openFileDialog.FileNames.ToList() : new List<string>();
-        }
-        /// <summary>
-        /// 提取2：通用检查文件是否满足处理条件（防崩溃、防报错）
-        /// </summary>
-        private bool IsValidForProcessing(string filePath, int currentVersion, out string skipReason)
-        {
-            skipReason = string.Empty;
-            try
-            {
-                BasicFileInfo fileInfo = BasicFileInfo.Extract(filePath);
-
-                // 检查：是否高于当前 Revit 版本
-                if (fileInfo.IsSavedInLaterVersion)
-                {
-                    skipReason = "文件版本高于当前 Revit 版本";
-                    return false;
-                }
-                if (int.TryParse(fileInfo.Format, out int fileVersion) && fileVersion > currentVersion)
-                {
-                    skipReason = $"文件版本({fileVersion})高于当前版本";
-                    return false;
-                }
-                return true;
-            }
-            catch (Exception ex)
-            {
-                skipReason = $"无法读取文件信息: {ex.Message}";
-                return false;
-            }
         }
         //private int _maximum;
         //public int Maximum { get => _maximum; set => SetProperty(ref _maximum, value); }
@@ -2632,6 +2005,546 @@ namespace CreatePipe
                 // 如果设置失败，使用默认样式
             }
         }
+        //找实例共同文字属性列表     
+        public Dictionary<string, string> GetCommonStringParameterNames(Document doc)
+        {
+            // 1. 收集文档中所有的族实例
+            var allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).WhereElementIsNotElementType()
+                .Where(e => e.HasPhases()).Cast<FamilyInstance>().ToList();
+            if (allInstances.Count == 0) return new Dictionary<string, string>();
+            // 分别追踪实例参数和类型参数的交集
+            HashSet<string> commonInstanceParams = null;
+            HashSet<string> commonSymbolParams = null;
+            // 2. 遍历所有实例，分别求交集
+            foreach (FamilyInstance instance in allInstances)
+            {
+                // 收集当前实例的实例参数
+                var currentInstanceParams = new HashSet<string>();
+                foreach (Parameter param in instance.Parameters)
+                {
+                    if (param.StorageType == StorageType.String && !param.IsReadOnly)
+                    {
+                        currentInstanceParams.Add(param.Definition.Name);
+                    }
+                }
+                // 收集当前实例的类型参数
+                var currentSymbolParams = new HashSet<string>();
+                FamilySymbol symbol = instance.Symbol;
+                if (symbol != null)
+                {
+                    foreach (Parameter param in symbol.Parameters)
+                    {
+                        if (param.StorageType == StorageType.String && !param.IsReadOnly)
+                        {
+                            currentSymbolParams.Add(param.Definition.Name);
+                        }
+                    }
+                }
+                // 求交集
+                if (commonInstanceParams == null)
+                {
+                    commonInstanceParams = new HashSet<string>(currentInstanceParams);
+                }
+                else
+                {
+                    commonInstanceParams.IntersectWith(currentInstanceParams);
+                }
+                if (commonSymbolParams == null)
+                {
+                    commonSymbolParams = new HashSet<string>(currentSymbolParams);
+                }
+                else
+                {
+                    commonSymbolParams.IntersectWith(currentSymbolParams);
+                }
+                // 提前退出
+                if (commonInstanceParams.Count == 0 && commonSymbolParams.Count == 0)
+                    break;
+            }
+            // 3. 组装字典结果，标记来源
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // 标记仅实例共有的参数
+            foreach (var name in commonInstanceParams ?? Enumerable.Empty<string>())
+            {
+                result[name] = "实例";
+            }
+            // 标记仅类型共有的参数，或两者共有
+            foreach (var name in commonSymbolParams ?? Enumerable.Empty<string>())
+            {
+                if (result.ContainsKey(name))
+                {
+                    // 实例和类型都有同名参数
+                    result[name] = "两者";
+                }
+                else
+                {
+                    result[name] = "类型";
+                }
+            }
+            return result;
+        }
+        //0428 原TEst10方法
+        //生成柱子
+        // 截断小数位数的方法
+        private double CutDecimalWithN(double value, int decimalPlaces)
+        {
+            double factor = Math.Pow(10, decimalPlaces);
+            return Math.Truncate(value * factor) / factor;
+        }
+        private void CreatColu(Document doc, XYZ point, double b, double h)
+        {
+            FilteredElementCollector fil = new FilteredElementCollector(doc);
+            fil.OfClass(typeof(FamilySymbol));
+            string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
+            List<FamilySymbol> listFa = new List<FamilySymbol>();
+            foreach (FamilySymbol fa in fil)
+            {
+                // 更安全的参数获取方式
+                Parameter familyNameParam = fa.LookupParameter("族名称");
+                if (familyNameParam != null && familyNameParam.AsString() == "CADC_柱-混凝土-矩形")
+                {
+                    listFa.Add(fa);
+                }
+            }
+            if (listFa.Count == 0)
+            {
+                TaskDialog.Show("错误", "未找到名为'CADC_柱-混凝土-矩形'的族类型");
+                return;
+            }
+            FamilySymbol targetSymbol = null;
+            // 查找匹配的族类型
+            foreach (FamilySymbol symbol in listFa)
+            {
+                if (bh == symbol.Name)
+                {
+                    targetSymbol = symbol;
+                    break;
+                }
+            }
+            if (targetSymbol != null)
+            {
+                // 确保族类型已激活
+                if (!targetSymbol.IsActive) targetSymbol.Activate();
+                doc.Create.NewFamilyInstance(point, targetSymbol, StructuralType.Column);
+            }
+            else
+            {
+                // 复制创建新的族类型
+                FamilySymbol fam = listFa[0];
+                // 确保族类型已激活
+                if (!fam.IsActive) fam.Activate();
+                try
+                {
+                    FamilySymbol newSymbol = fam.Duplicate(bh) as FamilySymbol;
+                    // 设置参数 - 使用更安全的参数查找方式
+                    Parameter widthParam = newSymbol.LookupParameter("b");
+                    Parameter heightParam = newSymbol.LookupParameter("h");
+                    if (widthParam != null && heightParam != null)
+                    {
+                        using (Transaction t = new Transaction(doc, "设置柱参数"))
+                        {
+                            t.Start();
+                            widthParam.Set(b);
+                            heightParam.Set(h);
+                            t.Commit();
+                        }
+                        doc.Create.NewFamilyInstance(point, newSymbol, StructuralType.Column);
+                    }
+                    else
+                    {
+                        TaskDialog.Show("错误", "找不到截面宽度或截面高度参数");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TaskDialog.Show("错误", $"创建族类型失败: {ex.Message}");
+                }
+            }
+        }
+        //private void CreatColu(Document doc, XYZ point, double b, double h)
+        //{
+        //    FilteredElementCollector fil = new FilteredElementCollector(doc);
+        //    fil.OfClass(typeof(FamilySymbol));
+        //    string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
+        //    List<FamilySymbol> listFa = new List<FamilySymbol>();
+        //    foreach (FamilySymbol fa in fil)
+        //    {
+        //        if (fa.GetParameters("族名称")[0].AsString() == "砼矩形柱")
+        //        {
+        //            listFa.Add(fa);
+        //        }
+        //    }
+        //    int i = 0;
+        //    bool bo = false;
+        //    int j = 0;
+        //    for (i = 0; i < listFa.Count; i++)
+        //    {
+        //        if (bh == listFa[i].Name)
+        //        {
+        //            bo = true;
+        //            j = i;
+        //        }
+        //    }
+        //    if (bo == true)
+        //    {
+        //        doc.Create.NewFamilyInstance(point, listFa[j], StructuralType.Column);
+        //    }
+        //    else
+        //    {
+        //        FamilySymbol fam = listFa[0];
+        //        ElementType coluType = fam.Duplicate(bh);
+        //        coluType.GetParameters("截面宽度")[0].Set(b);
+        //        coluType.GetParameters("截面高度")[0].Set(h);
+        //        FamilySymbol fs = coluType as FamilySymbol;
+        //        doc.Create.NewFamilyInstance(point, fs, StructuralType.Column);
+        //    }
+        //}
+        ///// <summary>
+        ///// 在视图中绘制可见性分析的结果
+        ///// </summary>
+        private void DrawVisibilityResults(Document doc, View view, XYZ observerPoint, List<XYZ> visiblePoints)
+        {
+            // 创建新的图形样式以便区分
+            GraphicsStyle gs = GetOrCreateGraphicsStyle(doc, "可见性分析线");
+            if (visiblePoints.Count <= 1) return;
+            // 找到可见区域的边界点（一个简化的方法是找到凸包）
+            List<XYZ> boundaryPoints = FindConvexHull(visiblePoints);
+            // 1. 绘制可见区域在标记牌上的轮廓线 (最大最小范围)
+            for (int i = 0; i < boundaryPoints.Count; i++)
+            {
+                XYZ p1 = boundaryPoints[i];
+                XYZ p2 = boundaryPoints[(i + 1) % boundaryPoints.Count]; // 连接到下一个点，最后一个点连回第一个
+                Line line = Line.CreateBound(p1, p2);
+                doc.Create.NewModelCurve(line, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
+            }
+            // 2. 绘制从观察点到可见区域边界的“视锥”
+            foreach (XYZ boundaryPoint in boundaryPoints)
+            {
+                Line coneLine = Line.CreateBound(observerPoint, boundaryPoint);
+                ModelCurve mc = doc.Create.NewModelCurve(coneLine, SketchPlane.Create(doc, Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)));
+                mc.LineStyle = gs; // 应用自定义图形样式
+            }
+        }
+        ///// <summary>
+        ///// 找到一组点的2D凸包 (投影到XY平面)
+        ///// 这是一个简化的凸包算法 (Gift wrapping algorithm)
+        ///// </summary>
+        public List<XYZ> FindConvexHull(List<XYZ> points)
+        {
+            if (points.Count <= 2) return points;
+            List<XYZ> hull = new List<XYZ>();
+            // 找到最左边的点作为起点
+            XYZ startPoint = points.OrderBy(p => p.X).ThenBy(p => p.Y).First();
+            XYZ currentPoint = startPoint;
+            do
+            {
+                hull.Add(currentPoint);
+                XYZ nextPoint = points[0];
+                foreach (XYZ p in points)
+                {
+                    if (nextPoint == currentPoint || IsLeft(currentPoint, nextPoint, p) > 0)
+                    {
+                        nextPoint = p;
+                    }
+                }
+                currentPoint = nextPoint;
+            } while (currentPoint != startPoint);
+            return hull;
+        }
+        private double IsLeft(XYZ p1, XYZ p2, XYZ p3)
+        {
+            return (p2.X - p1.X) * (p3.Y - p1.Y) - (p2.Y - p1.Y) * (p3.X - p1.X);
+        }
+        ///// <summary>
+        ///// 获取或创建用于可视化的图形样式
+        ///// </summary>
+        private GraphicsStyle GetOrCreateGraphicsStyle(Document doc, string styleName)
+        {
+            var cat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines);
+            var subCat = cat.SubCategories.get_Item(styleName);
+            if (subCat == null)
+            {
+                subCat = doc.Settings.Categories.NewSubcategory(cat, styleName);
+                subCat.LineColor = new Color(255, 0, 0); // 红色
+                subCat.SetLineWeight(5, GraphicsStyleType.Projection);
+            }
+            return subCat.GetGraphicsStyle(GraphicsStyleType.Projection);
+        }
+        ///// <summary>
+        ///// 查找最适合进行射线检测的3D视图
+        ///// </summary>
+        //private View3D FindBest3DView(Document doc)
+        //{
+        //    var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
+        //    View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
+        //    return default3DView ?? collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+        //}
+        ///// <summary>
+        ///// 从楼板的实体几何体中提取其底面的所有轮廓环路。
+        ///// </summary>
+        ///// <param name="floor">要分析的楼板</param>
+        ///// <returns>包含所有轮廓的CurveArray列表</returns>
+        private List<CurveArray> GetFloorLoopsFromGeometry(Floor floor)
+        {
+            var loops = new List<CurveArray>();
+            Options geomOptions = new Options { ComputeReferences = true, IncludeNonVisibleObjects = true, View = floor.Document.ActiveView };
+            GeometryElement geoElem = floor.get_Geometry(geomOptions);
+            if (geoElem == null) return null;
+            Solid solid = geoElem.OfType<Solid>().FirstOrDefault(s => s.Volume > 0);
+            if (solid == null) return null;
+            PlanarFace bottomFace = null;
+            foreach (Autodesk.Revit.DB.Face face in solid.Faces)
+            {
+                PlanarFace pFace = face as PlanarFace;
+                if (pFace != null && pFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ.Negate()))
+                {
+                    bottomFace = pFace;
+                    break;
+                }
+            }
+            if (bottomFace == null) return null;
+            // *** 这是修正的核心部分 ***
+            // bottomFace.EdgeLoops 返回 IList<EdgeArray>
+            var edgeLoopList = bottomFace.EdgeLoops;
+            // 遍历每个 EdgeArray (每个代表一个闭合环路)
+            foreach (EdgeArray edgeArray in edgeLoopList)
+            {
+                // 为每个环路创建一个新的 CurveArray 来存放曲线
+                CurveArray curveArray = new CurveArray();
+                // 遍历环路中的每一条边 (Edge)
+                foreach (Edge edge in edgeArray)
+                {
+                    // 从边中提取几何曲线 (Curve) 并添加到 CurveArray 中
+                    curveArray.Append(edge.AsCurve());
+                }
+                // 将转换好的 CurveArray 添加到结果列表中
+                loops.Add(curveArray);
+            }
+            return loops;
+        }
+        ///// <summary>
+        ///// 确保两个元素被连接，并且第一个元素切割第二个元素。
+        ///// </summary>
+        private void EnsureJoinOrder(Document doc, Element cutter, Element cuttee)
+        {
+            if (!JoinGeometryUtils.AreElementsJoined(doc, cutter, cuttee))
+            {
+                try
+                {
+                    JoinGeometryUtils.JoinGeometry(doc, cutter, cuttee);
+                }
+                catch (Exception ex)
+                {
+                    // 记录连接失败的日志，对于调试很重要
+                    System.Diagnostics.Debug.WriteLine($"无法连接元素 {cutter.Id} 和 {cuttee.Id}: {ex.Message}");
+                }
+            }
+            else
+            {
+                // 如果已经连接，检查顺序是否正确
+                if (!JoinGeometryUtils.IsCuttingElementInJoin(doc, cutter, cuttee))
+                {
+                    try
+                    {
+                        JoinGeometryUtils.SwitchJoinOrder(doc, cutter, cuttee);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"无法切换元素 {cutter.Id} 和 {cuttee.Id} 的连接顺序: {ex.Message}");
+                    }
+                }
+            }
+        }
+        ///// <summary>
+        ///// 获取与给定元素包围盒相交的元素（梁和楼板）。
+        ///// </summary>
+        private List<Element> GetIntersectingElements(Document doc, Element element, double expansionAmount)
+        {
+            // 使用 get_BoundingBox(null) 获取模型空间的完整3D包围盒
+            BoundingBoxXYZ bbox = element.get_BoundingBox(null);
+            if (bbox == null) return new List<Element>();
+            // 扩大包围盒以确保捕捉到所有接触的元素
+            Outline outline = new Outline(bbox.Min - new XYZ(expansionAmount, expansionAmount, expansionAmount),
+                                          bbox.Max + new XYZ(expansionAmount, expansionAmount, expansionAmount));
+            // 使用 BoundingBoxIntersectsFilter 时，公差应非常小
+            BoundingBoxIntersectsFilter bbFilter = new BoundingBoxIntersectsFilter(outline, 1e-9);
+            // 定义要查找的元素类别
+            var categoryFilters = new List<ElementFilter>
+            {
+                new ElementCategoryFilter(BuiltInCategory.OST_StructuralFraming),
+                new ElementCategoryFilter(BuiltInCategory.OST_Floors)
+            };
+            var logicalOrFilter = new LogicalOrFilter(categoryFilters);
+            var finalFilter = new LogicalAndFilter(bbFilter, logicalOrFilter);
+            return new FilteredElementCollector(doc).WherePasses(finalFilter)
+                .Where(e => e.Id != element.Id).ToList();
+        }
+        ////1003 
+        ///// <summary>
+        ///// 查找一个最适合进行射线检测的3D视图。
+        ///// 优先选择默认的 {3D} 视图，因为它通常包含所有模型元素。
+        ///// </summary>
+        ///// 重复方法回头看一下是否去重？
+        private static View3D FindBest3DView(Document doc)
+        {
+            var collector = new FilteredElementCollector(doc).OfClass(typeof(View3D));
+            // 优先寻找默认的 {3D} 视图
+            View3D default3DView = collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.Name == "{3D}");
+            if (default3DView != null)
+            {
+                return default3DView;
+            }
+            // 如果找不到，再寻找任何一个非模板的3D视图作为备用
+            return collector.Cast<View3D>().FirstOrDefault(v => !v.IsTemplate);
+        }
+        /////代码解析
+        ////输入：通过 PickPoint 和 PickObject(ObjectType.Face)，我们精确地获取了观察点和用户想要分析的那个面。这是最可靠的方式。
+        ////采样：
+        ////targetFace.GetBoundingBox() 获取了面的 UV 参数范围。
+        ////通过双重 for 循环，我们在 UV 空间中均匀地创建了一个网格。
+        ////targetFace.Evaluate(new UV(u, v)) 将二维的 UV 参数转换为了三维世界坐标 XYZ。
+        ////可见性检测：
+        ////ReferenceIntersector 的构造函数传入了 targetElement.Id，这是一个优化，它会忽略目标本身，防止射线总是命中自己。但为了逻辑的严谨性，我们还是通过比较距离来判断，这样更通用。
+        ////distanceToFace 是原始距离，hitDistance 是碰撞距离。Math.Abs(hitDistance - distanceToFace) < tolerance 是判断是否命中了目标本身的关键。
+        ////可视化：
+        ////"最大最小可见范围" 的最佳数学表达是可见区域的轮廓。
+        ////我提供了一个简化的 凸包（Convex Hull） 算法 FindConvexHull 来找到包围所有可见点的最小多边形。这个多边形就是可见区域的边界。
+        ////DrawVisibilityResults 方法做了两件事：
+        ////用模型线在标记牌上绘制出这个凸包轮廓。
+        ////从观察点向凸包的每个顶点发射连线，形成一个视锥（Viewing Frustum），直观地展示了可见范围。
+        ////为了让绘制的线更醒目，我写了一个 GetOrCreateGraphicsStyle 方法来创建一个红色的、较粗的线样式。
+        ///// <summary>
+        ///// 执行射线检测并返回最近的碰撞图元ID
+        ///// </summary>
+        ///// <param name="doc">Revit文档</param>
+        ///// <param name="origin">射线起点</param>
+        ///// <param name="direction">射线方向</param>
+        ///// <param name="view">用于检测的视图（可选）</param>
+        ///// <returns>碰撞到的第一个图元的ElementId，如果没有碰撞则返回ElementId.InvalidElementId</returns>
+        //public static ElementId RaycastNearest(Document doc, XYZ origin, XYZ direction, double deltaHeight, Autodesk.Revit.DB.View view = null)
+        //{
+        //    // 规范化方向向量
+        //    direction = direction.Normalize();
+        //    // 创建ReferenceIntersector
+        //    ReferenceIntersector intersector;
+        //    if (view != null)
+        //    {
+        //        intersector = new ReferenceIntersector((View3D)view);
+        //    }
+        //    else
+        //    {
+        //        // 使用3D视图设置进行检测
+        //        intersector = new ReferenceIntersector(Find3DView(doc) ?? throw new System.Exception("找不到可用的3D视图"));
+        //    }
+        //    // 设置查找最近的交点
+        //    intersector.TargetType = FindReferenceTarget.Face;
+        //    intersector.FindReferencesInRevitLinks = true;
+        //    XYZ originptWithHeight = new XYZ(origin.X, origin.Y, deltaHeight / 304.8);
+        //    // 执行射线检测
+        //    ReferenceWithContext referenceWithContext = intersector.FindNearest(originptWithHeight, direction);
+        //    //ReferenceWithContext referenceWithContext = intersector.FindNearest(origin, direction);
+        //    if (referenceWithContext == null) return ElementId.InvalidElementId;
+        //    // 获取碰撞图元的ElementId
+        //    Reference reference = referenceWithContext.GetReference();
+        //    return reference?.ElementId ?? ElementId.InvalidElementId;
+        //}
+        //private static View3D Find3DView(Document doc)
+        //{
+        //    FilteredElementCollector collector = new FilteredElementCollector(doc);
+        //    collector.OfClass(typeof(View3D));
+        //    foreach (View3D view in collector)
+        //    {
+        //        if (!view.IsTemplate && view.Name != "{3D}") return view;
+        //    }
+        //    return null;
+        //}
+        //Action<string> onSelected = selectedName =>
+        //{
+        //    Autodesk.Revit.UI.TaskDialog.Show("tt", selectedName);
+        //};
+        //public bool IsBoundingBoxContained(BoundingBoxXYZ container, BoundingBoxXYZ contained)
+        //{
+        //    // 检查 contained 的最小点是否在 container 内
+        //    bool minContained = container.Min.X <= contained.Min.X &&
+        //                        container.Min.Y <= contained.Min.Y &&
+        //                        container.Min.Z <= contained.Min.Z;
+
+        //    // 检查 contained 的最大点是否在 container 内
+        //    bool maxContained = container.Max.X >= contained.Max.X &&
+        //                        container.Max.Y >= contained.Max.Y &&
+        //                        container.Max.Z >= contained.Max.Z;
+
+        //    return minContained && maxContained;
+        //}
+        ///// <returns>如果在房间内则返回true，否则返回false</returns>
+        //public bool IsAnyPartOfStairInRoom(Stairs stair, Room room, Document doc)
+        //{
+        //    // 1. 检查所有梯段 (StairsRun)
+        //    foreach (ElementId runId in stair.GetStairsRuns())
+        //    {
+        //        Element runElem = doc.GetElement(runId);
+        //        if (IsElementCenterInRoom(runElem, room))
+        //        {
+        //            // TaskDialog.Show("Debug", $"梯段 {runId} 在房间内。"); // 用于调试
+        //            return true; // 只要有一个梯段在，就返回true
+        //        }
+        //    }
+        //    // 2. 检查所有平台 (StairsLanding)
+        //    foreach (ElementId landingId in stair.GetStairsLandings())
+        //    {
+        //        Element landingElem = doc.GetElement(landingId);
+        //        if (IsElementCenterInRoom(landingElem, room))
+        //        {
+        //            // TaskDialog.Show("Debug", $"平台 {landingId} 在房间内。"); // 用于调试
+        //            return true; // 只要有一个平台在，就返回true
+        //        }
+        //    }
+        //    // 如果所有子构件都不在房间内，则认为整个楼梯不在
+        //    return false;
+        //}
+        ///// <summary>
+        ///// 辅助方法：检查一个元素的包围盒中心点是否在房间内。物体与房间关系
+        ///// </summary>
+        //private bool IsElementCenterInRoom(Element elem, Room room)
+        //{
+        //    if (elem == null || room == null) return false;
+        //    BoundingBoxXYZ bbox = elem.get_BoundingBox(null); // 使用全局坐标，不依赖视图
+        //    if (bbox == null || !bbox.Enabled) return false;
+        //    XYZ centerPoint = (bbox.Min + bbox.Max) / 2.0;
+        //    return room.IsPointInRoom(centerPoint);
+        //}
+
+
+        // 设置风口高度
+        private void SetTerminalHeight(Element terminal, double heightMm)
+        {
+            // 将毫米转换为Revit内部单位（英尺）
+            double height = heightMm / 304.8;
+            // 获取高度参数
+            Parameter elevationParam = terminal.get_Parameter(BuiltInParameter.INSTANCE_ELEVATION_PARAM);
+            if (elevationParam != null && elevationParam.IsReadOnly == false)
+            {
+                elevationParam.Set(height);
+            }
+            else
+            {
+                // 尝试其他可能的高度参数
+                Parameter levelOffsetParam = terminal.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM);
+                if (levelOffsetParam != null && levelOffsetParam.IsReadOnly == false)
+                {
+                    levelOffsetParam.Set(height);
+                }
+                else
+                {
+                    // 尝试通过实例属性设置
+                    Parameter offsetParam = terminal.LookupParameter("Offset");
+                    if (offsetParam != null && offsetParam.IsReadOnly == false)
+                    {
+                        offsetParam.Set(height);
+                    }
+                }
+            }
+        }
     }
     /// <summary>
     /// 专业统计结果类
@@ -2880,6 +2793,4 @@ namespace CreatePipe
             }
         }
     }
-    //0610  共享参数批量创建
-
 }

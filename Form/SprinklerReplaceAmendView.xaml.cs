@@ -1,5 +1,4 @@
 ﻿using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
@@ -9,13 +8,9 @@ using CreatePipe.filter;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
-using static System.Net.WebRequestMethods;
 
 
 namespace CreatePipe.Form

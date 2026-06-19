@@ -38,10 +38,10 @@ namespace CreatePipe.TurnOver
         {
             string height = turnOverHeight_tb.Text;
             string angle = angle_tb.Text;
-            TurnOverEntity turnOver = new TurnOverEntity();
-            turnOver.Height = height;
-            turnOver.Angle = angle;
-            XMLUtil.SerializeToXml(@"D:\newXml.xml", turnOver);
+            //TurnOverEntity turnOver = new TurnOverEntity();
+            //turnOver.Height = height;
+            //turnOver.Angle = angle;
+            //XMLUtil.SerializeToXml(@"D:\newXml.xml", turnOver);
             MessageBox.Show("已保存设置，可关闭窗口");
         }
 

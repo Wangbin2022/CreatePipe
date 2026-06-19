@@ -25,7 +25,7 @@
         <ComboBox Grid.Column="1" Margin="5" VerticalAlignment="Center" 
               ItemsSource="{Binding datasource}"
                   SelectedItem="{Binding SelectName,Mode=TwoWay}"/>
-        <TextBlock Grid.Row="1" Text="{Binding DisplayText}"
+        <TextBlock Grid.Row="1" Text="{Binding DisplayText,UpdateSourceTrigger=PropertyChanged}"
            HorizontalAlignment="Center"
            VerticalAlignment="Center"
            Grid.ColumnSpan="2" Width="180"/>
