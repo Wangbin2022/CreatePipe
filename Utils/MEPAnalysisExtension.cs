@@ -220,6 +220,16 @@ namespace CreatePipe.Utils
             // 返回元组
             return (minDistance, maxDistance);
         }
+        // 计算三维空间中两点水平面距离
+        public static double GetHorizontalDistance(this XYZ xYZ1, XYZ xYZ2)
+        {
+            // 1. 计算两点在三维空间中的向量差
+            XYZ vector = xYZ2 - xYZ1;
+            // 2. 构造一个新向量，将Z轴分量置零，只保留水平分量
+            XYZ horizontalVector = new XYZ(vector.X, vector.Y, 0);
+            // 3. 返回水平向量的长度（即水平距离）
+            return horizontalVector.GetLength();
+        }
 
         //==========MEP判断方法==========
         // 判断管线是否水平
@@ -1076,7 +1086,7 @@ namespace CreatePipe.Utils
             return hasValidPipe ? targetDiameter : 0.0;
         }
         // 在一个 Revit 图元（比如管件、设备）上，寻找与“目标位置”和“目标方向”最匹配的连接器（Connector）
-        public static Connector GetBestFitConnector(Element owner, XYZ targetOrigin, XYZ targetDirection)
+        public static Connector GetBestFitConnector(this Element owner, XYZ targetOrigin, XYZ targetDirection)
         {
             var all = MEPAnalysisExtension.GetConnectors(owner);
             if (all.Count() == 0) return null;
@@ -1119,7 +1129,7 @@ namespace CreatePipe.Utils
             return null;
         }
         // 双向断开连接器
-        public static void SafeDisconnect(Connector a, Connector b)
+        public static void SafeDisconnect(this Connector a, Connector b)
         {
             if (a == null || b == null) return;
 
@@ -1146,7 +1156,7 @@ namespace CreatePipe.Utils
             }
         }
         //断开所有连接
-        public static void DisconnectConnector(Connector connector)
+        public static void DisconnectConnector(this Connector connector)
         {
             if (connector == null) return;
             List<Connector> refs = new List<Connector>();
@@ -1168,7 +1178,7 @@ namespace CreatePipe.Utils
             }
         }
         // 合并两根等径共线管线
-        public static void MergeTwoPipes(Document doc, MEPCurve m1, Connector c1, MEPCurve m2, Connector c2)
+        public static void MergeTwoPipes(this Document doc, MEPCurve m1, Connector c1, MEPCurve m2, Connector c2)
         {
             if (m1.Category.Id != m2.Category.Id)
             {
@@ -1215,7 +1225,7 @@ namespace CreatePipe.Utils
             }
         }
         // 管道退后方法
-        public static void RetreatMEPCurve(MEPCurve mepCurve, XYZ breakPoint, double retreatDistance)
+        public static void RetreatMEPCurve(this MEPCurve mepCurve, XYZ breakPoint, double retreatDistance)
         {
             try
             {
@@ -1270,8 +1280,53 @@ namespace CreatePipe.Utils
                 System.Diagnostics.Debug.WriteLine($"管道退后失败: {ex.Message}");
             }
         }
+        // 加长或缩短管道并返回端头点
+        public static XYZ AdjustMEPCurveLength(this MEPCurve mepCurve, XYZ referencePoint, double distance)
+        {
+            if (!(mepCurve.Location is LocationCurve locationCurve) || !(locationCurve.Curve is Line currentCurve))
+            {
+                return null; // 仅支持直线管道
+            }
+            try
+            {
+                XYZ startPoint = currentCurve.GetEndPoint(0);
+                XYZ endPoint = currentCurve.GetEndPoint(1);
+                double originalLength = currentCurve.Length;
+                // 如果是缩短，检查距离是否会导致管道长度为负
+                if (distance > 0 && distance >= originalLength - 1e-9)
+                {
+                    System.Diagnostics.Debug.WriteLine("管道调整失败：缩短距离过大。");
+                    return null;
+                }
+                XYZ newStart, newEnd;
+                bool isStartPointCloser = referencePoint.DistanceTo(startPoint) < referencePoint.DistanceTo(endPoint);
+                if (isStartPointCloser)
+                {
+                    // 移动起点
+                    XYZ direction = (endPoint - startPoint).Normalize();
+                    newStart = startPoint + direction * distance;
+                    newEnd = endPoint;
+                }
+                else
+                {
+                    // 移动终点
+                    XYZ direction = (startPoint - endPoint).Normalize(); // 方向反转
+                    newStart = startPoint;
+                    newEnd = endPoint + direction * distance;
+                }
+                Line newCurve = Line.CreateBound(newStart, newEnd);
+                locationCurve.Curve = newCurve;
+                // 返回被改变的那个点
+                return isStartPointCloser ? newStart : newEnd;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"管道长度调整失败: {ex.Message}");
+                return null;
+            }
+        }
         // 尝试 cFrom.ConnectTo(cTo)，并通过 AllRefs 验证两者是否真正互相引用。
-        public static bool TryConnectAndVerify(Document doc, Connector cFrom, Connector cTo)
+        public static bool TryConnectAndVerify(this Document doc, Connector cFrom, Connector cTo)
         {
             if (doc == null || cFrom == null || cTo == null) return false;
             if (cFrom.Owner?.Id == cTo.Owner?.Id) return false;
@@ -1289,7 +1344,7 @@ namespace CreatePipe.Utils
             }
         }
         // 强制管件实例Z轴重合 
-        public static void ForceCoordFittingZ(FamilyInstance targetFitting, FamilyInstance sourceFitting)
+        public static void ForceCoordFittingZ(this FamilyInstance targetFitting, FamilyInstance sourceFitting)
         {
             if (targetFitting == null || sourceFitting == null) return;
             // 1. 获取绝对坐标点
@@ -1306,7 +1361,7 @@ namespace CreatePipe.Utils
             }
         }
         //在两个管道之间直接创建弯头并连接 辅助方法 ExtendOrTrimMEPCurveToPoint
-        public static FamilyInstance NewElbowBy2MEPCurve(MEPCurve curve1, MEPCurve curve2)
+        public static FamilyInstance NewElbowBy2MEPCurve(this MEPCurve curve1, MEPCurve curve2)
         {
             Document doc = curve1.Document;
             FamilyInstance result;
@@ -1343,7 +1398,7 @@ namespace CreatePipe.Utils
             return elbow;
         }
         // 辅助方法 ExtendOrTrimMEPCurveToPoint：将管道端点移动到目标点 
-        private static void ExtendOrTrimMEPCurveToPoint(MEPCurve curve, XYZ targetPoint)
+        private static void ExtendOrTrimMEPCurveToPoint(this MEPCurve curve, XYZ targetPoint)
         {
             LocationCurve locCurve = curve.Location as LocationCurve;
             Line line = locCurve.Curve as Line;
@@ -1362,7 +1417,7 @@ namespace CreatePipe.Utils
             }
         }
         // 连接管道与管件上的连接器方法，先如果mepcurve上与管件连接器较近的connector在一个位置优先连接，如果管件连接器在mepcurve延长线或线上调整管上较近连接器位置，如果连接器和mepcurve管径不同则增加变径
-        public static void ConnectMEPCurve2FittingConn(MEPCurve mEPCurve, Connector fitConnector)
+        public static void ConnectMEPCurve2FittingConn(this MEPCurve mEPCurve, Connector fitConnector)
         {
             if (mEPCurve == null || fitConnector == null) return;
             Document doc = mEPCurve.Document;
@@ -1401,7 +1456,7 @@ namespace CreatePipe.Utils
             }
         }
         // 在两个连接器之间直接创建管道并连接
-        public static Pipe NewPipeBetweenConnectors(Document doc, Connector conn1, Connector conn2, ElementId pipeTypeId, ElementId levelId, ElementId systemTypeId, double pipeDiameter)
+        public static Pipe NewPipeBetweenConnectors(this Document doc, Connector conn1, Connector conn2, ElementId pipeTypeId, ElementId levelId, ElementId systemTypeId, double pipeDiameter)
         {
             // 2. 根据两个连接器的坐标，创建新管道
             Pipe newPipe = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, conn1.Origin, conn2.Origin);
@@ -1412,8 +1467,21 @@ namespace CreatePipe.Utils
             TryConnectAndVerify(doc, spConn, conn2);
             return newPipe;
         }
+        // 在两个点之间创建一根新管道，其属性继承自参考管道。
+        public static Pipe NewPipeBetweenPoints(this Pipe referencePipe, XYZ start, XYZ end)
+        {
+            Document doc = referencePipe.Document;
+            Pipe newPipe = Pipe.Create(doc,
+                referencePipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId(),
+                referencePipe.PipeType.Id,
+                referencePipe.ReferenceLevel.Id,
+                start,
+                end);
+            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(referencePipe.Diameter);
+            return newPipe;
+        }
         /// 安全地生成变径（大小头），自动纠正连接器顺序
-        public static FamilyInstance NewTransitionSafely(Document doc, Connector conn1, Connector conn2)
+        public static FamilyInstance NewTransitionSafely(this Document doc, Connector conn1, Connector conn2)
         {
             if (conn1 == null || conn2 == null)
                 throw new ArgumentNullException("连接器不能为空");
@@ -1440,7 +1508,7 @@ namespace CreatePipe.Utils
             return doc.Create.NewTransitionFitting(firstConn, secondConn);
         }
         ////在垂直面转管件OK,接口true向下,false向上
-        public static void RotateTeeFittingVertical(FamilyInstance fitting, MEPCurve pipe, bool upDown)
+        public static void RotateTeeFittingVertical(this FamilyInstance fitting, MEPCurve pipe, bool upDown)
         {
             Connector sideConn = MEPAnalysisExtension.GetTeeSideConn(fitting);
             if (sideConn == null) return;

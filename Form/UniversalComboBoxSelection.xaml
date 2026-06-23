@@ -28,7 +28,7 @@
         <TextBlock Grid.Row="1" Text="{Binding DisplayText,UpdateSourceTrigger=PropertyChanged}"
            HorizontalAlignment="Center"
            VerticalAlignment="Center"
-           Grid.ColumnSpan="2" Width="180"/>
+           Grid.ColumnSpan="2" Width="auto"/>
         <Button Grid.Row="2" Content="确认" x:Name="btn_OK" IsDefault="True"
                 Command="{Binding ResultExportCommand}" Margin="5" Grid.ColumnSpan="2"
                 IsEnabled="{Binding IsCommandRunning, Converter={StaticResource InverseBooleanConverter}}"/>
