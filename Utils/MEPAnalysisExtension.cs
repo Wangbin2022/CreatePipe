@@ -381,7 +381,7 @@ namespace CreatePipe.Utils
             var definition = (element.Document.GetElement(paramId) as ParameterElement)?.GetDefinition();
             return definition == null ? null : element.get_Parameter(definition);
         }
-        // 获取管线的主要尺寸（直径或宽度）
+        // 获取管线的主要尺寸（直径或高度）
         public static double GetMEPCurveMainSize(this MEPCurve mep)
         {
             switch (mep)
@@ -389,12 +389,14 @@ namespace CreatePipe.Utils
                 case Pipe p:
                     return p.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0;
                 case Duct d:
-                    return d.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.AsDouble() ??
+                    return d.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)?.AsDouble() ??
+                           d.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)?.AsDouble() ??
                            d.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsDouble() ?? 0;
                 case CableTray ct:
-                    return ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0;
+                    return ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)?.AsDouble() ??
+                        ct.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)?.AsDouble() ?? 0;
                 default:
-                    return 0;
+                    return 25.4 / 304.8;
             }
         }
         // 获取管线的真实坡度
