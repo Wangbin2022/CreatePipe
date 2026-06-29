@@ -18,7 +18,7 @@
             <RowDefinition Height="30"/>
             <RowDefinition Height="35"/>
         </Grid.RowDefinitions>
-        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5">新增名称：</TextBlock>
+        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5">请输入：</TextBlock>
         <TextBox Grid.Column="1" Margin="5" KeyDown="TextBox_KeyDown">
             <TextBox.Text>
                 <Binding Path="NewName" UpdateSourceTrigger="PropertyChanged">
