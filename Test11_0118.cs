@@ -233,7 +233,43 @@ namespace CreatePipe
         //    {    // Connector 不满足要求（同元素、不同域等）}catch (InvalidOperationException ex){    // 无法插入四通——无四通族 / 方向不对 / 不在交点}
         //    }
         //}
+        // 尝试从四根管道中找出两对共线的管道
+        public bool TryFindColinearPairs(List<MEPCurve> pipes, out List<MEPCurve> pair1, out List<MEPCurve> pair2)
+        {
+            pair1 = new List<MEPCurve>();
+            pair2 = new List<MEPCurve>();
 
+            // 总共有三种配对可能性: (0,1)+(2,3), (0,2)+(1,3), (0,3)+(1,2)
+
+            // 可能性 1: (0,1)共线 且 (2,3)共线
+            if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[0], pipes[1]) &&
+                MEPAnalysisExtension.AreMEPCurvesColinear(pipes[2], pipes[3]))
+            {
+                pair1.Add(pipes[0]); pair1.Add(pipes[1]);
+                pair2.Add(pipes[2]); pair2.Add(pipes[3]);
+                return true;
+            }
+
+            // 可能性 2: (0,2)共线 且 (1,3)共线
+            if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[0], pipes[2]) &&
+                MEPAnalysisExtension.AreMEPCurvesColinear(pipes[1], pipes[3]))
+            {
+                pair1.Add(pipes[0]); pair1.Add(pipes[2]);
+                pair2.Add(pipes[1]); pair2.Add(pipes[3]);
+                return true;
+            }
+
+            // 可能性 3: (0,3)共线 且 (1,2)共线
+            if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[0], pipes[3]) &&
+                MEPAnalysisExtension.AreMEPCurvesColinear(pipes[1], pipes[2]))
+            {
+                pair1.Add(pipes[0]); pair1.Add(pipes[3]);
+                pair2.Add(pipes[1]); pair2.Add(pipes[2]);
+                return true;
+            }
+
+            return false; // 未找到符合条件的配对
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -241,318 +277,332 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0629 水平三管道生成三通,四管道生成四通
+            //var refs = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择管道");
+            //List<MEPCurve> allPipes = refs.Select(r => doc.GetElement(r) as MEPCurve).ToList();
+            //Line line1 = (allPipes.FirstOrDefault().Location as LocationCurve).Curve as Line;
+            //Line line2 = (allPipes.Last().Location as LocationCurve).Curve as Line;
+            //if (MEPAnalysisExtension.AreMEPCurvesColinear(allPipes.FirstOrDefault(),allPipes.Last()))
+            //{
+            //    TaskDialog.Show("tt", "PASS");
+            //}
+            //else TaskDialog.Show("tt", "NNPASS");
+
+            //////0629 水平三管道生成三通,四管道生成四通
+            TaskDialog td = new TaskDialog("选择操作")
+            {
+                MainInstruction = "请选择要执行的操作:",
+                CommonButtons = TaskDialogCommonButtons.Cancel
+            };
+            td.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "三管生成三通");
+            td.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "四管生成四通");
+            TaskDialogResult tdRes = td.Show();
+            if (tdRes == TaskDialogResult.Cancel) return Result.Cancelled;
+            bool conn3 = (tdRes == TaskDialogResult.CommandLink1);
             try
             {
-                //// 水平四通生成
-                var refs = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择四根水平管道（两两共线且互相垂直）");
-                if (refs == null || refs.Count != 4)
+                if (!conn3)
                 {
-                    return Result.Cancelled;
-                }
-                List<MEPCurve> allPipes = refs.Select(r => doc.GetElement(r) as MEPCurve).ToList();
-                // ── 1. 基础校验：全部水平且在同一Z平面 ────────────────────────
-                foreach (var p in allPipes)
-                {
-                    if (!p.IsHorizontal())
+                    //// 水平四通生成
+                    var refs = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择四根水平管道（两两共线且互相垂直）");
+                    if (refs == null || refs.Count != 4)
                     {
-                        TaskDialog.Show("校验失败", $"管道 [{p.Id}] 不是水平管道，请重新选择。");
+                        return Result.Cancelled;
+                    }
+                    List<MEPCurve> allPipes = refs.Select(r => doc.GetElement(r) as MEPCurve).ToList();
+                    // ── 1. 基础校验：全部水平且在同一Z平面 ────────────────────────
+                    foreach (var p in allPipes)
+                    {
+                        if (!p.IsHorizontal())
+                        {
+                            TaskDialog.Show("校验失败", $"管道 [{p.Id}] 不是水平管道，请重新选择。");
+                            return Result.Failed;
+                        }
+                    }
+                    ////检查三管是否在同一平面，不符合则退出
+                    //// 取各管中心点Z值
+                    double[] zValues = allPipes
+                        .Select(p => ((p.Location as LocationCurve).Curve.GetEndPoint(0).Z
+                                    + (p.Location as LocationCurve).Curve.GetEndPoint(1).Z) / 2.0)
+                        .ToArray();
+                    if (zValues.Max() - zValues.Min() > 0.1 / 304.8)
+                    {
+                        TaskDialog.Show("校验失败", "四根管道不在同一水平面，请选择同标高的管道。");
                         return Result.Failed;
                     }
-                }
-                ////检查三管是否在同一平面，不符合则退出
-                //// 取各管中心点Z值
-                double[] zValues = allPipes
-                    .Select(p => ((p.Location as LocationCurve).Curve.GetEndPoint(0).Z
-                                + (p.Location as LocationCurve).Curve.GetEndPoint(1).Z) / 2.0)
-                    .ToArray();
-                if (zValues.Max() - zValues.Min() > 0.1 / 304.8)
-                {
-                    TaskDialog.Show("校验失败", "四根管道不在同一水平面，请选择同标高的管道。");
-                    return Result.Failed;
-                }
-
-                // ── 2. 几何分析：找出两对共线的管道 ───────────────────────────
-                List<MEPCurve> pair1, pair2;
-                if (!MEPAnalysisExtension.TryFindColinearPairs(allPipes, out pair1, out pair2))
-                {
-                    TaskDialog.Show("校验失败", "未找到两对共线的管道。请确保选择的管道是两两共线的。");
-                    return Result.Failed;
-                }
-
-                // ── 3. 垂直校验：检查两对管道是否互相垂直 ─────────────────────
-                XYZ dir1 = MEPAnalysisExtension.GetMEPCurveDirection(pair1[0]);
-                XYZ dir2 = MEPAnalysisExtension.GetMEPCurveDirection(pair2[0]);
-
-                if (!MEPAnalysisExtension.AreDirectionsPerpendicular(dir1, dir2))
-                {
-                    TaskDialog.Show("校验失败", "找到的两对管道不互相垂直，无法生成四通。");
-                    return Result.Failed;
-                }
-
-                // ── 3a. 【新增】根据管径大小，确定主管路和支管路 ─────────────
-                List<MEPCurve> mainPipes;
-                List<MEPCurve> branchPipes;
-
-                // 获取每一对管道中的最大管径
-                double sizePair1 = Math.Max(MEPAnalysisExtension.GetMEPCurveMainSize(pair1[0]), MEPAnalysisExtension.GetMEPCurveMainSize(pair1[1]));
-                double sizePair2 = Math.Max(MEPAnalysisExtension.GetMEPCurveMainSize(pair2[0]), MEPAnalysisExtension.GetMEPCurveMainSize(pair2[1]));
-
-                // 管径大的作为主管路
-                if (sizePair1 >= sizePair2)
-                {
-                    mainPipes = pair1;
-                    branchPipes = pair2;
+                    // ── 2. 几何分析：找出两对共线的管道 ───────────────────────────
+                    List<MEPCurve> pair1, pair2;
+                    if (!TryFindColinearPairs(allPipes, out pair1, out pair2))
+                    {
+                        TaskDialog.Show("校验失败", "未找到两对共线的管道。请确保选择的管道是两两共线的。");
+                        return Result.Failed;
+                    }
+                    // ── 3. 垂直校验：检查两对管道是否互相垂直 ─────────────────────
+                    XYZ dir1 = MEPAnalysisExtension.GetMEPCurveHorizontalDirection(pair1[0]);
+                    XYZ dir2 = MEPAnalysisExtension.GetMEPCurveHorizontalDirection(pair2[0]);
+                    if (!dir1.IsPerpendicularTo(dir2))
+                    {
+                        TaskDialog.Show("校验失败", "找到的两对管道不互相垂直，无法生成四通。");
+                        return Result.Failed;
+                    }
+                    // ── 3a. 【新增】根据管径大小，确定主管路和支管路 ─────────────
+                    List<MEPCurve> mainPipes;
+                    List<MEPCurve> branchPipes;
+                    // 获取每一对管道中的最大管径
+                    double sizePair1 = Math.Max(MEPAnalysisExtension.GetMEPCurveMainSize(pair1[0]), MEPAnalysisExtension.GetMEPCurveMainSize(pair1[1]));
+                    double sizePair2 = Math.Max(MEPAnalysisExtension.GetMEPCurveMainSize(pair2[0]), MEPAnalysisExtension.GetMEPCurveMainSize(pair2[1]));
+                    // 管径大的作为主管路
+                    if (sizePair1 >= sizePair2)
+                    {
+                        mainPipes = pair1;
+                        branchPipes = pair2;
+                    }
+                    else
+                    {
+                        mainPipes = pair2;
+                        branchPipes = pair1;
+                    }
+                    // ── 4. 计算交点并校验 ─────────────────────────────────────
+                    // 使用主管路和支管路的一根管来计算交点
+                    XYZ intersection = MEPAnalysisExtension.GetMEPCurveIntersectionXY(mainPipes[0], branchPipes[0]);
+                    if (intersection == null)
+                    {
+                        TaskDialog.Show("错误", "无法计算管道轴线交点。");
+                        return Result.Failed;
+                    }
+                    intersection = new XYZ(intersection.X, intersection.Y, MEPAnalysisExtension.GetMEPCurveZ(mainPipes[0]));
+                    // ── 4. 计算交点并校验 ─────────────────────────────────────
+                    // 从每对中取一根管道计算交点
+                    //XYZ intersection = MEPAnalysisExtension.GetMEPCurveAxesIntersectionXY(pair1[0], pair2[0]);
+                    if (intersection == null)
+                    {
+                        // 理论上垂直非平行的直线必有交点，此检查为保险
+                        TaskDialog.Show("错误", "无法计算管道轴线交点。");
+                        return Result.Failed;
+                    }
+                    // 统一Z坐标
+                    intersection = new XYZ(intersection.X, intersection.Y, MEPAnalysisExtension.GetMEPCurveZ(pair1[0]));
+                    // 检查交点处是否已存在管件
+                    if (doc.IsInstanceExistAtPoint(intersection))
+                    {
+                        TaskDialog.Show("校验失败", "交点处已存在管件，请检查。");
+                        return Result.Failed;
+                    }
+                    // ── 5. 执行生成 ──────────────────────────────────────────
+                    using (var trans = new Transaction(doc, "四管生成四通"))
+                    {
+                        trans.Start();
+                        // 5a. 按 主管->支管 顺序，将四根管道的最近端点移动到交点
+                        MEPCurve mainPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[0], intersection);
+                        MEPCurve mainPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[1], intersection);
+                        MEPCurve branchPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[0], intersection);
+                        MEPCurve branchPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[1], intersection);
+                        // 5b. 按 主管1, 主管2, 支管1, 支管2 的顺序获取连接器
+                        Connector connMain1 = mainPipe1.GetClosestConnector(intersection);
+                        Connector connMain2 = mainPipe2.GetClosestConnector(intersection);
+                        Connector connBranch1 = branchPipe1.GetClosestConnector(intersection);
+                        Connector connBranch2 = branchPipe2.GetClosestConnector(intersection);
+                        if (connMain1 == null || connMain2 == null || connBranch1 == null || connBranch2 == null)
+                        {
+                            TaskDialog.Show("错误", "未能成功获取所有管道在交点处的连接器。");
+                            trans.RollBack();
+                            return Result.Failed;
+                        }
+                        // 5c. 按正确的优先级创建四通管件
+                        try
+                        {
+                            // API 调用顺序：主管连接器1, 主管连接器2, 支管连接器1, 支管连接器2
+                            FamilyInstance crossFitting = doc.Create.NewCrossFitting(connMain1, connMain2, connBranch1, connBranch2);
+                        }
+                        catch (Exception creationEx)
+                        {
+                            TaskDialog.Show("创建失败", "无法创建四通管件，请检查是否载入了合适的管件族，或者管径是否匹配。\n\n" + creationEx.Message);
+                            trans.RollBack();
+                            return Result.Failed;
+                        }
+                        //// 5a. 将四根管道的最近端点全部移动到交点
+                        //MEPCurve pipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair1[0], intersection);
+                        //MEPCurve pipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair1[1], intersection);
+                        //MEPCurve pipe3 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair2[0], intersection);
+                        //MEPCurve pipe4 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair2[1], intersection);
+                        //// 5b. 获取四根管道在交点处的连接器
+                        //Connector conn1 = pipe1.GetClosestConnector(intersection);
+                        //Connector conn2 = pipe2.GetClosestConnector(intersection);
+                        //Connector conn3 = pipe3.GetClosestConnector(intersection);
+                        //Connector conn4 = pipe4.GetClosestConnector(intersection);
+                        //if (conn1 == null || conn2 == null || conn3 == null || conn4 == null)
+                        //{
+                        //    TaskDialog.Show("错误", "未能成功获取所有管道在交点处的连接器。");
+                        //    trans.RollBack();
+                        //    return Result.Failed;
+                        //}
+                        //// 5c. 创建四通管件
+                        //// 注意：此方法能否成功，取决于项目中是否载入了能匹配这四个连接器尺寸和角度的四通族。
+                        //try
+                        //{
+                        //    FamilyInstance crossFitting = doc.Create.NewCrossFitting(conn1, conn2, conn3, conn4);
+                        //}
+                        //catch (Exception creationEx)
+                        //{
+                        //    TaskDialog.Show("创建失败", "无法创建四通管件，请检查是否载入了合适的管件族，或者管径是否匹配。\n\n" + creationEx.Message);
+                        //    trans.RollBack();
+                        //    return Result.Failed;
+                        //}
+                        trans.Commit();
+                    }
                 }
                 else
                 {
-                    mainPipes = pair2;
-                    branchPipes = pair1;
-                }
 
-                // ── 4. 计算交点并校验 ─────────────────────────────────────
-                // 使用主管路和支管路的一根管来计算交点
-                XYZ intersection = MEPAnalysisExtension.GetMEPCurveAxesIntersectionXY(mainPipes[0], branchPipes[0]);
-                if (intersection == null)
-                {
-                    TaskDialog.Show("错误", "无法计算管道轴线交点。");
-                    return Result.Failed;
-                }
-                intersection = new XYZ(intersection.X, intersection.Y, MEPAnalysisExtension.GetMEPCurveZ(mainPipes[0]));
-                // ── 4. 计算交点并校验 ─────────────────────────────────────
-                // 从每对中取一根管道计算交点
-                //XYZ intersection = MEPAnalysisExtension.GetMEPCurveAxesIntersectionXY(pair1[0], pair2[0]);
-                if (intersection == null)
-                {
-                    // 理论上垂直非平行的直线必有交点，此检查为保险
-                    TaskDialog.Show("错误", "无法计算管道轴线交点。");
-                    return Result.Failed;
-                }
-                // 统一Z坐标
-                intersection = new XYZ(intersection.X, intersection.Y, MEPAnalysisExtension.GetMEPCurveZ(pair1[0]));
 
-                // 检查交点处是否已存在管件
-                if (MEPAnalysisExtension.IsFittingExistAtPoint(doc, intersection))
-                {
-                    TaskDialog.Show("校验失败", "交点处已存在管件，请检查。");
-                    return Result.Failed;
-                }
 
-                // ── 5. 执行生成 ──────────────────────────────────────────
-                using (var trans = new Transaction(doc, "四管生成四通"))
-                {
-                    trans.Start();
-                    // 5a. 按 主管->支管 顺序，将四根管道的最近端点移动到交点
-                    MEPCurve mainPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[0], intersection);
-                    MEPCurve mainPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[1], intersection);
-                    MEPCurve branchPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[0], intersection);
-                    MEPCurve branchPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[1], intersection);
-
-                    // 5b. 按 主管1, 主管2, 支管1, 支管2 的顺序获取连接器
-                    Connector connMain1 = mainPipe1.GetClosestConnector(intersection);
-                    Connector connMain2 = mainPipe2.GetClosestConnector(intersection);
-                    Connector connBranch1 = branchPipe1.GetClosestConnector(intersection);
-                    Connector connBranch2 = branchPipe2.GetClosestConnector(intersection);
-
-                    if (connMain1 == null || connMain2 == null || connBranch1 == null || connBranch2 == null)
+                    // 水平三通生成
+                    var ref1 = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择水平管道");
+                    if (ref1 == null || ref1.Count != 3)
                     {
-                        TaskDialog.Show("错误", "未能成功获取所有管道在交点处的连接器。");
-                        trans.RollBack();
+                        return Result.Cancelled;
+                    }
+                    List<MEPCurve> pipes = ref1.Select(r => doc.GetElement(r) as MEPCurve).ToList();
+                    //检查三管是否水平
+                    foreach (var p in pipes)
+                    {
+                        if (!p.IsHorizontal())
+                        {
+                            TaskDialog.Show("校验失败", $"管道 [{p.Id}] 不是水平管道，请重新选择。");
+                            return Result.Failed;
+                        }
+                    }
+                    //检查三管是否在同一平面，不符合则退出
+                    // 取各管中心点Z值
+                    double[] zValues = pipes
+                        .Select(p => ((p.Location as LocationCurve).Curve.GetEndPoint(0).Z
+                                    + (p.Location as LocationCurve).Curve.GetEndPoint(1).Z) / 2.0)
+                        .ToArray();
+                    if (zValues.Max() - zValues.Min() > 0.1 / 304.8)
+                    {
+                        TaskDialog.Show("校验失败", "三根管道不在同一水平面，请选择同标高的管道。");
                         return Result.Failed;
                     }
-
-                    // 5c. 按正确的优先级创建四通管件
-                    try
+                    //检查三管中是否两管共线，不符合则退出，符合则以这两管为主管，另一根为旁管
+                    // 共线判断：方向平行 + 任意一端点到另一管轴线的距离 < 容差
+                    // ── 3. 找出两根共线的主管和一根旁管 ─────────────────────────────────
+                    // 共线判断：方向平行 + 任意一端点到另一管轴线的距离 < 容差
+                    MEPCurve mainA = null, mainB = null, branch = null;
+                    bool foundColinear = false;
+                    // 遍历三种两两组合
+                    (int, int, int)[] combos = { (0, 1, 2), (0, 2, 1), (1, 2, 0) };
+                    foreach (var (i, j, k) in combos)
                     {
-                        // API 调用顺序：主管连接器1, 主管连接器2, 支管连接器1, 支管连接器2
-                        FamilyInstance crossFitting = doc.Create.NewCrossFitting(connMain1, connMain2, connBranch1, connBranch2);
+                        if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[i], pipes[j]))
+                        {
+                            mainA = pipes[i];
+                            mainB = pipes[j];
+                            branch = pipes[k];
+                            foundColinear = true;
+                            break;
+                        }
                     }
-                    catch (Exception creationEx)
+                    if (!foundColinear)
                     {
-                        TaskDialog.Show("创建失败", "无法创建四通管件，请检查是否载入了合适的管件族，或者管径是否匹配。\n\n" + creationEx.Message);
-                        trans.RollBack();
+                        TaskDialog.Show("校验失败", "未找到两根共线的主管，请确保两根主管在同一直线上。");
                         return Result.Failed;
                     }
-
-                    //// 5a. 将四根管道的最近端点全部移动到交点
-                    //MEPCurve pipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair1[0], intersection);
-                    //MEPCurve pipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair1[1], intersection);
-                    //MEPCurve pipe3 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair2[0], intersection);
-                    //MEPCurve pipe4 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, pair2[1], intersection);
-                    //// 5b. 获取四根管道在交点处的连接器
-                    //Connector conn1 = pipe1.GetClosestConnector(intersection);
-                    //Connector conn2 = pipe2.GetClosestConnector(intersection);
-                    //Connector conn3 = pipe3.GetClosestConnector(intersection);
-                    //Connector conn4 = pipe4.GetClosestConnector(intersection);
-                    //if (conn1 == null || conn2 == null || conn3 == null || conn4 == null)
+                    // ── 4. 检查三管是否全部平行（共线已排除，这里排除旁管与主管平行）──
+                    XYZ mainDir = MEPAnalysisExtension.GetMEPCurveHorizontalDirection(mainA);
+                    XYZ branchDir = MEPAnalysisExtension.GetMEPCurveHorizontalDirection(branch);
+                    if (mainDir.IsParallelTo(branchDir))
+                    {
+                        TaskDialog.Show("校验失败", "旁管与主管平行，无法生成三通，请重新选择。");
+                        return Result.Failed;
+                    }
+                    // ── 5. 检查旁管与主管是否垂直（允许1度容差）────────────────────────
+                    double angleDeg = Math.Abs(mainDir.AngleTo(branchDir) * 180.0 / Math.PI);
+                    // AngleTo 返回 0~180，垂直时为90
+                    double deviation = Math.Abs(angleDeg - 90.0);
+                    if (deviation > 1.0)
+                    {
+                        TaskDialog.Show("校验失败",
+                            $"旁管与主管夹角为 {angleDeg:F1}°，不满足垂直条件（允许误差±1°），请重新选择。");
+                        return Result.Failed;
+                    }
+                    // ── 6. 求旁管轴线与主管轴线在水平面上的交点 ──────────────────────
+                    XYZ intersection = MEPAnalysisExtension.GetMEPCurveIntersectionXY(mainA, branch);
+                    if (intersection == null)
+                    {
+                        TaskDialog.Show("校验失败", "主管轴线与旁管轴线无法求得交点，请检查管道位置。");
+                        return Result.Failed;
+                    }
+                    // 统一Z坐标（用主管Z）
+                    double mainZ = (mainA.Location as LocationCurve).Curve.GetEndPoint(0).Z;
+                    intersection = new XYZ(intersection.X, intersection.Y, mainZ);
+                    ////此处还应补充是否交点已存在管件
+                    // 获取所有管道管件
+                    List<FamilyInstance> existingFittings = new FilteredElementCollector(doc)
+                        .OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_PipeFitting).Cast<FamilyInstance>()
+                        .Where(fi =>
+                        {
+                            // 安全转换：管件的位置通常是 LocationPoint
+                            if (!(fi.Location is LocationPoint locPoint)) return false;
+                            XYZ fittingPoint = locPoint.Point;
+                            // 比较坐标（使用容差，避免浮点精度问题）
+                            return MEPAnalysisExtension.IsSamePoint(fittingPoint, intersection);
+                        }).ToList();
+                    // 判断是否存在
+                    if (existingFittings.Count > 0)
+                    {
+                        TaskDialog.Show("校验失败", "可能交点已存在构件，请检查。");
+                        return Result.Failed;
+                    }
+                    //// ── 7. 校验交点在旁管的延伸范围内（不能打在旁管外太远）─────────────
+                    //Curve branchCurve = (branch.Location as LocationCurve).Curve;
+                    //XYZ branchMid = (branchCurve.GetEndPoint(0) + branchCurve.GetEndPoint(1)) / 2.0;
+                    //double branchHalfLen = branchCurve.Length / 2.0;
+                    //double distBranchToIntersect = branchCurve
+                    //    .Project(new XYZ(intersection.X, intersection.Y, branchCurve.GetEndPoint(0).Z))
+                    //    .Distance;
+                    //if (distBranchToIntersect > 1.0 / 304.8) // 交点必须在旁管轴线上
                     //{
-                    //    TaskDialog.Show("错误", "未能成功获取所有管道在交点处的连接器。");
-                    //    trans.RollBack();
+                    //    TaskDialog.Show("校验失败", "交点不在旁管轴线上，请检查管道是否真正垂直相交。");
                     //    return Result.Failed;
                     //}
-                    //// 5c. 创建四通管件
-                    //// 注意：此方法能否成功，取决于项目中是否载入了能匹配这四个连接器尺寸和角度的四通族。
-                    //try
-                    //{
-                    //    FamilyInstance crossFitting = doc.Create.NewCrossFitting(conn1, conn2, conn3, conn4);
-                    //}
-                    //catch (Exception creationEx)
-                    //{
-                    //    TaskDialog.Show("创建失败", "无法创建四通管件，请检查是否载入了合适的管件族，或者管径是否匹配。\n\n" + creationEx.Message);
-                    //    trans.RollBack();
-                    //    return Result.Failed;
-                    //}
-                    trans.Commit();
+                    // ── 8. 打断主管并生成三通 ─────────────────────────────────────────
+                    using (var trans = new Transaction(doc, "三管生成三通"))
+                    {
+                        trans.Start();
+                        //移动两主管
+                        MEPCurve mainMPECurveA = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainA, intersection);
+                        MEPCurve mainMPECurveB = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainB, intersection);
+                        //找主管两侧与交叉点接近连接器
+                        Connector connMain1 = mainMPECurveA.GetClosestConnector(intersection);
+                        Connector connMain2 = mainMPECurveB.GetClosestConnector(intersection);
+                        //// 8a. 在交点处打断主管A（较长的那根，或直接打断含有交点的那根）
+                        ////     先确定交点落在哪根主管的范围内
+                        //Pipe mainContaining = MEPAnalysisExtension.GetPipeContainingPoint(mainA, mainB, intersection);
+                        //if (mainContaining == null)
+                        //{
+                        //    TaskDialog.Show("校验失败", "交点不在任何一根主管的范围内（含端点延伸容差），请检查管段是否足够长。");
+                        //    trans.RollBack();
+                        //    return Result.Failed;
+                        //}
+                        //// 8b. 在交点处打断主管，得到第二段
+                        //MEPCurve splitResult = MEPAnalysisExtension.BreakMEPCurveByOne(mainContaining, intersection);
+                        //// splitResult 是打断后新生成的那一段
+                        //// mainContaining 是被缩短的那一段
+                        //// 取这两段在交点处的 Connector
+                        //Connector connMain1 = mainContaining.GetClosestConnector(intersection);
+                        //Connector connMain2 = splitResult.GetClosestConnector(intersection);
+                        // 8c. 旁管在交点处的 Connector
+                        //     旁管需要延伸或裁剪到交点
+                        //     先移动旁管端点到交点（打断旁管在交点处）
+                        MEPCurve branchAtIntersect = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branch, intersection);
+                        Connector connBranch = branchAtIntersect?.GetClosestConnector(intersection)
+                                               ?? branch.GetClosestConnector(intersection);
+                        // 8d. 生成三通
+                        //     NewTeeFitting 需要三个 Connector
+                        FamilyInstance tee = doc.Create.NewTeeFitting(connMain1, connMain2, connBranch);
+                        //doc.Create.NewCrossFitting();
+                        trans.Commit();
+                    }
                 }
-
-
-                //// 水平三通生成
-                //var ref1 = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择水平管道");
-                //if (ref1 == null || ref1.Count != 3)
-                //{
-                //    return Result.Cancelled;
-                //}
-                //List<MEPCurve> pipes = ref1.Select(r => doc.GetElement(r) as MEPCurve).ToList();
-                ////检查三管是否水平
-                //foreach (var p in pipes)
-                //{
-                //    if (!p.IsHorizontal())
-                //    {
-                //        TaskDialog.Show("校验失败", $"管道 [{p.Id}] 不是水平管道，请重新选择。");
-                //        return Result.Failed;
-                //    }
-                //}
-                ////检查三管是否在同一平面，不符合则退出
-                //// 取各管中心点Z值
-                //double[] zValues = pipes
-                //    .Select(p => ((p.Location as LocationCurve).Curve.GetEndPoint(0).Z
-                //                + (p.Location as LocationCurve).Curve.GetEndPoint(1).Z) / 2.0)
-                //    .ToArray();
-                //if (zValues.Max() - zValues.Min() > 0.1 / 304.8)
-                //{
-                //    TaskDialog.Show("校验失败", "三根管道不在同一水平面，请选择同标高的管道。");
-                //    return Result.Failed;
-                //}
-                ////检查三管中是否两管共线，不符合则退出，符合则以这两管为主管，另一根为旁管
-                //// 共线判断：方向平行 + 任意一端点到另一管轴线的距离 < 容差
-                //// ── 3. 找出两根共线的主管和一根旁管 ─────────────────────────────────
-                //// 共线判断：方向平行 + 任意一端点到另一管轴线的距离 < 容差
-                //MEPCurve mainA = null, mainB = null, branch = null;
-                //bool foundColinear = false;
-                //// 遍历三种两两组合
-                //(int, int, int)[] combos = { (0, 1, 2), (0, 2, 1), (1, 2, 0) };
-                //foreach (var (i, j, k) in combos)
-                //{
-                //    if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[i], pipes[j]))
-                //    {
-                //        mainA = pipes[i];
-                //        mainB = pipes[j];
-                //        branch = pipes[k];
-                //        foundColinear = true;
-                //        break;
-                //    }
-                //}
-                //if (!foundColinear)
-                //{
-                //    TaskDialog.Show("校验失败", "未找到两根共线的主管，请确保两根主管在同一直线上。");
-                //    return Result.Failed;
-                //}
-                //// ── 4. 检查三管是否全部平行（共线已排除，这里排除旁管与主管平行）──
-                //XYZ mainDir = MEPAnalysisExtension.GetMEPCurveDirection(mainA);
-                //XYZ branchDir = MEPAnalysisExtension.GetMEPCurveDirection(branch);
-                //if (MEPAnalysisExtension.AreDirectionsParallel(mainDir, branchDir))
-                //{
-                //    TaskDialog.Show("校验失败", "旁管与主管平行，无法生成三通，请重新选择。");
-                //    return Result.Failed;
-                //}
-                //// ── 5. 检查旁管与主管是否垂直（允许1度容差）────────────────────────
-                //double angleDeg = Math.Abs(mainDir.AngleTo(branchDir) * 180.0 / Math.PI);
-                //// AngleTo 返回 0~180，垂直时为90
-                //double deviation = Math.Abs(angleDeg - 90.0);
-                //if (deviation > 1.0)
-                //{
-                //    TaskDialog.Show("校验失败",
-                //        $"旁管与主管夹角为 {angleDeg:F1}°，不满足垂直条件（允许误差±1°），请重新选择。");
-                //    return Result.Failed;
-                //}
-                //// ── 6. 求旁管轴线与主管轴线在水平面上的交点 ──────────────────────
-                //XYZ intersection = MEPAnalysisExtension.GetMEPCurveAxesIntersectionXY(mainA, branch);
-                //if (intersection == null)
-                //{
-                //    TaskDialog.Show("校验失败", "主管轴线与旁管轴线无法求得交点，请检查管道位置。");
-                //    return Result.Failed;
-                //}
-                //// 统一Z坐标（用主管Z）
-                //double mainZ = (mainA.Location as LocationCurve).Curve.GetEndPoint(0).Z;
-                //intersection = new XYZ(intersection.X, intersection.Y, mainZ);
-                //////此处还应补充是否交点已存在管件
-                //// 获取所有管道管件
-                //List<FamilyInstance> existingFittings = new FilteredElementCollector(doc)
-                //    .OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_PipeFitting).Cast<FamilyInstance>()
-                //    .Where(fi =>
-                //    {
-                //        // 安全转换：管件的位置通常是 LocationPoint
-                //        if (!(fi.Location is LocationPoint locPoint)) return false;
-                //        XYZ fittingPoint = locPoint.Point;
-                //        // 比较坐标（使用容差，避免浮点精度问题）
-                //        return MEPAnalysisExtension.IsSamePoint(fittingPoint, intersection);
-                //    }).ToList();
-                //// 判断是否存在
-                //if (existingFittings.Count > 0)
-                //{
-                //    TaskDialog.Show("校验失败", "可能交点已存在构件，请检查。");
-                //    return Result.Failed;
-                //}
-                ////// ── 7. 校验交点在旁管的延伸范围内（不能打在旁管外太远）─────────────
-                ////Curve branchCurve = (branch.Location as LocationCurve).Curve;
-                ////XYZ branchMid = (branchCurve.GetEndPoint(0) + branchCurve.GetEndPoint(1)) / 2.0;
-                ////double branchHalfLen = branchCurve.Length / 2.0;
-                ////double distBranchToIntersect = branchCurve
-                ////    .Project(new XYZ(intersection.X, intersection.Y, branchCurve.GetEndPoint(0).Z))
-                ////    .Distance;
-                ////if (distBranchToIntersect > 1.0 / 304.8) // 交点必须在旁管轴线上
-                ////{
-                ////    TaskDialog.Show("校验失败", "交点不在旁管轴线上，请检查管道是否真正垂直相交。");
-                ////    return Result.Failed;
-                ////}
-                //// ── 8. 打断主管并生成三通 ─────────────────────────────────────────
-                //using (var trans = new Transaction(doc, "三管生成三通"))
-                //{
-                //    trans.Start();
-                //    //移动两主管
-                //    MEPCurve mainMPECurveA = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainA, intersection);
-                //    MEPCurve mainMPECurveB = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainB, intersection);
-                //    //找主管两侧与交叉点接近连接器
-                //    Connector connMain1 = mainMPECurveA.GetClosestConnector(intersection);
-                //    Connector connMain2 = mainMPECurveB.GetClosestConnector(intersection);
-                //    //// 8a. 在交点处打断主管A（较长的那根，或直接打断含有交点的那根）
-                //    ////     先确定交点落在哪根主管的范围内
-                //    //Pipe mainContaining = MEPAnalysisExtension.GetPipeContainingPoint(mainA, mainB, intersection);
-                //    //if (mainContaining == null)
-                //    //{
-                //    //    TaskDialog.Show("校验失败", "交点不在任何一根主管的范围内（含端点延伸容差），请检查管段是否足够长。");
-                //    //    trans.RollBack();
-                //    //    return Result.Failed;
-                //    //}
-                //    //// 8b. 在交点处打断主管，得到第二段
-                //    //MEPCurve splitResult = MEPAnalysisExtension.BreakMEPCurveByOne(mainContaining, intersection);
-                //    //// splitResult 是打断后新生成的那一段
-                //    //// mainContaining 是被缩短的那一段
-                //    //// 取这两段在交点处的 Connector
-                //    //Connector connMain1 = mainContaining.GetClosestConnector(intersection);
-                //    //Connector connMain2 = splitResult.GetClosestConnector(intersection);
-                //    // 8c. 旁管在交点处的 Connector
-                //    //     旁管需要延伸或裁剪到交点
-                //    //     先移动旁管端点到交点（打断旁管在交点处）
-                //    MEPCurve branchAtIntersect = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branch, intersection);
-                //    Connector connBranch = branchAtIntersect?.GetClosestConnector(intersection)
-                //                           ?? branch.GetClosestConnector(intersection);
-                //    // 8d. 生成三通
-                //    //     NewTeeFitting 需要三个 Connector
-                //    FamilyInstance tee = doc.Create.NewTeeFitting(connMain1, connMain2, connBranch);
-                //    //doc.Create.NewCrossFitting();
-                //    trans.Commit();
-                //}
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {

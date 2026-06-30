@@ -5,9 +5,12 @@ using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
+using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using Line = Autodesk.Revit.DB.Line;
 
 namespace CreatePipe.Utils
 {
@@ -38,6 +41,103 @@ namespace CreatePipe.Utils
                 return false;
 
             return true;
+        }
+        // 判断两条三维直线是否垂直（方向向量点积为 0）
+        public static bool IsPerpendicularTo(this Line l1, Line l2, double tolerance = 0.001)
+        {
+            XYZ dir1 = l1.Direction;
+            XYZ dir2 = l2.Direction;
+
+            // 标准化方向向量（确保长度归一化）
+            dir1 = dir1.Normalize();
+            dir2 = dir2.Normalize();
+
+            // 计算点积
+            double dotProduct = dir1.DotProduct(dir2);
+
+            // 垂直 ⇔ 点积的绝对值接近 0
+            return Math.Abs(dotProduct) < tolerance;
+        }
+        //// 判断两个方向向量是否平行（同向或反向）</summary>
+        //public static bool AreDirectionsParallel(XYZ dA, XYZ dB)
+        //{
+        //    double cross = dA.CrossProduct(dB).GetLength();
+        //    return cross < 1e-4;
+        //}
+        // 判断两个方向向量是否平行
+        public static bool IsParallelTo(this XYZ dir1, XYZ dir2, double tolerance = 0.001)
+        {
+            if (dir1.GetLength() < tolerance || dir2.GetLength() < tolerance)
+                return false;
+            dir1 = dir1.Normalize();
+            dir2 = dir2.Normalize();
+            // 只需要叉积就够了
+            return dir1.CrossProduct(dir2).GetLength() < tolerance;
+            //// 标准化向量
+            //dir1 = dir1.Normalize();
+            //dir2 = dir2.Normalize();
+            //// 计算叉积
+            //XYZ cross = dir1.CrossProduct(dir2);
+            //// 如果叉积接近零，说明平行（或反平行）
+            //double crossLength = cross.GetLength();
+            //if (crossLength < tolerance)
+            //    return true;
+            //// 检查是否反平行（点积为 -1）
+            //double dot = dir1.DotProduct(dir2);
+            //if (Math.Abs(Math.Abs(dot) - 1) < tolerance)
+            //    return true;
+            //return false;
+        }
+        // 判断两个方向向量是否互相垂直
+        public static bool IsPerpendicularTo(this XYZ dir1, XYZ dir2, double tolerance = 0.01)
+        {
+            //// 零向量检查
+            //if (dir1.IsZero(tolerance) || dir2.IsZero(tolerance))
+            //    return false;
+            // 标准化后计算点积
+            dir1 = dir1.Normalize();
+            dir2 = dir2.Normalize();
+            // 垂直 ⇔ 点积绝对值接近 0
+            return Math.Abs(dir1.DotProduct(dir2)) < tolerance;
+            //double angleRad = dir1.AngleTo(dir2);
+            //double deviation = Math.Abs(angleRad - Math.PI / 2.0); // 与90度(PI/2)的偏差
+            //return deviation <= (toleranceDegrees * Math.PI / 180.0);
+        }
+        // 判断两条直线在指定轴上是否重叠（可选，用于更精细的控制）
+        public static bool AreLinesOverlap(this Line l1, Line l2, double tolerance = 0.001)
+        {
+            if (!IsCollinear(l1, l2, tolerance)) return false;
+            // 获取投影参数 t
+            XYZ direction = l1.Direction.Normalize();
+            XYZ basePoint = l1.GetEndPoint(0);
+            double t1_start = (l1.GetEndPoint(0) - basePoint).DotProduct(direction);
+            double t1_end = (l1.GetEndPoint(1) - basePoint).DotProduct(direction);
+            double t2_start = (l2.GetEndPoint(0) - basePoint).DotProduct(direction);
+            double t2_end = (l2.GetEndPoint(1) - basePoint).DotProduct(direction);
+            // 确保有序
+            double t1_min = Math.Min(t1_start, t1_end);
+            double t1_max = Math.Max(t1_start, t1_end);
+            double t2_min = Math.Min(t2_start, t2_end);
+            double t2_max = Math.Max(t2_start, t2_end);
+            // 检查是否重叠
+            return !(t1_max < t2_min - tolerance || t2_max < t1_min - tolerance);
+        }
+        // 判断两条直线是否共面（使用混合积方法）
+        public static bool AreLinesCoPlanar(this Line line1, Line line2, double tolerance = 0.001)
+        {
+            XYZ A = line1.GetEndPoint(0);
+            XYZ B = line1.GetEndPoint(1);
+            XYZ C = line2.GetEndPoint(0);
+            XYZ D = line2.GetEndPoint(1);
+            // 计算向量
+            XYZ AB = B - A;
+            XYZ AC = C - A;
+            XYZ AD = D - A;
+            // 计算混合积：AB · (AC × AD)
+            XYZ crossProduct = AC.CrossProduct(AD);
+            double mixedProduct = AB.DotProduct(crossProduct);
+            // 判断混合积的绝对值是否接近零
+            return Math.Abs(mixedProduct) < tolerance;
         }
         // 判断点是否在线段上
         public static bool IsPointOnLine(this Line line, XYZ point, double tolerance = 1e-6)
@@ -81,42 +181,6 @@ namespace CreatePipe.Utils
             {
                 return false;
             }
-        }
-        // 判断两条直线在指定轴上是否重叠（可选，用于更精细的控制）
-        public static bool AreLinesOverlap(this Line l1, Line l2, double tolerance = 0.001)
-        {
-            if (!IsCollinear(l1, l2, tolerance)) return false;
-            // 获取投影参数 t
-            XYZ direction = l1.Direction.Normalize();
-            XYZ basePoint = l1.GetEndPoint(0);
-            double t1_start = (l1.GetEndPoint(0) - basePoint).DotProduct(direction);
-            double t1_end = (l1.GetEndPoint(1) - basePoint).DotProduct(direction);
-            double t2_start = (l2.GetEndPoint(0) - basePoint).DotProduct(direction);
-            double t2_end = (l2.GetEndPoint(1) - basePoint).DotProduct(direction);
-            // 确保有序
-            double t1_min = Math.Min(t1_start, t1_end);
-            double t1_max = Math.Max(t1_start, t1_end);
-            double t2_min = Math.Min(t2_start, t2_end);
-            double t2_max = Math.Max(t2_start, t2_end);
-            // 检查是否重叠
-            return !(t1_max < t2_min - tolerance || t2_max < t1_min - tolerance);
-        }
-        // 判断两条直线是否共面（使用混合积方法）
-        public static bool AreLinesCoPlanar(this Line line1, Line line2, double tolerance = 0.001)
-        {
-            XYZ A = line1.GetEndPoint(0);
-            XYZ B = line1.GetEndPoint(1);
-            XYZ C = line2.GetEndPoint(0);
-            XYZ D = line2.GetEndPoint(1);
-            // 计算向量
-            XYZ AB = B - A;
-            XYZ AC = C - A;
-            XYZ AD = D - A;
-            // 计算混合积：AB · (AC × AD)
-            XYZ crossProduct = AC.CrossProduct(AD);
-            double mixedProduct = AB.DotProduct(crossProduct);
-            // 判断混合积的绝对值是否接近零
-            return Math.Abs(mixedProduct) < tolerance;
         }
         // 计算点到直线（线段无限延伸）的三维距离
         public static double GetDistanceFromPointToLine(this XYZ point, Line line)
@@ -232,6 +296,44 @@ namespace CreatePipe.Utils
             // 3. 返回水平向量的长度（即水平距离）
             return horizontalVector.GetLength();
         }
+        // 判断两个 XYZ 点是否在容差范围内相同
+        public static bool IsSamePoint(this XYZ p1, XYZ p2, double tolerance = 0.001)
+        {
+            return p1.DistanceTo(p2) <= tolerance;
+        }
+        // 判断指定点位置是否已存在构件
+        public static bool IsInstanceExistAtPoint(this Document doc, XYZ point)
+        {
+            var collector = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilyInstance))
+                .WhereElementIsNotElementType();
+            //.Where(fi => fi.Category != null && (
+            //    fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipeFitting ||
+            //    fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctFitting ||
+            //    fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTrayFitting));
+
+            foreach (FamilyInstance fi in collector)
+            {
+                if (fi.Location is LocationPoint locPoint && locPoint.Point.IsAlmostEqualTo(point, 0.001))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // 获取并验证点间距，T连接或十字连接可能共用
+        public static bool ValidatePointsDistance(this XYZ p1, XYZ p2, double min = 0.04, double max = 6)
+        {
+            var dist = MEPAnalysisExtension.GetMinMaxDistances(p1, p2);
+            // 注意最大最小值单位：英尺
+            if (dist.MinDistance < min || dist.MaxDistance > max)
+            {
+                TaskDialog.Show("限制", "检测到位置过近或过远，请手工调整。");
+                return false;
+            }
+            return true;
+        }
+
 
         //==========MEP判断方法==========
         // 判断管线是否水平
@@ -258,6 +360,42 @@ namespace CreatePipe.Utils
         {
             double actualSlope = GetMEPCurveSlope(mepCurve);
             return actualSlope > targetValue + tol;
+        }
+        // 判断两管是否共线（方向平行且端点在对方轴线上） 
+        public static bool AreMEPCurvesColinear(this MEPCurve pA, MEPCurve pB, double tolerance = 0.001)
+        {
+            // 1. 获取完整的3D方向向量
+            XYZ dirA = GetMEPCurveDirection_3D(pA);
+            XYZ dirB = GetMEPCurveDirection_3D(pB);
+            // 2. 严谨地检查3D向量是否平行
+            // 方法：两个向量的叉积(CrossProduct)的长度如果为0，则它们平行。
+            if (dirA.CrossProduct(dirB).GetLength() > tolerance)
+            {
+                return false;
+            }
+            // 检查点到线的3D距离
+            // 取管道A的起点，计算它到管道B无限延长轴线的垂直距离。
+            Curve curveB = (pB.Location as LocationCurve).Curve;
+            XYZ pA_start = (pA.Location as LocationCurve).Curve.GetEndPoint(0);
+            //// Revit API 提供了直接计算点到曲线距离的方法，非常方便。此步有问题，用自定义方法代替试一下
+            //double distance = curveB.Distance(pA_start);
+            double distance = pA_start.GetDistanceFromPointToLine(curveB as Line);
+            return distance < tolerance;
+            //XYZ dA = GetMEPCurveHorizontalDirection(pA);
+            //XYZ dB = GetMEPCurveHorizontalDirection(pB);
+            //// 方向必须平行
+            //if (!AreDirectionsParallel(dA, dB)) return false;
+            //// pA 的起点到 pB 的轴线无限延长线的距离 < 容差
+            //XYZ pA0 = (pA.Location as LocationCurve).Curve.GetEndPoint(0);
+            //XYZ pB0 = (pB.Location as LocationCurve).Curve.GetEndPoint(0);
+            //// 将 pA 端点到 pB 方向直线的距离：|(pA0 - pB0) × dB|
+            //XYZ diff = pA0 - pB0;
+            //// 只在XY平面判断（水平管）
+            //XYZ diff2D = new XYZ(diff.X, diff.Y, 0);
+            //XYZ dB2D = new XYZ(dB.X, dB.Y, 0).Normalize();
+            //XYZ cross = diff2D.CrossProduct(dB2D);
+            //double dist = cross.GetLength();
+            //return dist < 5.0 / 304.8; // 5mm 容差
         }
         // 检查两个连接器是否真的连在一起
         public static bool IsActuallyConnectedTo(this Connector c1, Connector c2)
@@ -354,224 +492,37 @@ namespace CreatePipe.Utils
             return conn1.Origin.IsAlmostEqualTo(conn2.Origin, 0.001) &&
                    Math.Abs(conn1.Angle - conn2.Angle) < 0.01;
         }
-
-        /// <summary>判断两管是否共线（方向平行且端点在对方轴线上）</summary>
-        public static bool AreMEPCurvesColinear(MEPCurve pA, MEPCurve pB)
+        //获取并验证管道连接选项，T连接或十字连接共用
+        public static bool TryGetFittingAndStrategy(this MEPCurve curve, out string strategy)
         {
-            XYZ dA = GetMEPCurveDirection(pA);
-            XYZ dB = GetMEPCurveDirection(pB);
-
-            // 方向必须平行
-            if (!AreDirectionsParallel(dA, dB)) return false;
-
-            // pA 的起点到 pB 的轴线无限延长线的距离 < 容差
-            XYZ pA0 = (pA.Location as LocationCurve).Curve.GetEndPoint(0);
-            XYZ pB0 = (pB.Location as LocationCurve).Curve.GetEndPoint(0);
-
-            // 将 pA 端点到 pB 方向直线的距离：|(pA0 - pB0) × dB|
-            XYZ diff = pA0 - pB0;
-            // 只在XY平面判断（水平管）
-            XYZ diff2D = new XYZ(diff.X, diff.Y, 0);
-            XYZ dB2D = new XYZ(dB.X, dB.Y, 0).Normalize();
-            XYZ cross = diff2D.CrossProduct(dB2D);
-            double dist = cross.GetLength();
-
-            return dist < 5.0 / 304.8; // 5mm 容差
-        }
-        /// <summary>获取管道水平方向单位向量</summary>
-        public static XYZ GetMEPCurveDirection(MEPCurve p)
-        {
-            Curve c = (p.Location as LocationCurve).Curve;
-            XYZ d = c.GetEndPoint(1) - c.GetEndPoint(0);
-            return new XYZ(d.X, d.Y, 0).Normalize();
-        }
-
-        /// <summary>判断两个方向向量是否平行（同向或反向）</summary>
-        public static bool AreDirectionsParallel(XYZ dA, XYZ dB)
-        {
-            double cross = dA.CrossProduct(dB).GetLength();
-            return cross < 1e-4;
-        }
-        /// <summary>
-        /// 求两管轴线在XY平面上的交点
-        /// 使用参数方程：P = A0 + t*dA = B0 + s*dB，解出 t
-        /// </summary>
-        public static XYZ GetMEPCurveAxesIntersectionXY(MEPCurve pA, MEPCurve pB)
-        {
-            XYZ a0 = (pA.Location as LocationCurve).Curve.GetEndPoint(0);
-            XYZ b0 = (pB.Location as LocationCurve).Curve.GetEndPoint(0);
-            XYZ dA = GetMEPCurveDirection(pA);
-            XYZ dB = GetMEPCurveDirection(pB);
-
-            // 只在XY平面求解
-            // a0 + t*dA = b0 + s*dB
-            // => t*dA.X - s*dB.X = b0.X - a0.X
-            //    t*dA.Y - s*dB.Y = b0.Y - a0.Y
-            double dx = b0.X - a0.X;
-            double dy = b0.Y - a0.Y;
-
-            // 行列式
-            double det = dA.X * (-dB.Y) - dA.Y * (-dB.X);
-            if (Math.Abs(det) < 1e-9) return null; // 平行，无交点
-
-            double t = (dx * (-dB.Y) - dy * (-dB.X)) / det;
-
-            return new XYZ(
-                a0.X + t * dA.X,
-                a0.Y + t * dA.Y,
-                a0.Z);
-        }
-
-        /// <summary>
-        /// 判断交点落在哪根主管的线段范围内（含端点5mm容差）
-        /// </summary>
-        public static Pipe GetPipeContainingPoint(Pipe pA, Pipe pB, XYZ pt)
-        {
-            double tol = 5.0 / 304.8;
-            if (IsPointOnPipeSegment(pA, pt, tol)) return pA;
-            if (IsPointOnPipeSegment(pB, pt, tol)) return pB;
-            return null;
-        }
-
-        /// <summary>判断点是否在管段上（含容差）</summary>
-        public static bool IsPointOnPipeSegment(Pipe p, XYZ pt, double tol)
-        {
-            Curve c = (p.Location as LocationCurve).Curve;
-            XYZ p0 = c.GetEndPoint(0);
-            XYZ p1 = c.GetEndPoint(1);
-            // 点到线段的投影参数
-            XYZ d = p1 - p0;
-            double len = d.GetLength();
-            if (len < 1e-9) return false;
-            double t = (pt - p0).DotProduct(d) / (len * len);
-            // t 在 [-tol/len, 1+tol/len] 范围内 且 点到轴线距离 < tol
-            double dist = c.Project(pt).Distance;
-            return t >= -tol / len && t <= 1.0 + tol / len && dist < tol;
-        }
-
-        /// <summary>
-        /// 将旁管端点延伸或裁剪到交点（修改旁管端点使其恰好到达交点）
-        /// 返回修改后的管道（即 branch 本身，已修改 LocationCurve）
-        /// </summary>
-        public static MEPCurve ExtendOrTrimMEPCurveToPoint(Document doc, MEPCurve branch, XYZ intersection)
-        {
-            Curve c = (branch.Location as LocationCurve).Curve;
-            XYZ p0 = c.GetEndPoint(0);
-            XYZ p1 = c.GetEndPoint(1);
-
-            // 判断哪个端点更靠近交点
-            bool p0Closer = p0.DistanceTo(intersection) < p1.DistanceTo(intersection);
-
-            XYZ newNear = intersection;
-            XYZ newFar = p0Closer ? p1 : p0;
-
-            // 修改 LocationCurve
-            (branch.Location as LocationCurve).Curve =
-                Line.CreateBound(p0Closer ? newNear : newFar,
-                                 p0Closer ? newFar : newNear);
-            return branch;
-        }
-        /// <summary>
-        /// 判断两个方向向量是否平行
-        /// </summary>
-        private static bool IsParallelTo(XYZ dir1, XYZ dir2, double tolerance)
-        {
-            // 标准化向量
-            dir1 = dir1.Normalize();
-            dir2 = dir2.Normalize();
-
-            // 计算叉积
-            XYZ cross = dir1.CrossProduct(dir2);
-
-            // 如果叉积接近零，说明平行（或反平行）
-            double crossLength = cross.GetLength();
-            if (crossLength < tolerance)
-                return true;
-
-            // 检查是否反平行（点积为 -1）
-            double dot = dir1.DotProduct(dir2);
-            if (Math.Abs(Math.Abs(dot) - 1) < tolerance)
-                return true;
-
-            return false;
-        }
-        /// <summary>
-        /// 判断两个 XYZ 点是否在容差范围内相同
-        /// </summary>
-        public static bool IsSamePoint(XYZ p1, XYZ p2, double tolerance = 0.001)
-        {
-            return p1.DistanceTo(p2) <= tolerance;
-        }
-        /// <summary>
-        /// 尝试从四根管道中找出两对共线的管道
-        /// </summary>
-        /// <param name="pipes">输入的四根管道列表</param>
-        /// <param name="pair1">输出的第一对共线管道</param>
-        /// <param name="pair2">输出的第二对共线管道</param>
-        /// <returns>如果成功找到，返回true</returns>
-        public static bool TryFindColinearPairs(List<MEPCurve> pipes, out List<MEPCurve> pair1, out List<MEPCurve> pair2)
-        {
-            pair1 = new List<MEPCurve>();
-            pair2 = new List<MEPCurve>();
-
-            // 总共有三种配对可能性: (0,1)+(2,3), (0,2)+(1,3), (0,3)+(1,2)
-
-            // 可能性 1: (0,1)共线 且 (2,3)共线
-            if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[0], pipes[1]) &&
-                MEPAnalysisExtension.AreMEPCurvesColinear(pipes[2], pipes[3]))
+            strategy = null;
+            Document doc = curve.Document;
+            var pipeType = doc.GetElement(curve.GetTypeId()) as PipeType;
+            var routePrefManager = pipeType.RoutingPreferenceManager;
+            if (routePrefManager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Elbows) == 0 ||
+                routePrefManager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Junctions) == 0 ||
+                routePrefManager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Crosses) == 0)
             {
-                pair1.Add(pipes[0]); pair1.Add(pipes[1]);
-                pair2.Add(pipes[2]); pair2.Add(pipes[3]);
-                return true;
+                TaskDialog.Show("错误", $"管道类型“{pipeType.Name}”的路由首选项中存在未定义弯头/三通/交叉构件。");
+                return false;
             }
-
-            // 可能性 2: (0,2)共线 且 (1,3)共线
-            if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[0], pipes[2]) &&
-                MEPAnalysisExtension.AreMEPCurvesColinear(pipes[1], pipes[3]))
-            {
-                pair1.Add(pipes[0]); pair1.Add(pipes[2]);
-                pair2.Add(pipes[1]); pair2.Add(pipes[3]);
-                return true;
-            }
-
-            // 可能性 3: (0,3)共线 且 (1,2)共线
-            if (MEPAnalysisExtension.AreMEPCurvesColinear(pipes[0], pipes[3]) &&
-                MEPAnalysisExtension.AreMEPCurvesColinear(pipes[1], pipes[2]))
-            {
-                pair1.Add(pipes[0]); pair1.Add(pipes[3]);
-                pair2.Add(pipes[1]); pair2.Add(pipes[2]);
-                return true;
-            }
-
-            return false; // 未找到符合条件的配对
-        }
-        public static bool IsFittingExistAtPoint(Document doc, XYZ point)
-        {
-            var collector = new FilteredElementCollector(doc)
-                .OfClass(typeof(FamilyInstance))
-                .WhereElementIsNotElementType()
-                .Where(fi => fi.Category != null && (
-                    fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipeFitting ||
-                    fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctFitting ||
-                    fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTrayFitting));
-
-            foreach (FamilyInstance fi in collector)
-            {
-                if (fi.Location is LocationPoint locPoint && locPoint.Point.IsAlmostEqualTo(point, 0.001))
-                {
-                    return true;
-                }
-            }
-            return false;
+            ////// 获取索引为 0 的规则，即“首选”规则
+            //RoutingPreferenceRule rule = routePrefManager.GetRule(RoutingPreferenceRuleGroupType.Elbows, 0);
+            //ElementId elbowFittingId = rule.MEPPartId;
+            //if (elbowFittingId == ElementId.InvalidElementId) return false;
+            //Family elbowFamily = (doc.GetElement(elbowFittingId) as FamilySymbol).Family;
+            //string prompt = "默认弯头：" + elbowFamily.Name;
+            //var dialog = new UniversalComboBoxSelection(new List<string> { "高概率", "中概率" }, prompt + "，请选择连接策略", _ => { });
+            //if (dialog.ShowDialog() != true || !(dialog.DataContext is ComboboxStringViewModel vm) || string.IsNullOrWhiteSpace(vm.SelectName))
+            //{
+            //    return false;
+            //}
+            //strategy = vm.SelectName;
+            strategy = "高概率";
+            return true;
         }
 
-        public static bool AreDirectionsPerpendicular(XYZ dir1, XYZ dir2, double toleranceDegrees = 1.0)
-        {
-            double angleRad = dir1.AngleTo(dir2);
-            double deviation = Math.Abs(angleRad - Math.PI / 2.0); // 与90度(PI/2)的偏差
-            return deviation <= (toleranceDegrees * Math.PI / 180.0);
-        }
-        public static double GetMEPCurveZ(MEPCurve curve) => ((curve.Location as LocationCurve).Curve as Line).Origin.Z;
+
 
         //==========MEP获取方法==========
         // 安全获取元素类别
@@ -646,6 +597,22 @@ namespace CreatePipe.Utils
             }
             // 5. 返回真实的 Tan 坡度值 (Rise / Run)
             return dz / run;
+        }
+        // 获取管线偏移Z值，存疑。当管道水平可用，带坡或垂直管时返回什么？
+        public static double GetMEPCurveZ(MEPCurve curve) => ((curve.Location as LocationCurve).Curve as Line).Origin.Z;
+        // 获取MEPCurve水平方向单位向量 
+        public static XYZ GetMEPCurveHorizontalDirection(this MEPCurve curve)
+        {
+            Curve c = (curve.Location as LocationCurve).Curve;
+            XYZ d = c.GetEndPoint(1) - c.GetEndPoint(0);
+            return new XYZ(d.X, d.Y, 0).Normalize();
+        }
+        // 获取MEPCurve在3D空间中的单位方向向量
+        public static XYZ GetMEPCurveDirection_3D(this MEPCurve curve)
+        {
+            if (!(curve.Location is LocationCurve locCurve)) return XYZ.Zero;
+            // 直接用三维线段的端点计算方向
+            return (locCurve.Curve.GetEndPoint(1) - locCurve.Curve.GetEndPoint(0)).Normalize();
         }
         // 获取元素的 ConnectorManager（MEPCurve / FamilyInstance 通用）
         public static ConnectorManager GetConnectorManager(this Element element)
@@ -1049,7 +1016,7 @@ namespace CreatePipe.Utils
             return (resultElements, boundaryHorizontalPipes);
         }
         // 辅助方法PushConnectedElements：获取连接器连接到的其他元素并压入队列
-        private static void PushConnectedElements(Connector connector, Element currentElement,
+        private static void PushConnectedElements(this Connector connector, Element currentElement,
             HashSet<ElementId> processedElements, HashSet<ElementId> stackedElements,
             Queue<Element> stack)
         {
@@ -1077,7 +1044,7 @@ namespace CreatePipe.Utils
             }
         }
         // 深度优先搜索（DFS）顺着管件/管道寻找连接的垂直元素及其末端喷头，直到找到喷头（单连接器元素）为止，并收集这条路径上的所有元素以便后续删除    
-        public static HashSet<ElementId> GetAllConnectedElementsAndStopByVerticalInstance(Element startElement, bool searchUpward)
+        public static HashSet<ElementId> GetAllConnectedElementsAndStopByVerticalInstance(this Element startElement, bool searchUpward)
         {
             var toRemove = new HashSet<ElementId>();
             var visited = new HashSet<ElementId>();
@@ -1123,7 +1090,7 @@ namespace CreatePipe.Utils
             return toRemove;
         }
         // 查找一定范围内MepCurve
-        public static IList<MEPCurve> GetMEPCurvesAtPoint(Document doc, XYZ point, Level currentLevel, double offsetHeight, double detectRange = 1.0)
+        public static IList<MEPCurve> GetMEPCurvesAtPoint(this Document doc, XYZ point, Level currentLevel, double offsetHeight, double detectRange = 1.0)
         {
             var result = new List<MEPCurve>();
             try
@@ -1206,7 +1173,7 @@ namespace CreatePipe.Utils
         //    return null;
         //}
         // 从喷头端找垂直管，未递归循环
-        public static MEPCurve GetVerticalMEPCurve(Element currentElement)
+        public static MEPCurve GetVerticalMEPCurve(this Element currentElement)
         {
             // 1. 获取喷头的连接器
             var startConn = MEPAnalysisExtension.GetConnectors(currentElement).FirstOrDefault();
@@ -1242,7 +1209,7 @@ namespace CreatePipe.Utils
             return null;
         }
         // 从管件的连接器出发，获取所有“外部相邻”的连接器。不返回管件自身连接器。可用于弯头、直接头、变径、三通、四通等。
-        public static List<Connector> GetExternalNeighborConnectors(FamilyInstance fitting)
+        public static List<Connector> GetExternalNeighborConnectors(this FamilyInstance fitting)
         {
             var result = new List<Connector>();
             if (fitting?.MEPModel?.ConnectorManager == null) return result;
@@ -1268,7 +1235,7 @@ namespace CreatePipe.Utils
             return result;
         }
         // 只获取两端管件的外部相邻连接器。如果外部连接器数量不是 2，则返回空集合。
-        public static List<Connector> GetTwoEndNeighborConnectors(FamilyInstance fitting)
+        public static List<Connector> GetTwoEndNeighborConnectors(this FamilyInstance fitting)
         {
             List<Connector> connectors = GetExternalNeighborConnectors(fitting);
             return connectors.Count == 2 ? connectors : new List<Connector>();
@@ -1335,6 +1302,32 @@ namespace CreatePipe.Utils
                 }
             }
             return best;
+        }
+        // 判断点落在哪根主管的线段范围内
+        public static MEPCurve GetMEPCurveByProjectPoint(this MEPCurve pA, MEPCurve pB, XYZ pt)
+        {
+            Curve curve1 = (pA.Location as LocationCurve).Curve;
+            Curve curve2 = (pB.Location as LocationCurve).Curve;
+            if (IsProjectedPointOnCurveSegment(curve1, pt)) return pA;
+            if (IsProjectedPointOnCurveSegment(curve2, pt)) return pB;
+            return null;
+        }
+        // 求两管轴线在XY平面上的交点,复用基于Line方法
+        public static XYZ GetMEPCurveIntersectionXY(this MEPCurve pA, MEPCurve pB, double tolerance = 0.001)
+        {
+            // 1. 获取 Line
+            Line lineA = (pA.Location as LocationCurve).Curve as Line;
+            Line lineB = (pB.Location as LocationCurve).Curve as Line;
+            if (lineA == null || lineB == null) return null;
+            // 2. 创建水平投影 Line
+            XYZ p0A = lineA.GetEndPoint(0);
+            XYZ p1A = lineA.GetEndPoint(1);
+            Line lineA2D = Line.CreateBound(new XYZ(p0A.X, p0A.Y, 0), new XYZ(p1A.X, p1A.Y, 0));
+            XYZ p0B = lineB.GetEndPoint(0);
+            XYZ p1B = lineB.GetEndPoint(1);
+            Line lineB2D = Line.CreateBound(new XYZ(p0B.X, p0B.Y, 0), new XYZ(p1B.X, p1B.Y, 0));
+            // 3. 调用现有的 2D 交点方法
+            return lineA2D.GetIntersectionPoint2D(lineB2D, tolerance);
         }
 
 
@@ -1598,8 +1591,8 @@ namespace CreatePipe.Utils
                 return result = null;
             }
             // 4. 将两根管道延伸或修剪到交点
-            MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(curve1, intersectionPoint);
-            MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(curve2, intersectionPoint);
+            curve1.ExtendOrTrimMEPCurveToPoint(intersectionPoint);
+            curve2.ExtendOrTrimMEPCurveToPoint(intersectionPoint);
             // 注意：修改管道几何后，需要重新生成文档以更新Connector的位置
             doc.Regenerate();
             // 5. 获取交点处的两个连接器 (Connector)
@@ -1637,6 +1630,26 @@ namespace CreatePipe.Utils
                 // 移动端点1
                 locCurve.Curve = Line.CreateBound(pt0, targetPoint);
             }
+        }
+        // 将旁管端点延伸或裁剪到交点（修改旁管端点使其恰好到达交点），返回修改后的管道（即 branch 本身，已修改 LocationCurve）
+        public static MEPCurve ExtendOrTrimMEPCurveToPoint(this Document doc, MEPCurve branch, XYZ intersection)
+        {
+            //Document doc = branch.Document;
+            Curve c = (branch.Location as LocationCurve).Curve;
+            XYZ p0 = c.GetEndPoint(0);
+            XYZ p1 = c.GetEndPoint(1);
+
+            // 判断哪个端点更靠近交点
+            bool p0Closer = p0.DistanceTo(intersection) < p1.DistanceTo(intersection);
+
+            XYZ newNear = intersection;
+            XYZ newFar = p0Closer ? p1 : p0;
+
+            // 修改 LocationCurve
+            (branch.Location as LocationCurve).Curve =
+                Line.CreateBound(p0Closer ? newNear : newFar,
+                                 p0Closer ? newFar : newNear);
+            return branch;
         }
         // 连接管道与管件上的连接器方法，先如果mepcurve上与管件连接器较近的connector在一个位置优先连接，如果管件连接器在mepcurve延长线或线上调整管上较近连接器位置，如果连接器和mepcurve管径不同则增加变径
         public static void ConnectMEPCurve2FittingConn(this MEPCurve mEPCurve, Connector fitConnector)
@@ -1676,31 +1689,6 @@ namespace CreatePipe.Utils
 
                 throw;
             }
-        }
-        // 在两个连接器之间直接创建管道并连接
-        public static Pipe NewPipeBetweenConnectors(this Document doc, Connector conn1, Connector conn2, ElementId pipeTypeId, ElementId levelId, ElementId systemTypeId, double pipeDiameter)
-        {
-            // 2. 根据两个连接器的坐标，创建新管道
-            Pipe newPipe = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, conn1.Origin, conn2.Origin);
-            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(pipeDiameter);
-            var conn = GetClosestConnector(newPipe, conn1.Origin);
-            var spConn = GetOppositeConnector(newPipe, conn);
-            TryConnectAndVerify(doc, conn, conn1);
-            TryConnectAndVerify(doc, spConn, conn2);
-            return newPipe;
-        }
-        // 在两个点之间创建一根新管道，其属性继承自参考管道。
-        public static Pipe NewPipeBetweenPoints(this Pipe referencePipe, XYZ start, XYZ end)
-        {
-            Document doc = referencePipe.Document;
-            Pipe newPipe = Pipe.Create(doc,
-                referencePipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId(),
-                referencePipe.PipeType.Id,
-                referencePipe.ReferenceLevel.Id,
-                start,
-                end);
-            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(referencePipe.Diameter);
-            return newPipe;
         }
         // 安全地生成变径（大小头），自动纠正连接器顺序
         public static FamilyInstance NewTransitionSafely(this Document doc, Connector conn1, Connector conn2)
@@ -1794,226 +1782,33 @@ namespace CreatePipe.Utils
             }
             return mEPCurveCopy;
         }
-        //0622 管道L连接子方法
-        //获取并验证管道，T连接或十字连接可能共用
-        public static bool TryGetAndValidatePipe(this UIDocument uiDoc, string prompt, out Pipe pipe, out Connector connector, out Line line)
+        // 在两个连接器之间直接创建管道并连接
+        public static Pipe NewPipeBetweenConnectors(this Document doc, Connector conn1, Connector conn2, ElementId pipeTypeId, ElementId levelId, ElementId systemTypeId, double pipeDiameter)
         {
-            pipe = null;
-            connector = null;
-            line = null;
-
-            Reference reference = uiDoc.Selection.PickObject(ObjectType.Element, new filterPipe(), prompt);
-            if (reference == null) return false;
-            pipe = uiDoc.Document.GetElement(reference) as Pipe;
-            XYZ pickPoint = reference.GlobalPoint;
-            if (pipe == null) return false;
-            if (pipe.IsSlopeGreaterThan(0.02))
-            {
-                TaskDialog.Show("限制", "暂不支持坡度过大的管道连接，请手工调整。");
-                return false;
-            }
-            if (!(pipe.Location is LocationCurve lc) || !(lc.Curve is Line l))
-            {
-                TaskDialog.Show("限制", "仅支持直线管道。");
-                return false;
-            }
-            line = l;
-            connector = pipe.GetClosestConnector(pickPoint);
-            return connector != null;
-        }
-        //获取并验证管道连接选项，T连接或十字连接可能共用
-        public static bool TryGetElbowAndStrategy(this Pipe pipe, out string strategy)
-        {
-            strategy = null;
-            Document doc = pipe.Document;
-            var pipeType = doc.GetElement(pipe.GetTypeId()) as PipeType;
-            var routePrefManager = pipeType.RoutingPreferenceManager;
-            if (routePrefManager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Elbows) == 0 ||
-                routePrefManager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Junctions) == 0)
-            {
-                TaskDialog.Show("错误", $"管道类型“{pipeType.Name}”的路由首选项中未定义任何弯头。");
-                return false;
-            }
-            ////// 获取索引为 0 的规则，即“首选”规则
-            //RoutingPreferenceRule rule = routePrefManager.GetRule(RoutingPreferenceRuleGroupType.Elbows, 0);
-            //ElementId elbowFittingId = rule.MEPPartId;
-            //if (elbowFittingId == ElementId.InvalidElementId) return false;
-            //Family elbowFamily = (doc.GetElement(elbowFittingId) as FamilySymbol).Family;
-            //string prompt = "默认弯头：" + elbowFamily.Name;
-            //var dialog = new UniversalComboBoxSelection(new List<string> { "高概率", "中概率" }, prompt + "，请选择连接策略", _ => { });
-            //if (dialog.ShowDialog() != true || !(dialog.DataContext is ComboboxStringViewModel vm) || string.IsNullOrWhiteSpace(vm.SelectName))
-            //{
-            //    return false;
-            //}
-            //strategy = vm.SelectName;
-            strategy = "高概率";
-            return true;
-        }
-        //获取并验证点间距，T连接或十字连接可能共用
-        public static bool ValidatePipePair(this XYZ p1, XYZ p2)
-        {
-            var dist = MEPAnalysisExtension.GetMinMaxDistances(p1, p2);
-            if (dist.MinDistance < 0.04 || dist.MaxDistance > 6) // 单位：英尺
-            {
-                TaskDialog.Show("限制", "检测到管道连接器位置过近或过远，请手工调整。");
-                return false;
-            }
-            return true;
-        }
-        //////L连接私有方法
-        public static bool ConnectParallelPipes(this Pipe p1, Connector c1, Line l1, Pipe p2, Connector c2, Line l2, string strategy)
-        {
-            Document doc = p1.Document;
-            // 分支 1: 共线管道
-            if (l1.IsCollinear(l2))
-            {
-                // 共线：直接连接或变径
-                if (Math.Abs(p1.Diameter - p2.Diameter) > 1e-6)
-                {
-                    doc.Create.NewTransitionFitting(c1, c2);
-                }
-                else
-                {
-                    doc.MergeTwoPipes(p1, c1, p2, c2);
-                }
-                return true;
-            }
-            // 分支 2: 平行、共面但不共线
-            if (!l1.AreLinesCoPlanar(l2, 1e-6))
-            {
-                TaskDialog.Show("限制", "平行的两根管道不共面，无法自动连接。");
-                return false;
-            }
-            // 核心逻辑: 在共面不共线的两线之间创建S弯连接
-            return CreateS_BendConnection(p1, c1, p2, c2, strategy);
-            //return true;
-        }
-        //// 为两根平行、共面但不共线的管道创建S型连接。
-        public static bool CreateS_BendConnection(this Pipe p1, Connector c1, Pipe p2, Connector c2, string strategy)
-        {
-            double deltaZ = Math.Abs(c1.Origin.Z - c2.Origin.Z);
-            double diameter = p1.Diameter;
-            Pipe connectingPipe = null;
-            //高差大于50小于200且2倍DN微差连接，后退连接器，根据连接器高度生成斜管再连接
-            if (deltaZ < p1.Diameter * 2 || deltaZ < 200 / 304.8)
-            {
-                if (deltaZ < (60 / 304.8))
-                {
-                    TaskDialog.Show("tt", "检测到管道差过小，请手工调整");
-                    return false;
-                }
-                ////管道连接器后退指定距离，需要考虑管长不能为0或负值
-                double retreatDistance = p1.Diameter * 3;
-                if (p1.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() < retreatDistance)
-                {
-                    TaskDialog.Show("限制", "管道长度不足，无法后退创建连接。");
-                    return false;
-                }
-                XYZ newConn1p = p1.AdjustMEPCurveLength(c1.Origin, retreatDistance);
-                if (newConn1p == null)
-                {
-                    TaskDialog.Show("tt", "后退管道失败，无法创建连接。");
-                    return false;
-                }
-                connectingPipe = p1.NewPipeBetweenPoints(newConn1p, c2.Origin);
-            }
-            //45度连接 默认高差4倍DN
-            else if (deltaZ < p1.Diameter * 4)
-            {
-                double retreatDistance = Math.Abs(c1.Origin.Z - c2.Origin.Z);
-                if (p1.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() < retreatDistance)
-                {
-                    TaskDialog.Show("限制", "管道长度不足以创建45度连接。");
-                    return false;
-                }
-                // (保留原始几何逻辑)
-                double coDistance = c1.Origin.GetHorizontalDistance(c2.Origin);
-                XYZ tempPoint = p1.AdjustMEPCurveLength(c1.Origin, -coDistance);
-                if (tempPoint == null)
-                {
-                    TaskDialog.Show("tt", "步骤1失败：调整管道长度以对齐失败。");
-                    return false;
-                }
-                // 在新点上再次后退
-                XYZ finalPoint = p1.AdjustMEPCurveLength(tempPoint, retreatDistance);
-                if (finalPoint == null)
-                {
-                    TaskDialog.Show("tt", "步骤2失败：为连接管预留空间失败。");
-                    return false;
-                }
-                // 创建最终的斜管
-                connectingPipe = p1.NewPipeBetweenPoints(finalPoint, c2.Origin);
-            }
-            //90度连接
-            else if (deltaZ >= p1.Diameter * 4)
-            {
-                double coDistance = c1.Origin.GetHorizontalDistance(c2.Origin);
-                XYZ newConn1p = p1.AdjustMEPCurveLength(c1.Origin, -coDistance);
-                if (newConn1p == null)
-                {
-                    TaskDialog.Show("tt", "调整管道长度以对齐失败，无法创建立管。");
-                    return false;
-                }
-                XYZ intersection2D = new XYZ(c1.Origin.X, c1.Origin.Y, 0);
-                connectingPipe = TryCreateVerticalPipe(p1, c1, c2.Origin, intersection2D, strategy);
-            }
-            if (connectingPipe == null)
-            {
-                return false;
-            }
-            // 步骤3: 执行统一的连接操作
-            p1.NewElbowBy2MEPCurve(connectingPipe);
-            p2.NewElbowBy2MEPCurve(connectingPipe);
-            return true;
-        }
-        //建立斜坡度管连接
-        public static Pipe TryCreateSlopePipe(this Pipe p1, Connector c1, Connector c2, double retreatDistance)
-        {
-            XYZ newConn1p = p1.AdjustMEPCurveLength(c1.Origin, retreatDistance);
-            if (newConn1p == null)
-            {
-                TaskDialog.Show("tt", "未成功建立连接，请手工调整");
-                return null;
-            }
-            //在管2和退后的连接器之间画新管，新管以管1类型，尺寸为准
-            Pipe newPipe = Pipe.Create(p1.Document, p1.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId(), p1.PipeType.Id, p1.ReferenceLevel.Id, newConn1p, c2.Origin);
-            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(p1.Diameter);
+            // 2. 根据两个连接器的坐标，创建新管道
+            Pipe newPipe = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, conn1.Origin, conn2.Origin);
+            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(pipeDiameter);
+            var conn = GetClosestConnector(newPipe, conn1.Origin);
+            var spConn = GetOppositeConnector(newPipe, conn);
+            TryConnectAndVerify(doc, conn, conn1);
+            TryConnectAndVerify(doc, spConn, conn2);
             return newPipe;
         }
-        public static bool ConnectNonParallelPipes(this Pipe p1, Connector c1, Line l1, Pipe p2, Connector c2, Line l2, string strategy)
+        // 在两个点之间创建一根新管道，其属性继承自参考管道。
+        public static Pipe NewPipeBetweenPoints(this Pipe referencePipe, XYZ start, XYZ end)
         {
-            Document doc = p1.Document;
-            if (l1.AreLinesCoPlanar(l2))
-            {
-                // 相交且共面：直接创建弯头
-                p1.NewElbowBy2MEPCurve(p2);
-                return true;
-            }
-            // 异面：创建立管连接
-            var intersection2D = MEPAnalysisExtension.GetIntersectionPoint2D(l1, l2);
-            if (intersection2D == null || intersection2D.DistanceTo(c1.Origin) > 4 || intersection2D.DistanceTo(c2.Origin) > 4)
-            {
-                TaskDialog.Show("限制", "管道在平面上交点过远，请手工调整。");
-                return false;
-            }
-            double z1 = c1.Origin.Z;
-            double z2 = c2.Origin.Z;
-            // 调整原管道至交点
-            p1.AdjustMEPCurveLength(c1.Origin, -c1.Origin.DistanceTo(new XYZ(intersection2D.X, intersection2D.Y, z1)));
-            p2.AdjustMEPCurveLength(c2.Origin, -c2.Origin.DistanceTo(new XYZ(intersection2D.X, intersection2D.Y, z2)));
-            doc.Regenerate();
-            // 创建立管
-            Pipe verticalPipe = TryCreateVerticalPipe(p1, c1, c2.Origin, intersection2D, strategy);
-            if (verticalPipe == null) return false;
-            verticalPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(p1.Diameter);
-            doc.Regenerate();
-            // 连接
-            p1.NewElbowBy2MEPCurve(verticalPipe);
-            p2.NewElbowBy2MEPCurve(verticalPipe);
-            return true;
+            Document doc = referencePipe.Document;
+            Pipe newPipe = Pipe.Create(doc,
+                referencePipe.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId(),
+                referencePipe.PipeType.Id,
+                referencePipe.ReferenceLevel.Id,
+                start,
+                end);
+            newPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(referencePipe.Diameter);
+            return newPipe;
         }
-        //基于参照管，两连接器高差，交点建立垂直立管，可复用
-        public static Pipe TryCreateVerticalPipe(this Pipe p1, Connector c1, XYZ cp2, XYZ intersection2D, string strategy)
+        // 基于NewPipeBetweenPoints创建一根垂直新管道，其属性继承自参考管道 ，两连接器c1,c2高差，在交点intersection2D建立垂直立管，可复用
+        public static Pipe NewVerticalPipe(this Pipe p1, Connector c1, XYZ cp2, XYZ intersection2D, string strategy)
         {
             Document doc = p1.Document;
             double pipeDiameter = p1.Diameter;
@@ -2048,166 +1843,6 @@ namespace CreatePipe.Utils
             Pipe verticalPipe = p1.NewPipeBetweenPoints(bottomPoint, topPoint);
             return verticalPipe;
         }
-
-        //0623 管道T连接
-        // T型连接的核心调度方法
-        public static bool ConnectTeePipes(this Pipe mainPipe, Line mainLine, Pipe branchPipe, Connector branchConn, Line branchLine, string strategy)
-        {
-            Document doc = mainPipe.Document;
-            // Rule 3: 判断管关系，平行管无论是否共线、共面均退出
-            if (mainLine.IsParallelTo(branchLine))
-            {
-                TaskDialog.Show("限制", "T型连接不支持两根平行的管道。");
-                return false;
-            }
-            // 计算两根无限长直线在XY平面上的交点
-            XYZ intersection2D = MEPAnalysisExtension.GetIntersectionPoint2D(mainLine, branchLine);
-            if (intersection2D == null)
-            {
-                // 理论上不会发生，因为已经排除了平行情况
-                return false;
-            }
-            // 将2D交点提升到主管的高度，得到空间中的打断点
-            XYZ breakPointOnMain = new XYZ(intersection2D.X, intersection2D.Y, mainLine.Origin.Z);
-            // 判断1: 交点是否在主管的物理范围内?
-            bool isBreakPointOnMainSegment = mainLine.IsPointOnLine(breakPointOnMain);
-            // 判断2: 交点是否也在支管的物理范围内?
-            // (将交点投影到支管高度来判断)
-            XYZ breakPointOnBranch = new XYZ(intersection2D.X, intersection2D.Y, branchLine.Origin.Z);
-            bool isBreakPointOnBranchSegment = branchLine.IsPointOnLine(breakPointOnBranch);
-            // 如果交点不在主管上，则无法进行任何T型连接
-            if (!isBreakPointOnMainSegment)
-            {
-                TaskDialog.Show("限制", "管道投影交点不在主管的物理范围内。");
-                return false;
-            }
-            //判断管关系，共面管道直接生成三通
-            if (mainLine.AreLinesCoPlanar(branchLine))
-            {
-                //调整支管长度，使其端点精确到达打断点
-                double distToIntersection = branchConn.Origin.DistanceTo(breakPointOnMain);
-                branchPipe.AdjustMEPCurveLength(branchConn.Origin, -distToIntersection);
-                if (BreakPipeAndCreateTee(doc, mainPipe, breakPointOnMain, branchPipe))
-                {
-                    return true;
-                }
-                return false;
-            }
-            // Rule 5: 不共面管道，根据高差创建连接
-            else
-            {
-                return ConnectSkewTee(mainPipe, breakPointOnMain, branchPipe, branchConn, strategy, isBreakPointOnBranchSegment);
-            }
-        }
-        //处理不共面（异面）管道的T型连接
-        public static bool ConnectSkewTee(this Pipe mainPipe, XYZ breakPoint, Pipe branchPipe, Connector branchConn, string strategy, bool useCrossConnectionLogic)
-        {
-            Document doc = mainPipe.Document;
-            // 计算高差：支管端点与它在主管上投影点的高度差
-            double deltaZ = Math.Abs(branchConn.Origin.Z - breakPoint.Z);
-            double diameter = branchPipe.Diameter;
-
-            // --- 场景1: 高差足够大，且几何关系为“交叉” ---
-            // 这是我们新增的智能分支
-            if (deltaZ > diameter * 6 && useCrossConnectionLogic)
-            {
-                //TaskDialog.Show("智能连接提示", "检测到交叉管道关系，将使用立管和双三通进行连接。");
-                //// 直接调用我们封装好的交叉连接方法
-                return ConnectCrossPipes(mainPipe, branchPipe);
-            }
-            // --- 场景2: 其他所有异面情况 (高差小 或 几何关系非“交叉”) ---
-            // 走原有的“三通+弯头”或“三通+斜管”逻辑
-            // 检查支管端头距离投影点是否过远
-            if (breakPoint.DistanceTo(branchConn.Origin) > 2 * 3.28)
-            {
-                TaskDialog.Show("限制", "支管端头距离其在主管上的投影点过远(>2m)，无法自动连接。");
-                return false;
-            }
-            // (以下是您原有的 ConnectSkewTee 逻辑)
-            Pipe connectingPipe = null;
-            if (deltaZ < diameter * 4) // 微差/斜管连接
-            {
-                double retreatDistance = (deltaZ < diameter * 2) ? diameter * 3 : deltaZ;
-                if (branchPipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() < retreatDistance) return false;
-                XYZ newBranchEndPoint = branchPipe.AdjustMEPCurveLength(branchConn.Origin, retreatDistance);
-                if (newBranchEndPoint == null) return false;
-                connectingPipe = branchPipe.NewPipeBetweenPoints(newBranchEndPoint, breakPoint);
-            }
-            else // 立管连接 (Tee + Elbow)
-            {
-                XYZ tempC1 = breakPoint;
-                connectingPipe = TryCreateVerticalPipe(branchPipe, branchConn, tempC1, breakPoint, strategy);
-            }
-            if (connectingPipe == null) return false;
-            if (!BreakPipeAndCreateTee(mainPipe.Document, mainPipe, breakPoint, connectingPipe)) return false;
-            branchPipe.NewElbowBy2MEPCurve(connectingPipe);
-            return true;
-        }
-        // 在指定点打断主管，并与支管创建一个三通。
-        public static bool BreakPipeAndCreateTee(this Document doc, Pipe mainPipe, XYZ breakPoint, MEPCurve branchElement)
-        {
-            // 1. 打断主管，返回新生成管道的ID
-            ElementId newPipeId = PlumbingUtils.BreakCurve(doc, mainPipe.Id, breakPoint);
-            doc.Regenerate();
-            Pipe newPipePart = doc.GetElement(newPipeId) as Pipe;
-            if (newPipePart == null) return false;
-            // 2. 找到打断点附近的四个连接器
-            Connector mainConn1 = mainPipe.GetClosestConnector(breakPoint);
-            Connector mainConn2 = newPipePart.GetClosestConnector(breakPoint);
-            Connector branchConn = branchElement.GetClosestConnector(breakPoint);
-            if (mainConn1 == null || mainConn2 == null || branchConn == null) return false;
-            // 3. 创建三通
-            doc.Create.NewTeeFitting(mainConn1, mainConn2, branchConn);
-            return true;
-        }
-        // 专用于处理两根异面交叉的水平管道，通过一根立管和两个三通进行连接。
-        public static bool ConnectCrossPipes(this Pipe pipe1, Pipe pipe2)
-        {
-            Document doc = pipe1.Document;
-            Line line1 = (pipe1.Location as LocationCurve).Curve as Line;
-            Line line2 = (pipe2.Location as LocationCurve).Curve as Line;
-            // 1. 计算XY平面上的投影交点
-            XYZ intersectionPoint2D = MEPAnalysisExtension.GetIntersectionPoint2D(line1, line2);
-            if (intersectionPoint2D == null)
-            {
-                TaskDialog.Show("错误", "两根管道在XY平面平行，无法生成垂直连接管。");
-                return false;
-            }
-            // 2. 准备创建立管的坐标
-            double z1 = line1.Origin.Z;
-            double z2 = line2.Origin.Z;
-            // 高度检查 (虽然调用前已检查，这里作为安全措施)
-            if (Math.Abs(z1 - z2) < 0.2) // 约60mm
-            {
-                TaskDialog.Show("提示", "两根管道高度几乎一致，无需立管。");
-                return false;
-            }
-            // 3. 创建立管
-            XYZ bottomPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Min(z1, z2));
-            XYZ topPoint = new XYZ(intersectionPoint2D.X, intersectionPoint2D.Y, Math.Max(z1, z2));
-            ElementId systemTypeId = pipe1.get_Parameter(BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM).AsElementId();
-            ElementId pipeTypeId = pipe1.PipeType.Id;
-            ElementId levelId = pipe1.ReferenceLevel.Id;
-            Pipe riserPipe = Pipe.Create(doc, systemTypeId, pipeTypeId, levelId, bottomPoint, topPoint);
-            riserPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(pipe1.Diameter);
-            // 4. 确定上下管道
-            Pipe topPipe = z1 > z2 ? pipe1 : pipe2;
-            Pipe bottomPipe = z1 > z2 ? pipe2 : pipe1;
-            // 5. 连接顶部和底部
-            if (!BreakPipeAndCreateTee(doc, topPipe, topPoint, riserPipe))
-            {
-                TaskDialog.Show("错误", "创建顶部三通连接失败。");
-                return false;
-            }
-            if (!BreakPipeAndCreateTee(doc, bottomPipe, bottomPoint, riserPipe))
-            {
-                TaskDialog.Show("错误", "创建底部三通连接失败。");
-                return false;
-            }
-            return true;
-        }
-
-
     }
 }
 
