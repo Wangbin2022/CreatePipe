@@ -1865,49 +1865,49 @@ namespace CreatePipe.Utils
                     TaskDialog.Show("提示", "管线高度不一致，本命令仅支持水平同标高连接");
                     return;
                 }
-                using (Transaction ts = new Transaction(doc, "两管连接"))
-                {
-                    ts.Start();
-                    Line l1 = (m1.Location as LocationCurve).Curve as Line;
-                    Line l2 = (m2.Location as LocationCurve).Curve as Line;
+                //using (Transaction ts = new Transaction(doc, "两管连接"))
+                //{
+                //    ts.Start();
+                Line l1 = (m1.Location as LocationCurve).Curve as Line;
+                Line l2 = (m2.Location as LocationCurve).Curve as Line;
 
-                    // 4. 几何判断：平行且共线
-                    bool isParallel = MEPAnalysisExtension.IsParallelTo(l1, l2);
-                    if (isParallel)
+                // 4. 几何判断：平行且共线
+                bool isParallel = MEPAnalysisExtension.IsParallelTo(l1, l2);
+                if (isParallel)
+                {
+                    // 追加检查：是否共线？（需要检查整条直线，不仅仅是起点）
+                    bool isCollinear = MEPAnalysisExtension.IsCollinear(l1, l2);
+                    if (isCollinear)
                     {
-                        // 追加检查：是否共线？（需要检查整条直线，不仅仅是起点）
-                        bool isCollinear = MEPAnalysisExtension.IsCollinear(l1, l2);
-                        if (isCollinear)
+                        // 使用 Service 获取主尺寸
+                        double size1 = MEPAnalysisExtension.GetMEPCurveMainSize(m1);
+                        double size2 = MEPAnalysisExtension.GetMEPCurveMainSize(m2);
+                        if (Math.Abs(size1 - size2) > 0.001)
                         {
-                            // 使用 Service 获取主尺寸
-                            double size1 = MEPAnalysisExtension.GetMEPCurveMainSize(m1);
-                            double size2 = MEPAnalysisExtension.GetMEPCurveMainSize(m2);
-                            if (Math.Abs(size1 - size2) > 0.001)
-                            {
-                                // A: 变径连接 (生成过渡件/大小头)
-                                doc.Create.NewTransitionFitting(c1, c2);
-                            }
-                            else
-                            {
-                                // B: 等径合并 (合并为一根管)
-                                MEPAnalysisExtension.MergeTwoPipes(doc, m1, c1, m2, c2);
-                            }
+                            // A: 变径连接 (生成过渡件/大小头)
+                            doc.Create.NewTransitionFitting(c1, c2);
                         }
                         else
                         {
-                            // 平行但不共线 (可能是错开的两根管)
-                            TaskDialog.Show("提示", "两管线平行但相互错开(不共线)，无法直接连接。");
-                            ts.RollBack();
-                            return;
+                            // B: 等径合并 (合并为一根管)
+                            MEPAnalysisExtension.MergeTwoPipes(doc, m1, c1, m2, c2);
                         }
                     }
                     else
                     {
-                        // C: 不平行 (生成弯头)
-                        doc.Create.NewElbowFitting(c1, c2);
+                        // 平行但不共线 (可能是错开的两根管)
+                        TaskDialog.Show("提示", "两管线平行但相互错开(不共线)，无法直接连接。");
+                        //ts.RollBack();
+                        return;
                     }
-                    ts.Commit();
                 }
+                else
+                {
+                    // C: 不平行 (生成弯头)
+                    doc.Create.NewElbowFitting(c1, c2);
+                }
+                //ts.Commit();
+                //}
             }
             catch (Exception)
             {
@@ -2013,24 +2013,23 @@ namespace CreatePipe.Utils
                     //return Result.Failed;
                 }
                 // 打断主管并生成三通 
-                using (var trans = new Transaction(doc, "三管生成三通"))
-                {
-                    trans.Start();
-                    // 移动两主管
-                    MEPCurve mainMPECurveA = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainA, intersection);
-                    MEPCurve mainMPECurveB = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainB, intersection);
-                    // 找主管两侧与交叉点接近连接器
-                    Connector connMain1 = mainMPECurveA.GetClosestConnector(intersection);
-                    Connector connMain2 = mainMPECurveB.GetClosestConnector(intersection);
-                    // 先移动旁管端点到交点（打断旁管在交点处）
-                    MEPCurve branchAtIntersect = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branch, intersection);
-                    Connector connBranch = branchAtIntersect?.GetClosestConnector(intersection)
-                                           ?? branch.GetClosestConnector(intersection);
-                    // 8d. 生成三通 NewTeeFitting 需要三个 Connector
-                    FamilyInstance tee = doc.Create.NewTeeFitting(connMain1, connMain2, connBranch);
-                    //doc.Create.NewCrossFitting();
-                    trans.Commit();
-                }
+                //using (var trans = new Transaction(doc, "三管生成三通"))
+                //{
+                //    trans.Start();
+                // 移动两主管
+                MEPCurve mainMPECurveA = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainA, intersection);
+                MEPCurve mainMPECurveB = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainB, intersection);
+                // 找主管两侧与交叉点接近连接器
+                Connector connMain1 = mainMPECurveA.GetClosestConnector(intersection);
+                Connector connMain2 = mainMPECurveB.GetClosestConnector(intersection);
+                // 先移动旁管端点到交点（打断旁管在交点处）
+                MEPCurve branchAtIntersect = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branch, intersection);
+                Connector connBranch = branchAtIntersect?.GetClosestConnector(intersection)
+                                       ?? branch.GetClosestConnector(intersection);
+                // 8d. 生成三通 NewTeeFitting 需要三个 Connector
+                FamilyInstance tee = doc.Create.NewTeeFitting(connMain1, connMain2, connBranch);
+                //    trans.Commit();
+                //}
             }
             catch (Exception)
             {
@@ -2124,41 +2123,41 @@ namespace CreatePipe.Utils
                     return;
                     //return Result.Failed;
                 }
-                using (var trans = new Transaction(doc, "四管生成四通"))
+                //using (var trans = new Transaction(doc, "四管生成四通"))
+                //{
+                //    trans.Start();
+                // 5a. 按 主管->支管 顺序，将四根管道的最近端点移动到交点
+                MEPCurve mainPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[0], intersection);
+                MEPCurve mainPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[1], intersection);
+                MEPCurve branchPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[0], intersection);
+                MEPCurve branchPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[1], intersection);
+                // 5b. 按 主管1, 主管2, 支管1, 支管2 的顺序获取连接器
+                Connector connMain1 = mainPipe1.GetClosestConnector(intersection);
+                Connector connMain2 = mainPipe2.GetClosestConnector(intersection);
+                Connector connBranch1 = branchPipe1.GetClosestConnector(intersection);
+                Connector connBranch2 = branchPipe2.GetClosestConnector(intersection);
+                if (connMain1 == null || connMain2 == null || connBranch1 == null || connBranch2 == null)
                 {
-                    trans.Start();
-                    // 5a. 按 主管->支管 顺序，将四根管道的最近端点移动到交点
-                    MEPCurve mainPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[0], intersection);
-                    MEPCurve mainPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, mainPipes[1], intersection);
-                    MEPCurve branchPipe1 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[0], intersection);
-                    MEPCurve branchPipe2 = MEPAnalysisExtension.ExtendOrTrimMEPCurveToPoint(doc, branchPipes[1], intersection);
-                    // 5b. 按 主管1, 主管2, 支管1, 支管2 的顺序获取连接器
-                    Connector connMain1 = mainPipe1.GetClosestConnector(intersection);
-                    Connector connMain2 = mainPipe2.GetClosestConnector(intersection);
-                    Connector connBranch1 = branchPipe1.GetClosestConnector(intersection);
-                    Connector connBranch2 = branchPipe2.GetClosestConnector(intersection);
-                    if (connMain1 == null || connMain2 == null || connBranch1 == null || connBranch2 == null)
-                    {
-                        TaskDialog.Show("错误", "未能成功获取所有管道在交点处的连接器。");
-                        trans.RollBack();
-                        return;
-                        //return Result.Failed;
-                    }
-                    // 5c. 按正确的优先级创建四通管件
-                    try
-                    {
-                        // API 调用顺序：主管连接器1, 主管连接器2, 支管连接器1, 支管连接器2
-                        FamilyInstance crossFitting = doc.Create.NewCrossFitting(connMain1, connMain2, connBranch1, connBranch2);
-                    }
-                    catch (Exception creationEx)
-                    {
-                        TaskDialog.Show("创建失败", "无法创建四通管件，请检查是否载入了合适的管件族，或者管径是否匹配。\n\n" + creationEx.Message);
-                        trans.RollBack();
-                        return;
-                        //return Result.Failed;
-                    }
-                    trans.Commit();
+                    TaskDialog.Show("错误", "未能成功获取所有管道在交点处的连接器。");
+                    //trans.RollBack();
+                    return;
+                    //return Result.Failed;
                 }
+                // 5c. 按正确的优先级创建四通管件
+                try
+                {
+                    // API 调用顺序：主管连接器1, 主管连接器2, 支管连接器1, 支管连接器2
+                    FamilyInstance crossFitting = doc.Create.NewCrossFitting(connMain1, connMain2, connBranch1, connBranch2);
+                }
+                catch (Exception creationEx)
+                {
+                    TaskDialog.Show("创建失败", "无法创建四通管件，请检查是否载入了合适的管件族，或者管径是否匹配。\n\n" + creationEx.Message);
+                    //trans.RollBack();
+                    return;
+                    //return Result.Failed;
+                }
+                //    trans.Commit();
+                //}
             }
             catch (Exception)
             {
@@ -2201,6 +2200,46 @@ namespace CreatePipe.Utils
             }
 
             return false; // 未找到符合条件的配对
+        }
+    }
+    // 辅助比较器，防止在HashSet中重复添加元素
+    public class ElementIdComparer : IEqualityComparer<Element>
+    {
+        public bool Equals(Element x, Element y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (x is null || y is null) return false;
+            return x.Id == y.Id;
+        }
+
+        public int GetHashCode(Element obj)
+        {
+            return obj.Id.GetHashCode();
+        }
+    }
+    /// <summary>
+    /// 用于三维坐标点的比较器，解决浮点数精度问题
+    /// </summary>
+    public class XYZComparer : IEqualityComparer<XYZ>
+    {
+        private readonly double _tolerance;
+        public XYZComparer(double tolerance)
+        {
+            _tolerance = tolerance;
+        }
+        public bool Equals(XYZ p1, XYZ p2)
+        {
+            if (p1 == null && p2 == null) return true;
+            if (p1 == null || p2 == null) return false;
+            return p1.IsAlmostEqualTo(p2, _tolerance);
+        }
+        public int GetHashCode(XYZ p)
+        {
+            // 通过将坐标放大并取整来创建离散的哈希码
+            int hashX = ((int)(p.X / _tolerance)).GetHashCode();
+            int hashY = ((int)(p.Y / _tolerance)).GetHashCode();
+            int hashZ = ((int)(p.Z / _tolerance)).GetHashCode();
+            return hashX ^ hashY ^ hashZ;
         }
     }
 }

@@ -36,103 +36,38 @@ namespace CreatePipe
         //0516 管道改高测试
         private bool ProcessPipe(Document doc, MEPCurve pipe, double height)
         {
-            try
+            LocationCurve lc = pipe.Location as LocationCurve;
+            if (pipe.IsVertical())
             {
-                LocationCurve lc = pipe.Location as LocationCurve;
-                if (pipe.IsVertical())
-                {
-                    //TaskDialog.Show("tt", "管道近似立管，压平后长度为0，跳过处理。");
-                    return false;
-                }
-                if (lc == null) return false;
-                Line oldLine = lc.Curve as Line;
-                if (oldLine == null) return false;
-                //找管道所在楼层
-                ElementId levelId = pipe.ReferenceLevel.Id;
-                Level level = doc.GetElement(levelId) as Level;
-
-                //Level level = GetPipeReferenceLevel(doc, pipe);
-                if (level == null)
-                {
-                    TaskDialog.Show("tt", "无法获取参考楼层。");
-                    return false;
-                }
-                XYZ oldP0 = oldLine.GetEndPoint(0);
-                XYZ oldP1 = oldLine.GetEndPoint(1);
-                double targetZ = level.Elevation + height / 304.8;
-                XYZ newP0 = new XYZ(oldP0.X, oldP0.Y, targetZ);
-                XYZ newP1 = new XYZ(oldP1.X, oldP1.Y, targetZ);
-                //// 记录原端部连接
-                //var oldConnectors = GetPipeEndConnectors(pipe);
-                //var connectionInfos = new List<ConnectionInfo>();
-                //foreach (var pc in oldConnectors)
-                //{
-                //    ConnectionInfo info = CaptureConnectionInfo(pipe, pc);
-                //    connectionInfos.Add(info);
-                //}
-                //// 先断开原连接，并删除直接相连小管件（可选）
-                //foreach (var info in connectionInfos)
-                //{
-                //    MEPAnalysisExtension.DisconnectAll(info.PipeConnector);
-                //    // 如果对方是管件，可按策略删除，以便重新生成连接
-                //    if (info.ConnectedOwnerId != ElementId.InvalidElementId)
-                //    {
-                //        Element owner = doc.GetElement(info.ConnectedOwnerId);
-                //        if (owner != null && MEPAnalysisExtension.IsPipeFitting(owner))
-                //        {
-                //            TryDeleteElement(doc, owner.Id);
-                //        }
-                //    }
-                //}
-                // 再次确认管还存在
-                pipe = doc.GetElement(pipe.Id) as Pipe;
-                if (pipe == null)
-                {
-                    TaskDialog.Show("tt", "原管道在删除相邻管件后失效。");
-                    return false;
-                }
-                // 强制改为水平线
-                Line newLine = Line.CreateBound(newP0, newP1);
-                lc.Curve = newLine;
-                doc.Regenerate();
-                //// 获取修改后的两端连接器
-                //var newPipeConnectors = GetPipeEndConnectors(pipe);
-                //// 将原连接信息按距离匹配到新的两端
-                //var mapping = MatchOldInfosToNewConnectors(connectionInfos, newPipeConnectors);
-                //List<string> reconnectLogs = new List<string>();
-                //foreach (var pair in mapping)
-                //{
-                //    ConnectionInfo oldInfo = pair.Key;
-                //    Connector newPipeConn = pair.Value;
-                //    // 没有外部连接对象，忽略
-                //    if (oldInfo.RemoteConnectorOwnerId == ElementId.InvalidElementId)
-                //    {
-                //        reconnectLogs.Add("端部原无外部连接。");
-                //        continue;
-                //    }
-                //    Element remoteOwner = doc.GetElement(oldInfo.RemoteConnectorOwnerId);
-                //    if (remoteOwner == null)
-                //    {
-                //        reconnectLogs.Add($"外部连接对象已不存在: {oldInfo.RemoteConnectorOwnerId.IntegerValue}");
-                //        continue;
-                //    }
-                //    Connector remoteConn = FindBestConnector(remoteOwner, oldInfo.RemoteConnectorOrigin, oldInfo.RemoteConnectorDirection);
-                //    if (remoteConn == null)
-                //    {
-                //        reconnectLogs.Add($"未找到外部连接器: {remoteOwner.Id.IntegerValue}");
-                //        continue;
-                //    }
-                //    bool connected = TryReconnect(doc, newPipeConn, remoteConn, out string detail);
-                //    reconnectLogs.Add(detail);
-                //}
-                //TaskDialog.Show("tt", "成功压平到标高 " + level.Name + " / Elev=" + targetZ.ToString("F3")
-                //    + "；" + string.Join(" | ", reconnectLogs));
-                return true;
+                //TaskDialog.Show("tt", "管道近似立管，压平后长度为0，跳过处理。");
+                return false;
             }
-            catch (Exception)
+            if (lc == null) return false;
+            Line oldLine = lc.Curve as Line;
+            if (oldLine == null) return false;
+            //找管道所在楼层
+            Level level = doc.GetElement(pipe.ReferenceLevel.Id) as Level;
+            if (level == null)
             {
-                throw;
+                TaskDialog.Show("tt", "无法获取参考楼层。");
+                return false;
             }
+            XYZ oldP0 = oldLine.GetEndPoint(0);
+            XYZ oldP1 = oldLine.GetEndPoint(1);
+            double targetZ = level.Elevation + height / 304.8;
+            XYZ newP0 = new XYZ(oldP0.X, oldP0.Y, targetZ);
+            XYZ newP1 = new XYZ(oldP1.X, oldP1.Y, targetZ);
+            // 再次确认管还存在
+            pipe = doc.GetElement(pipe.Id) as MEPCurve;
+            if (pipe == null)
+            {
+                TaskDialog.Show("tt", "原管道在删除相邻管件后失效。");
+                return false;
+            }
+            // 强制改为水平线
+            Line newLine = Line.CreateBound(newP0, newP1);
+            lc.Curve = newLine;
+            return true;
         }
 
         /// <summary>
@@ -349,6 +284,197 @@ namespace CreatePipe
                 }
             }
         }
+        //0701 修改合并后方法
+        /// <summary>
+        /// 从起点开始，一次性遍历并分类整个连接的管网。
+        /// </summary>
+        /// <param name="startElement">遍历起点</param>
+        /// <param name="horizontalPipes">输出：所有水平管道</param>
+        /// <param name="verticalPipes">输出：所有直接与水平管网相连的立管</param>
+        /// <param name="allFittings">输出：所有管件</param>
+        public void FindAndCategorizePipeNetwork(Element startElement, out HashSet<MEPCurve> horizontalPipes,
+            out HashSet<MEPCurve> verticalPipes, out HashSet<FamilyInstance> allFittings)
+        {
+            // 初始化输出集合
+            horizontalPipes = new HashSet<MEPCurve>(new ElementIdComparer());
+            verticalPipes = new HashSet<MEPCurve>(new ElementIdComparer());
+            allFittings = new HashSet<FamilyInstance>(new ElementIdComparer());
+
+            if (startElement == null) return;
+
+            var queue = new Queue<Element>();
+            var visited = new HashSet<ElementId>();
+
+            queue.Enqueue(startElement);
+            visited.Add(startElement.Id);
+
+            while (queue.Count > 0)
+            {
+                Element currentElem = queue.Dequeue();
+
+                // --- 分类当前元素 ---
+                if (currentElem is MEPCurve pipe)
+                {
+                    if (IsHorizontal(pipe)) horizontalPipes.Add(pipe);
+                    else if (IsVertical(pipe)) verticalPipes.Add(pipe);
+                    // 斜管在此逻辑中被忽略
+                }
+                else if (IsPipeFitting(currentElem))
+                {
+                    allFittings.Add(currentElem as FamilyInstance);
+                }
+
+                // --- 查找并添加邻居到队列 ---
+                foreach (var conn in MEPAnalysisExtension.GetConnectors(currentElem))
+                {
+                    foreach (var refConn in conn.AllRefs.OfType<Connector>())
+                    {
+                        Element neighbor = refConn.Owner;
+                        if (neighbor != null && visited.Add(neighbor.Id))
+                        {
+                            // 只将管道和管件加入遍历队列
+                            if (neighbor is MEPCurve || IsPipeFitting(neighbor))
+                            {
+                                queue.Enqueue(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        //0701 按连接方式分类管道组合 存在处理变径的问题，
+        ///// <summary>
+        ///// 根据管件的位置和连接关系，分析并分组水平管道。
+        ///// </summary>
+        ///// <param name="horizontalPipes">需要分析的水平管道集合。</param>
+        ///// <param name="allFittings">网络中所有的管件。</param>
+        ///// <returns>一个字典，Key是连接点数量(2,3,4)，Value是这些连接组的列表。</returns>
+        //public Dictionary<int, List<List<MEPCurve>>> GroupPipesByJunctions_UsingFittings(
+        //    HashSet<MEPCurve> horizontalPipes,
+        //    HashSet<FamilyInstance> allFittings)
+        //{
+        //    var result = new Dictionary<int, List<List<MEPCurve>>>
+        //    {
+        //        [2] = new List<List<MEPCurve>>(),
+        //        [3] = new List<List<MEPCurve>>(),
+        //        [4] = new List<List<MEPCurve>>()
+        //        // 你可以根据需要扩展到5, 6等
+        //    };
+        //    // 确保我们只处理水平管道的ID，以便快速查找
+        //    var horizontalPipeIds = new HashSet<ElementId>(horizontalPipes.Select(p => p.Id));
+        //    foreach (var fitting in allFittings)
+        //    {
+        //        var connectedGroup = new List<MEPCurve>();
+        //        // 获取管件的所有连接器
+        //        var connectors = MEPAnalysisExtension.GetConnectors(fitting);
+        //        if (connectors == null) continue;
+        //        // 遍历每个连接器，查找与之相连的管道
+        //        foreach (var conn in connectors)
+        //        {
+        //            foreach (var refConn in conn.AllRefs.OfType<Connector>())
+        //            {
+        //                // 我们只关心连接到水平管道的情况
+        //                if (horizontalPipeIds.Contains(refConn.Owner.Id))
+        //                {
+        //                    var connectedPipe = refConn.Owner as MEPCurve;
+        //                    if (connectedPipe != null && !connectedGroup.Any(p => p.Id == connectedPipe.Id))
+        //                    {
+        //                        connectedGroup.Add(connectedPipe);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        // 根据连接的管道数量进行分组
+        //        int count = connectedGroup.Count;
+        //        if (result.ContainsKey(count) && count > 1) // 只添加有意义的连接组（至少2个管道）
+        //        {
+        //            result[count].Add(connectedGroup);
+        //        }
+        //    }
+        //    return result;
+        //}
+        /// <summary>
+        /// 最终优化版：通过遍历“管件簇”来对水平管道进行分组。
+        /// 此方法可以“看穿”变径等中间管件。
+        /// </summary>
+        /// <param name="horizontalPipes">需要分析的水平管道集合。</param>
+        /// <param name="allFittings">网络中所有的管件。</param>
+        /// <returns>一个字典，Key是连接点数量(2,3,4等)，Value是这些连接组的列表。</returns>
+        public Dictionary<int, List<List<MEPCurve>>> GroupPipesByJunctions_ClusterTraversal(
+            HashSet<MEPCurve> horizontalPipes,
+            HashSet<FamilyInstance> allFittings)
+        {
+            var result = new Dictionary<int, List<List<MEPCurve>>>();
+            var horizontalPipeIds = new HashSet<ElementId>(horizontalPipes.Select(p => p.Id));
+
+            // 用于确保每个管件只参与一次成组过程，避免重复计算
+            var processedFittingIds = new HashSet<ElementId>();
+
+            foreach (var startFitting in allFittings)
+            {
+                // 如果这个管件已经被其他簇的搜索处理过，则跳过
+                if (processedFittingIds.Contains(startFitting.Id))
+                {
+                    continue;
+                }
+
+                // --- 开始一个新的管件簇搜索 ---
+                var currentPipeGroup = new List<MEPCurve>();
+                var fittingQueue = new Queue<FamilyInstance>();
+
+                // 初始化搜索
+                fittingQueue.Enqueue(startFitting);
+                processedFittingIds.Add(startFitting.Id);
+
+                while (fittingQueue.Count > 0)
+                {
+                    var currentFitting = fittingQueue.Dequeue();
+
+                    // 遍历当前管件的所有连接器
+                    foreach (var conn in MEPAnalysisExtension.GetConnectors(currentFitting))
+                    {
+                        if (!conn.IsConnected) continue;
+
+                        var connectedNeighbor = conn.AllRefs.OfType<Connector>().FirstOrDefault()?.Owner;
+                        if (connectedNeighbor == null) continue;
+
+                        // Case 1: 邻居是我们要找的水平管道
+                        if (horizontalPipeIds.Contains(connectedNeighbor.Id))
+                        {
+                            var pipe = connectedNeighbor as MEPCurve;
+                            // 避免在同一个簇内重复添加同一个管道
+                            if (pipe != null && !currentPipeGroup.Any(p => p.Id == pipe.Id))
+                            {
+                                currentPipeGroup.Add(pipe);
+                            }
+                        }
+                        // Case 2: 邻居是另一个管件
+                        else if (connectedNeighbor is FamilyInstance nextFitting)
+                        {
+                            // 如果这个新发现的管件还没被处理过，就加入队列继续搜索，并标记为已处理
+                            if (processedFittingIds.Add(nextFitting.Id))
+                            {
+                                fittingQueue.Enqueue(nextFitting);
+                            }
+                        }
+                        // Case 3: 邻居是立管或其他我们不关心的元素，直接忽略
+                    }
+                }
+
+                // --- 搜索结束，整理结果 ---
+                int count = currentPipeGroup.Count;
+                if (count > 1) // 只有连接数大于1的组才有意义
+                {
+                    if (!result.ContainsKey(count))
+                    {
+                        result[count] = new List<List<MEPCurve>>();
+                    }
+                    result[count].Add(currentPipeGroup);
+                }
+            }
+
+            return result;
+        }
         public struct ExportData // 使用 struct 内存占用更紧凑
         {
             public string Name;
@@ -372,16 +498,93 @@ namespace CreatePipe
                 selectedIds.Add(reference.ElementId);
                 //return Result.Cancelled;
             }
-            // 1.1 识别所有立管连接和转折构件
-            Element element = doc.GetElement(selectedIds.FirstOrDefault()) as Element;
-            FindHorizontallyConnectedVerticals(element, out HashSet<ElementId> verticalPipeIds, out HashSet<ElementId> verticalPipeFittingIds);
-            // 1. 识别完整的连接网络
-            FindConnectedNetwork(doc, new List<ElementId> { element.Id }, out HashSet<Element> pipesToProcess, out HashSet<Element> fittingsToProcess);
+            Element startElement = doc.GetElement(selectedIds.First());
+            // 1. 【新】一次性查找并分类整个网络
+            FindAndCategorizePipeNetwork(startElement, out HashSet<MEPCurve> horizontalPipesToProcess, out HashSet<MEPCurve> verticalPipes, out HashSet<FamilyInstance> allFittings);
+            if (horizontalPipesToProcess.Count == 0)
+            {
+                TaskDialog.Show("提示", "在所选管网中未找到任何水平管道。");
+                return Result.Cancelled;
+            }
+            ////// 1.1 识别所有立管连接和转折构件
+            ////Element element = doc.GetElement(selectedIds.FirstOrDefault()) as Element;
+            ////FindHorizontallyConnectedVerticals(element, out HashSet<ElementId> verticalPipeIds, out HashSet<ElementId> verticalPipeFittingIds);
+            ////// 1. 识别完整的连接网络
+            ////FindConnectedNetwork(doc, new List<ElementId> { element.Id }, out HashSet<Element> pipesToProcess, out HashSet<Element> fittingsToProcess);
+            ////if (pipesToProcess.Count == 0) return Result.Cancelled;
+            // 删除立管连接构件防止移动出错,提醒保存立管id备重新连接，可能立管改变后连接关系会变不考虑平管与立管重连
+            if (verticalPipes.Any())
+            {
+                // ... 显示对话框并导出立管ID ...
+                // 注意：verticalPipeIds 现在是 verticalPipes.Select(p => p.Id).ToHashSet()
+                //}
+                //if (fittingsToProcess.Any())
+                //{
+                var verticalPipeIds = verticalPipes.Select(p => p.Id).ToHashSet();
+                var options = new List<string> { "导出为CSV文件", "导出为JSON文件" };
+                int choice = TaskDialogHelper.ShowCommandLinks("重要提示", 1, "调整管网高程操作将断开所有立管连接，请注意根据处理管道ID检查并重新连接。", $"发现 {verticalPipeIds.Count} 个立管构件，请选择导出格式。", options);
+                if (choice != -1)
+                {
+                    // 1. 统一设置保存对话框
+                    string filter = (choice == 0) ? "CSV 配置文件 (*.csv)|*.csv" : "JSON 文件 (*.json)|*.json";
+                    string ext = (choice == 0) ? "csv" : "json";
+                    SaveFileDialog saveFileDialog = new SaveFileDialog
+                    {
+                        Filter = filter,
+                        Title = "保存所选构件ID",
+                        FileName = $"所选ID_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}"
+                    };
+                    if (saveFileDialog.ShowDialog() != true) return Result.Cancelled;
+                    string filePath = saveFileDialog.FileName;
+                    // 2. 统一执行数据提取 (带进度条)
+                    // 创建一个中间列表来存储提取后的信息
+                    //var extractedData = new List<dynamic>();
+                    var extractedData = new List<ExportData>(verticalPipeIds.Count);
+                    int count = 0;
+                    foreach (var id in verticalPipeIds)
+                    {
+                        Element elem = doc.GetElement(id);
+                        count++;
+                        // 3. 提取数据
+                        extractedData.Add(new ExportData
+                        {
+                            Name = elem.Name, // 或者使用内置参数优化
+                            ID = elem.Id.IntegerValue.ToString()
+                        });
+                    }
+                    // 3. 根据选择执行不同的写入操作
+                    try
+                    {
+                        if (choice == 0)
+                        {
+                            string[] headers = { "构件名称", "ElementID" };
+                            var rows = extractedData.Select(d => new string[] { d.Name, d.ID.ToString() }).ToList();
+                            new CsvHelper(filePath).WriteAllWithHeaders(headers, rows);
+                        }
+                        else if (choice == 1)
+                        {
+                            JsonHelper.SaveToFile(filePath, extractedData);
+                        }
+                        TaskDialog.Show("成功", $"成功导出 {extractedData.Count} 个构件信息！");
+                    }
+                    catch (Exception ex)
+                    {
+                        TaskDialog.Show("错误", "操作失败原因参考: " + ex.Message);
+                    }
+                }
+                //doc.Delete(verticalPipeFittingIds.Select(f => f).ToList());
+            }
+            // 2. 【新】在删除任何东西之前，先分析并保存水平管网的连接拓扑
+            //Dictionary<int, List<List<MEPCurve>>> junctionGroups = GroupPipesByJunctions_UsingFittings(horizontalPipesToProcess, allFittings);
+            Dictionary<int, List<List<MEPCurve>>> junctionGroups = GroupPipesByJunctions_ClusterTraversal(horizontalPipesToProcess, allFittings);
+            List<List<MEPCurve>> conn2group = junctionGroups.ContainsKey(2) ? junctionGroups[2] : new List<List<MEPCurve>>();
+            List<List<MEPCurve>> conn3group = junctionGroups.ContainsKey(3) ? junctionGroups[3] : new List<List<MEPCurve>>();
+            List<List<MEPCurve>> conn4group = junctionGroups.ContainsKey(4) ? junctionGroups[4] : new List<List<MEPCurve>>();
 
-            if (pipesToProcess.Count == 0) return Result.Cancelled;
             // 计算统一的目标Z值 (使用第一个管道的参考标高)
-            var firstPipe = pipesToProcess.First() as MEPCurve;
+            var firstPipe = horizontalPipesToProcess.First() as MEPCurve;
             Level level = doc.GetElement(firstPipe.ReferenceLevel.Id) as Level;
+            double targetHeight = 2000;
             if (level == null)
             {
                 TaskDialog.Show("错误", "无法获取参考标高。");
@@ -390,81 +593,51 @@ namespace CreatePipe
             using (Transaction t = new Transaction(doc, "强制平整管道"))
             {
                 t.Start();
-                // 删除立管连接构件防止移动出错,提醒保存立管id备重新连接，可能立管改变后连接关系会变不考虑平管与立管重连
-                if (fittingsToProcess.Any())
+                // 3. 打破约束：删除所有相关的管件
+                if (allFittings.Any())
                 {
-
-                    var options = new List<string> { "导出为CSV文件", "导出为JSON文件" };
-                    int choice = TaskDialogHelper.ShowCommandLinks("重要提示", 1, "调整管网高程操作将断开所有立管连接，请注意根据处理管道ID检查并重新连接。", $"发现 {verticalPipeIds.Count} 个立管构件，请选择导出格式。", options);
-                    if (choice != -1)
-                    {
-                        // 1. 统一设置保存对话框
-                        string filter = (choice == 0) ? "CSV 配置文件 (*.csv)|*.csv" : "JSON 文件 (*.json)|*.json";
-                        string ext = (choice == 0) ? "csv" : "json";
-                        SaveFileDialog saveFileDialog = new SaveFileDialog
-                        {
-                            Filter = filter,
-                            Title = "保存所选构件ID",
-                            FileName = $"所选ID_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}"
-                        };
-                        if (saveFileDialog.ShowDialog() != true) return Result.Cancelled;
-                        string filePath = saveFileDialog.FileName;
-                        // 2. 统一执行数据提取 (带进度条)
-                        // 创建一个中间列表来存储提取后的信息
-                        //var extractedData = new List<dynamic>();
-                        var extractedData = new List<ExportData>(verticalPipeIds.Count);
-                        int count = 0;
-                        foreach (var id in verticalPipeIds)
-                        {
-                            Element elem = doc.GetElement(id);
-                            count++;
-                            // 3. 提取数据
-                            extractedData.Add(new ExportData
-                            {
-                                Name = elem.Name, // 或者使用内置参数优化
-                                ID = elem.Id.IntegerValue.ToString()
-                            });
-                        }
-                        // 3. 根据选择执行不同的写入操作
-                        try
-                        {
-                            if (choice == 0)
-                            {
-                                string[] headers = { "构件名称", "ElementID" };
-                                var rows = extractedData.Select(d => new string[] { d.Name, d.ID.ToString() }).ToList();
-                                new CsvHelper(filePath).WriteAllWithHeaders(headers, rows);
-                            }
-                            else if (choice == 1)
-                            {
-                                JsonHelper.SaveToFile(filePath, extractedData);
-                            }
-                            TaskDialog.Show("成功", $"成功导出 {extractedData.Count} 个构件信息！");
-                        }
-                        catch (Exception ex)
-                        {
-                            TaskDialog.Show("错误", "操作失败原因参考: " + ex.Message);
-                        }
-                    }
-                    //doc.Delete(verticalPipeFittingIds.Select(f => f).ToList());
+                    doc.Delete(allFittings.Select(f => f.Id).ToList());
                 }
-                // 2.【关键】打破约束：删除所有相关的管件
-                if (fittingsToProcess.Any())
+                // 4. 批量修改：移动所有独立的水平管道
+                foreach (MEPCurve pipe in horizontalPipesToProcess)
                 {
-                    doc?.Delete(fittingsToProcess.Where(f => f.Id != ElementId.InvalidElementId).Select(f => f.Id).ToList());
+                    ProcessPipe(doc, pipe, targetHeight); // 调用你已有的方法
                 }
-
-                // 3. 批量修改：移动所有独立的管道
-                foreach (MEPCurve pipe in pipesToProcess.Cast<MEPCurve>())
-                {
-                    ProcessPipe(doc, pipe, 2000);
-                }
-                // 强制刷新模型以确保几何位置更新
+                //// 2.【关键】打破约束：删除所有相关的管件
+                //if (fittingsToProcess.Any())
+                //{
+                //    doc?.Delete(fittingsToProcess.Where(f => f.Id != ElementId.InvalidElementId).Select(f => f.Id).ToList());
+                //}
+                //// 3. 批量修改：移动所有独立的管道
+                //foreach (MEPCurve pipe in pipesToProcess.Cast<MEPCurve>())
+                //{
+                //    ProcessPipe(doc, pipe, 2000);
+                //}
+                //// 强制刷新模型以确保几何位置更新
                 doc.Regenerate();
                 // 4.【关键】重新连接：使用已有方法自动生成新管件
                 // 待补充根据管道连接对 重连接相同标高的管道
+                // 6. 【新】重新连接：根据之前保存的拓扑图，调用你的连接方法
+                foreach (var group in conn2group)
+                {
+                    // 确保group内的元素在文档中仍然有效
+                    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
+                    if (validGroup.Count == 2) validGroup.connect2MEPCurves();
+                }
+                foreach (var group in conn3group)
+                {
+                    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
+                    if (validGroup.Count == 3) validGroup.connect3MEPCurves();
+                }
+                foreach (var group in conn4group)
+                {
+                    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
+                    if (validGroup.Count == 4) validGroup.connect4MEPCurves();
+                }
                 t.Commit();
             }
-            TaskDialog.Show("完成", $"已处理 {pipesToProcess.Count} 根管道和 {fittingsToProcess.Count} 个管件。");
+            //TaskDialog.Show("完成", $"已处理 {pipesToProcess.Count} 根管道和 {fittingsToProcess.Count} 个管件。");
+            TaskDialog.Show("完成", $"已处理 {horizontalPipesToProcess.Count} 根水平管道，并重新生成了连接。");
             //例程结束
 
             //////0516测试 管道改平改0 后续应节合instance尝试按指定高度放置，可能更实用 应把与立管之间弯头都删掉       
@@ -641,24 +814,33 @@ namespace CreatePipe
             //    if (!conn3)
             //    {
             //        //// 水平四通生成
-            //        var refs = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择四根水平管道（两两共线且互相垂直）");
-            //        if (refs == null || refs.Count != 4)
+            //        using (var trans = new Transaction(doc, "四管生成四通"))
             //        {
-            //            return Result.Cancelled;
+            //            trans.Start();
+            //            var refs = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择四根水平管道（两两共线且互相垂直）");
+            //            if (refs == null || refs.Count != 4)
+            //            {
+            //                return Result.Cancelled;
+            //            }
+            //            List<MEPCurve> allPipes = refs.Select(r => doc.GetElement(r) as MEPCurve).ToList();
+            //            allPipes.connect4MEPCurves();
+            //            trans.Commit();
             //        }
-            //        List<MEPCurve> allPipes = refs.Select(r => doc.GetElement(r) as MEPCurve).ToList();
-            //        allPipes.connect4MEPCurves();
             //    }
             //    else
             //    {
             //        // 水平三通生成
-            //        var ref1 = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择水平管道");
-            //        if (ref1 == null || ref1.Count != 3)
+            //        using (var trans = new Transaction(doc, "三管生成三通"))
             //        {
-            //            return Result.Cancelled;
+            //            var ref1 = uiDoc.Selection.PickObjects(ObjectType.Element, new filterMEPCurveClass(), "请选择水平管道");
+            //            if (ref1 == null || ref1.Count != 3)
+            //            {
+            //                return Result.Cancelled;
+            //            }
+            //            List<MEPCurve> pipes = ref1.Select(r => doc.GetElement(r) as MEPCurve).ToList();
+            //            pipes.connect3MEPCurves();
+            //            trans.Commit();
             //        }
-            //        List<MEPCurve> pipes = ref1.Select(r => doc.GetElement(r) as MEPCurve).ToList();
-            //        pipes.connect3MEPCurves();
             //    }
             //}
             //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
@@ -3006,19 +3188,5 @@ namespace CreatePipe
             }
         }
     }
-    // 辅助比较器，防止在HashSet中重复添加元素
-    public class ElementIdComparer : IEqualityComparer<Element>
-    {
-        public bool Equals(Element x, Element y)
-        {
-            if (ReferenceEquals(x, y)) return true;
-            if (x is null || y is null) return false;
-            return x.Id == y.Id;
-        }
 
-        public int GetHashCode(Element obj)
-        {
-            return obj.Id.GetHashCode();
-        }
-    }
 }
