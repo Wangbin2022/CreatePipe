@@ -21,6 +21,7 @@ using System.Net;
 using System.Text;
 using System.Windows.Controls;
 using System.Windows.Media.Media3D;
+using static CreatePipe.Utils.XYZComparer;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using Document = Autodesk.Revit.DB.Document;
 
@@ -315,9 +316,11 @@ namespace CreatePipe
                 // --- 分类当前元素 ---
                 if (currentElem is MEPCurve pipe)
                 {
-                    if (IsHorizontal(pipe)) horizontalPipes.Add(pipe);
-                    else if (IsVertical(pipe)) verticalPipes.Add(pipe);
+                    //if (IsHorizontal(pipe)) horizontalPipes.Add(pipe);
+                    //else if (IsVertical(pipe)) verticalPipes.Add(pipe);
                     // 斜管在此逻辑中被忽略
+                    if (IsVertical(pipe)) verticalPipes.Add(pipe);
+                    else horizontalPipes.Add(pipe);
                 }
                 else if (IsPipeFitting(currentElem))
                 {
@@ -342,61 +345,11 @@ namespace CreatePipe
                 }
             }
         }
-        //0701 按连接方式分类管道组合 存在处理变径的问题，
-        ///// <summary>
-        ///// 根据管件的位置和连接关系，分析并分组水平管道。
-        ///// </summary>
-        ///// <param name="horizontalPipes">需要分析的水平管道集合。</param>
-        ///// <param name="allFittings">网络中所有的管件。</param>
-        ///// <returns>一个字典，Key是连接点数量(2,3,4)，Value是这些连接组的列表。</returns>
-        //public Dictionary<int, List<List<MEPCurve>>> GroupPipesByJunctions_UsingFittings(
-        //    HashSet<MEPCurve> horizontalPipes,
-        //    HashSet<FamilyInstance> allFittings)
-        //{
-        //    var result = new Dictionary<int, List<List<MEPCurve>>>
-        //    {
-        //        [2] = new List<List<MEPCurve>>(),
-        //        [3] = new List<List<MEPCurve>>(),
-        //        [4] = new List<List<MEPCurve>>()
-        //        // 你可以根据需要扩展到5, 6等
-        //    };
-        //    // 确保我们只处理水平管道的ID，以便快速查找
-        //    var horizontalPipeIds = new HashSet<ElementId>(horizontalPipes.Select(p => p.Id));
-        //    foreach (var fitting in allFittings)
-        //    {
-        //        var connectedGroup = new List<MEPCurve>();
-        //        // 获取管件的所有连接器
-        //        var connectors = MEPAnalysisExtension.GetConnectors(fitting);
-        //        if (connectors == null) continue;
-        //        // 遍历每个连接器，查找与之相连的管道
-        //        foreach (var conn in connectors)
-        //        {
-        //            foreach (var refConn in conn.AllRefs.OfType<Connector>())
-        //            {
-        //                // 我们只关心连接到水平管道的情况
-        //                if (horizontalPipeIds.Contains(refConn.Owner.Id))
-        //                {
-        //                    var connectedPipe = refConn.Owner as MEPCurve;
-        //                    if (connectedPipe != null && !connectedGroup.Any(p => p.Id == connectedPipe.Id))
-        //                    {
-        //                        connectedGroup.Add(connectedPipe);
-        //                    }
-        //                }
-        //            }
-        //        }
-        //        // 根据连接的管道数量进行分组
-        //        int count = connectedGroup.Count;
-        //        if (result.ContainsKey(count) && count > 1) // 只添加有意义的连接组（至少2个管道）
-        //        {
-        //            result[count].Add(connectedGroup);
-        //        }
-        //    }
-        //    return result;
-        //}
-        /// <summary>
+        //0701 按连接方式分类管道组合 
+
+        /// 根据管件的位置和连接关系，分析并分组水平管道。
         /// 最终优化版：通过遍历“管件簇”来对水平管道进行分组。
         /// 此方法可以“看穿”变径等中间管件。
-        /// </summary>
         /// <param name="horizontalPipes">需要分析的水平管道集合。</param>
         /// <param name="allFittings">网络中所有的管件。</param>
         /// <returns>一个字典，Key是连接点数量(2,3,4等)，Value是这些连接组的列表。</returns>
@@ -417,27 +370,21 @@ namespace CreatePipe
                 {
                     continue;
                 }
-
                 // --- 开始一个新的管件簇搜索 ---
                 var currentPipeGroup = new List<MEPCurve>();
                 var fittingQueue = new Queue<FamilyInstance>();
-
                 // 初始化搜索
                 fittingQueue.Enqueue(startFitting);
                 processedFittingIds.Add(startFitting.Id);
-
                 while (fittingQueue.Count > 0)
                 {
                     var currentFitting = fittingQueue.Dequeue();
-
                     // 遍历当前管件的所有连接器
                     foreach (var conn in MEPAnalysisExtension.GetConnectors(currentFitting))
                     {
                         if (!conn.IsConnected) continue;
-
                         var connectedNeighbor = conn.AllRefs.OfType<Connector>().FirstOrDefault()?.Owner;
                         if (connectedNeighbor == null) continue;
-
                         // Case 1: 邻居是我们要找的水平管道
                         if (horizontalPipeIds.Contains(connectedNeighbor.Id))
                         {
@@ -460,7 +407,6 @@ namespace CreatePipe
                         // Case 3: 邻居是立管或其他我们不关心的元素，直接忽略
                     }
                 }
-
                 // --- 搜索结束，整理结果 ---
                 int count = currentPipeGroup.Count;
                 if (count > 1) // 只有连接数大于1的组才有意义
@@ -472,13 +418,201 @@ namespace CreatePipe
                     result[count].Add(currentPipeGroup);
                 }
             }
-
             return result;
         }
         public struct ExportData // 使用 struct 内存占用更紧凑
         {
             public string Name;
             public string ID;
+        }
+        /// <summary>
+        /// V2版本：更健壮的两管连接处理，在主流程中执行。
+        /// </summary>
+        private void ConnectAndResolveMerge_V2(Document doc, MEPCurve m1, MEPCurve m2, Dictionary<ElementId, ElementId> idMap)
+        {
+            // 1. 获取最近的连接器，仅用于判断连接点
+            (Connector c1, Connector c2) = MEPAnalysisExtension.GetClosestConnectorsTuple(m1.GetConnectors().ToList(), m2.GetConnectors().ToList());
+            if (c1 == null || c2 == null) return;
+
+            Line l1 = (m1.Location as LocationCurve)?.Curve as Line;
+            Line l2 = (m2.Location as LocationCurve)?.Curve as Line;
+            if (l1 == null || l2 == null) return;
+
+            bool isCollinear = MEPAnalysisExtension.IsParallelTo(l1, l2) && MEPAnalysisExtension.IsCollinear(l1, l2);
+
+            if (isCollinear)
+            {
+                double size1 = MEPAnalysisExtension.GetMEPCurveMainSize(m1);
+                double size2 = MEPAnalysisExtension.GetMEPCurveMainSize(m2);
+
+                if (Math.Abs(size1 - size2) < 0.001)
+                {
+                    // B: 等径合并
+
+                    // --- 确定新管道的端点 ---
+                    var allEndpoints = new List<XYZ>
+            {
+                l1.GetEndPoint(0), l1.GetEndPoint(1),
+                l2.GetEndPoint(0), l2.GetEndPoint(1)
+            };
+
+                    // 找到距离最远的两个点
+                    XYZ newStart = null, newEnd = null;
+                    double maxDist = 0;
+                    for (int i = 0; i < allEndpoints.Count; i++)
+                    {
+                        for (int j = i + 1; j < allEndpoints.Count; j++)
+                        {
+                            double dist = allEndpoints[i].DistanceTo(allEndpoints[j]);
+                            if (dist > maxDist)
+                            {
+                                maxDist = dist;
+                                newStart = allEndpoints[i];
+                                newEnd = allEndpoints[j];
+                            }
+                        }
+                    }
+
+                    if (newStart == null || newEnd == null) return; // 几何计算失败
+
+                    // --- 确定保留和删除的管道 ---
+                    // 保留ID较小的管道，这是一个稳定的规则
+                    MEPCurve retainedPipe = (m1.Id.IntegerValue < m2.Id.IntegerValue) ? m1 : m2;
+                    MEPCurve deletedPipe = (m1.Id.IntegerValue < m2.Id.IntegerValue) ? m2 : m1;
+
+                    ElementId retainedId = retainedPipe.Id;
+                    ElementId deletedId = deletedPipe.Id;
+
+                    // --- 收集被删除管道的远端邻居 ---
+                    // 找到被删除管道的远端连接器（不靠近连接点的那个）
+                    XYZ deletedPipeConnPoint = (deletedPipe == m1) ? c1.Origin : c2.Origin;
+                    Connector deletedPipeFarConnector = MEPAnalysisExtension.GetConnectors(deletedPipe)
+                        .FirstOrDefault(c => !c.Origin.IsAlmostEqualTo(deletedPipeConnPoint));
+
+                    Connector neighborToReconnect = null;
+                    if (deletedPipeFarConnector != null && deletedPipeFarConnector.IsConnected)
+                    {
+                        neighborToReconnect = deletedPipeFarConnector.AllRefs.OfType<Connector>().FirstOrDefault();
+                    }
+
+                    // --- 执行几何更新和删除 ---
+                    (retainedPipe.Location as LocationCurve).Curve = Line.CreateBound(newStart, newEnd);
+                    doc.Delete(deletedId);
+
+                    // 手动刷新一下，确保新连接器可用
+                    doc.Regenerate();
+
+                    // --- 重连邻居 ---
+                    if (neighborToReconnect != null)
+                    {
+                        // 找到保留管道上，位置最接近原远端邻居的那个新连接器
+                        Connector newConnectorForReconnect = MEPAnalysisExtension.GetConnectors(retainedPipe)
+                            .OrderBy(c => c.Origin.DistanceTo(neighborToReconnect.Origin))
+                            .FirstOrDefault();
+
+                        if (newConnectorForReconnect != null && !newConnectorForReconnect.IsConnected)
+                        {
+                            try { newConnectorForReconnect.ConnectTo(neighborToReconnect); }
+                            catch { /* 记录连接失败 */ }
+                        }
+                    }
+
+                    // --- 更新ID映射表 ---
+                    idMap[deletedId] = retainedId;
+                    var keysToUpdate = idMap.Where(kvp => kvp.Value == deletedId).Select(kvp => kvp.Key).ToList();
+                    foreach (var key in keysToUpdate)
+                    {
+                        idMap[key] = retainedId;
+                    }
+                }
+                else
+                {
+                    // A: 变径连接
+                    doc.Create.NewTransitionFitting(c1, c2);
+                }
+            }
+            else
+            {
+                // C: 不平行 (生成弯头)
+                doc.Create.NewElbowFitting(c1, c2);
+            }
+        }
+
+        //claude 4.8推荐代码
+        public void connect2MEPCurves(List<MEPCurve> curves, MergeConnectContext ctx = null)
+        {
+            if (curves == null || curves.Count != 2) return;
+            Document doc = curves.FirstOrDefault()?.Document;
+            if (doc == null) return;
+
+            MEPCurve m1 = curves.FirstOrDefault();
+            MEPCurve m2 = curves.Last();
+
+            // 同一根，无需连接（重映射后可能出现）
+            if (m1.Id == m2.Id) return;
+
+            try
+            {
+                (Connector c1, Connector c2) = MEPAnalysisExtension.GetClosestConnectorsTuple(
+                    m1.GetConnectors().ToList(), m2.GetConnectors().ToList());
+                if (c1 == null || c2 == null)
+                {
+                    ctx?.Errors.Add($"管 {m1.Id} 与 {m2.Id} 找不到可用连接器。");
+                    return;
+                }
+
+                if (m1.Category.Id != m2.Category.Id)
+                {
+                    ctx?.Errors.Add($"管 {m1.Id} 与 {m2.Id} 类别不同，跳过。");
+                    return;
+                }
+
+                // 高度校验 (Z轴)
+                if (Math.Abs(c1.Origin.Z - c2.Origin.Z) > 0.001)
+                {
+                    ctx?.Errors.Add($"管 {m1.Id} 与 {m2.Id} 高度不一致，跳过。");
+                    return;
+                }
+
+                Line l1 = (m1.Location as LocationCurve).Curve as Line;
+                Line l2 = (m2.Location as LocationCurve).Curve as Line;
+
+                bool isParallel = MEPAnalysisExtension.IsParallelTo(l1, l2);
+                if (isParallel)
+                {
+                    bool isCollinear = MEPAnalysisExtension.IsCollinear(l1, l2);
+                    if (isCollinear)
+                    {
+                        double size1 = MEPAnalysisExtension.GetMEPCurveMainSize(m1);
+                        double size2 = MEPAnalysisExtension.GetMEPCurveMainSize(m2);
+                        if (Math.Abs(size1 - size2) > 0.001)
+                        {
+                            // A: 变径连接
+                            doc.Create.NewTransitionFitting(c1, c2);
+                        }
+                        else
+                        {
+                            // B: 等径合并 —— 注意：这里会删除 m2，必须回传重映射
+                            MEPAnalysisExtension.MergeTwoPipes(doc, m1, c1, m2, c2, ctx);
+                        }
+                    }
+                    else
+                    {
+                        ctx?.Errors.Add($"管 {m1.Id} 与 {m2.Id} 平行但错开(不共线)，无法连接。");
+                        return;
+                    }
+                }
+                else
+                {
+                    // C: 不平行 → 弯头
+                    doc.Create.NewElbowFitting(c1, c2);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 不再直接 throw，避免中断整个批处理；记录后继续
+                ctx?.Errors.Add($"管 {m1?.Id} 与 {m2?.Id} 连接异常: {ex.Message}");
+            }
         }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -575,11 +709,23 @@ namespace CreatePipe
                 //doc.Delete(verticalPipeFittingIds.Select(f => f).ToList());
             }
             // 2. 【新】在删除任何东西之前，先分析并保存水平管网的连接拓扑
-            //Dictionary<int, List<List<MEPCurve>>> junctionGroups = GroupPipesByJunctions_UsingFittings(horizontalPipesToProcess, allFittings);
+            ////Dictionary<int, List<List<MEPCurve>>> junctionGroups = GroupPipesByJunctions_UsingFittings(horizontalPipesToProcess, allFittings);
+            //Dictionary<int, List<List<MEPCurve>>> junctionGroups = GroupPipesByJunctions_ClusterTraversal(horizontalPipesToProcess, allFittings);
+            //List<List<MEPCurve>> conn2group = junctionGroups.ContainsKey(2) ? junctionGroups[2] : new List<List<MEPCurve>>();
+            //List<List<MEPCurve>> conn3group = junctionGroups.ContainsKey(3) ? junctionGroups[3] : new List<List<MEPCurve>>();
+            //List<List<MEPCurve>> conn4group = junctionGroups.ContainsKey(4) ? junctionGroups[4] : new List<List<MEPCurve>>();
+
             Dictionary<int, List<List<MEPCurve>>> junctionGroups = GroupPipesByJunctions_ClusterTraversal(horizontalPipesToProcess, allFittings);
-            List<List<MEPCurve>> conn2group = junctionGroups.ContainsKey(2) ? junctionGroups[2] : new List<List<MEPCurve>>();
-            List<List<MEPCurve>> conn3group = junctionGroups.ContainsKey(3) ? junctionGroups[3] : new List<List<MEPCurve>>();
-            List<List<MEPCurve>> conn4group = junctionGroups.ContainsKey(4) ? junctionGroups[4] : new List<List<MEPCurve>>();
+            // ★★ 立刻转成 Id，切断对活对象的依赖 ★★
+            List<List<ElementId>> conn2groupIds =
+                (junctionGroups.ContainsKey(2) ? junctionGroups[2] : new List<List<MEPCurve>>())
+                .Select(g => g.Where(p => p != null).Select(p => p.Id).ToList()).ToList();
+            List<List<ElementId>> conn3groupIds =
+                (junctionGroups.ContainsKey(3) ? junctionGroups[3] : new List<List<MEPCurve>>())
+                .Select(g => g.Where(p => p != null).Select(p => p.Id).ToList()).ToList();
+            List<List<ElementId>> conn4groupIds =
+                (junctionGroups.ContainsKey(4) ? junctionGroups[4] : new List<List<MEPCurve>>())
+                .Select(g => g.Where(p => p != null).Select(p => p.Id).ToList()).ToList();
 
             // 计算统一的目标Z值 (使用第一个管道的参考标高)
             var firstPipe = horizontalPipesToProcess.First() as MEPCurve;
@@ -603,36 +749,75 @@ namespace CreatePipe
                 {
                     ProcessPipe(doc, pipe, targetHeight); // 调用你已有的方法
                 }
-                //// 2.【关键】打破约束：删除所有相关的管件
-                //if (fittingsToProcess.Any())
-                //{
-                //    doc?.Delete(fittingsToProcess.Where(f => f.Id != ElementId.InvalidElementId).Select(f => f.Id).ToList());
-                //}
-                //// 3. 批量修改：移动所有独立的管道
-                //foreach (MEPCurve pipe in pipesToProcess.Cast<MEPCurve>())
-                //{
-                //    ProcessPipe(doc, pipe, 2000);
-                //}
                 //// 强制刷新模型以确保几何位置更新
                 doc.Regenerate();
                 // 4.【关键】重新连接：使用已有方法自动生成新管件
                 // 待补充根据管道连接对 重连接相同标高的管道
                 // 6. 【新】重新连接：根据之前保存的拓扑图，调用你的连接方法
-                foreach (var group in conn2group)
+
+                //foreach (var group in conn2group)
+                //{
+                //    // 确保group内的元素在文档中仍然有效
+                //    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
+                //    if (validGroup.Count == 2) validGroup.connect2MEPCurves();
+                //}
+                // 6. 【新】重新连接：根据之前保存的拓扑图，带重映射地调用连接方法
+                var ctx = new MergeConnectContext();
+
+                foreach (var groupIds in conn2groupIds)
                 {
-                    // 确保group内的元素在文档中仍然有效
-                    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
-                    if (validGroup.Count == 2) validGroup.connect2MEPCurves();
+                    // 3.1 逐个 Id 解析到“当前存活的接班管”
+                    var aliveIds = groupIds
+                        .Select(id => ctx.ResolveAlive(doc, id))
+                        .Where(id => id != null)
+                        .Distinct()                                // A1、A2 都映射到 A1 时去重
+                        .ToList();
+
+                    // 3.2 惰性取元素（此刻取的一定是活的）
+                    var validGroup = aliveIds
+                        .Select(id => doc.GetElement(id) as MEPCurve)
+                        .Where(m => m != null)
+                        .ToList();
+
+                    // 3.3 判定
+                    if (validGroup.Count < 2)
+                    {
+                        var lost = groupIds
+                            .Where(id => ctx.ResolveAlive(doc, id) == null)
+                            .Select(id => id.ToString());
+                        if (lost.Any())
+                            ctx.Errors.Add($"管对 [{string.Join(",", groupIds)}] 中 [{string.Join(",", lost)}] "
+                                         + "已被前序合并删除且无接班管，跳过。");
+                        // 若是两者归并成同一根 => 本就已连好，静默跳过
+                        continue;
+                    }
+
+                    if (validGroup.Count > 2)
+                    {
+                        // 理论上 conn2 不该出现，防御性处理：只取前两根
+                        validGroup = validGroup.Take(2).ToList();
+                    }
+
+                    connect2MEPCurves(validGroup, ctx);
                 }
-                foreach (var group in conn3group)
+
+                if (ctx.Errors.Any())
                 {
-                    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
-                    if (validGroup.Count == 3) validGroup.connect3MEPCurves();
+                    TaskDialog.Show("连接报告",
+                        $"共 {ctx.Errors.Count} 处提示：\n" + string.Join("\n", ctx.Errors));
                 }
-                foreach (var group in conn4group)
+                foreach (var group in conn3groupIds)
                 {
-                    var validGroup = group.Select(p => doc.GetElement(p.Id) as MEPCurve).Where(p => p != null).ToList();
-                    if (validGroup.Count == 4) validGroup.connect4MEPCurves();
+                    var validGroup = group.Select(p => doc.GetElement(p) as MEPCurve).Where(p => p != null).ToList();
+                    //if (validGroup.Count == 3) validGroup.connect3MEPCurves();
+                    validGroup.connect3MEPCurves();
+                }
+
+                foreach (var group in conn4groupIds)
+                {
+                    var validGroup = group.Select(p => doc.GetElement(p) as MEPCurve).Where(p => p != null).ToList();
+                    //if (validGroup.Count == 4) 
+                    validGroup.connect4MEPCurves();
                 }
                 t.Commit();
             }

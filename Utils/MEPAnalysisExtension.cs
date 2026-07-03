@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Windows.Controls;
+using static CreatePipe.Utils.XYZComparer;
 using Line = Autodesk.Revit.DB.Line;
 
 namespace CreatePipe.Utils
@@ -1439,6 +1440,78 @@ namespace CreatePipe.Utils
                 }
             }
         }
+        public static void MergeTwoPipes(this Document doc, MEPCurve m1, Connector c1,
+                                 MEPCurve m2, Connector c2, MergeConnectContext ctx = null)
+        {
+            if (m1.Category.Id != m2.Category.Id)
+            {
+                ctx?.Errors.Add($"管 {m1.Id} 与 {m2.Id} 类别不同，无法合并。");
+                return;
+            }
+
+            Connector m1Far = MEPAnalysisExtension.GetConnectors(m1)
+                .FirstOrDefault(c => !c.Origin.IsAlmostEqualTo(c1.Origin));
+            Connector m2Far = MEPAnalysisExtension.GetConnectors(m2)
+                .FirstOrDefault(c => !c.Origin.IsAlmostEqualTo(c2.Origin));
+            if (m1Far == null || m2Far == null) return;
+
+            // 记录 m2Far 之前的邻居，准备重连
+            Connector m2OriginalNeighbor = MEPAnalysisExtension.GetConnectedRefs(m2Far).FirstOrDefault();
+
+            // ★ 在删除前，先记录 m2Far 的坐标，用于删除后定位 m1 的新端点
+            XYZ m2FarOrigin = m2Far.Origin;
+
+            XYZ p1 = m1Far.Origin;
+            XYZ p2 = m2Far.Origin;
+
+            // 保持 m1 原始方向，防止反向断裂原有系统连接
+            XYZ originalDirection = ((m1.Location as LocationCurve).Curve as Line).Direction;
+            XYZ newDirection = (p2 - p1).Normalize();
+            if (originalDirection.DotProduct(newDirection) < 0)
+            {
+                XYZ temp = p1; p1 = p2; p2 = temp;
+            }
+
+            // 更新 m1 的长度
+            LocationCurve lc1 = m1.Location as LocationCurve;
+            lc1.Curve = Line.CreateBound(p1, p2);
+
+            m2FarOrigin = m2Far.Origin;   // 删除前缓存！
+            ElementId deletedId = m2.Id;
+            doc.Delete(m2.Id);
+            ctx?.RecordMerge(deletedId, m1.Id);   // 登记重映射
+            if (m2OriginalNeighbor != null)
+            {
+                Connector m1NewEnd = MEPAnalysisExtension.GetConnectors(m1)
+                    .OrderBy(c => c.Origin.DistanceTo(m2FarOrigin))   // 用缓存坐标
+                    .First();
+                if (!m1NewEnd.IsConnected)
+                {
+                    try { m1NewEnd.ConnectTo(m2OriginalNeighbor); }
+                    catch (Exception ex) { ctx?.Errors.Add($"合并后重连失败(m1={m1.Id}): {ex.Message}"); }
+                }
+            }
+            //// 删除 m2
+            //ElementId deletedId = m2.Id;
+            //doc.Delete(m2.Id);
+            //// ★★ 关键：登记重映射 A2.Id -> A1.Id
+            ////    这样后续任何计划用 m2 的管对，都会自动改用 m1
+            //ctx?.RecordMerge(deletedId, m1.Id);
+            //// 恢复 m2 原本的末端连接（把 m2Far 的邻居接到 m1 新端点）
+            //if (m2OriginalNeighbor != null)
+            //{
+            //    Connector m1NewEnd = MEPAnalysisExtension.GetConnectors(m1)
+            //        .OrderBy(c => c.Origin.DistanceTo(m2FarOrigin)).First();
+            //    if (!m1NewEnd.IsConnected)
+            //    {
+            //        try { m1NewEnd.ConnectTo(m2OriginalNeighbor); }
+            //        catch (Exception ex)
+            //        {
+            //            ctx?.Errors.Add($"合并后重连端点失败(m1={m1.Id}): {ex.Message}");
+            //        }
+            //    }
+            //}
+        }
         // 管道退后方法
         public static void RetreatMEPCurve(this MEPCurve mepCurve, XYZ breakPoint, double retreatDistance)
         {
@@ -1919,6 +1992,13 @@ namespace CreatePipe.Utils
             Document doc = curves.FirstOrDefault().Document;
             try
             {
+                //if (curves.Any(p => doc.GetElement(p.Id) == null))
+                if (curves.Count != 3)
+                {
+                    TaskDialog.Show("校验失败", $"三通组中管道可能已被前序合并删除，已跳过连接处理。检查构件{curves.FirstOrDefault().Id.ToString()}");
+                    return;
+                    //return Result.Failed;
+                }
                 //检查三管是否水平
                 foreach (var p in curves)
                 {
@@ -2041,6 +2121,14 @@ namespace CreatePipe.Utils
             Document doc = curves.FirstOrDefault().Document;
             try
             {
+                //if (curves.Any(p => doc.GetElement(p.Id) == null))
+                if (curves.Count != 4)
+                {
+                    TaskDialog.Show("校验失败", $"四通组中管道可能已被前序合并删除，已跳过连接处理。检查构件{curves.FirstOrDefault().Id.ToString()}");
+                    return;
+                    //return Result.Failed;
+                }
+                //return ConnectResult.Fail("四通组中存在已删除管道，已跳过。", ids);
                 // 基础校验：全部水平且在同一Z平面  
                 foreach (var p in curves)
                 {
@@ -2202,6 +2290,7 @@ namespace CreatePipe.Utils
             return false; // 未找到符合条件的配对
         }
     }
+
     // 辅助比较器，防止在HashSet中重复添加元素
     public class ElementIdComparer : IEqualityComparer<Element>
     {
@@ -2240,6 +2329,72 @@ namespace CreatePipe.Utils
             int hashY = ((int)(p.Y / _tolerance)).GetHashCode();
             int hashZ = ((int)(p.Z / _tolerance)).GetHashCode();
             return hashX ^ hashY ^ hashZ;
+        }
+
+        //临时类
+        ///// <summary>
+        ///// 批量连接的上下文：记录被合并删除的管线重映射关系 & 失败报告
+        ///// </summary>
+        //public class MergeConnectContext
+        //{
+        //    // key: 被删除的管ID(.IntegerValue) -> value: 接班的存活管ID
+        //    public Dictionary<long, ElementId> RemapTable { get; } = new Dictionary<long, ElementId>();
+        //    // 收集处理失败的信息（含未能连接的管ID）
+        //    public List<string> Errors { get; } = new List<string>();
+        //    /// <summary>
+        //    /// 顺着重映射链找到当前仍然存活的“接班者”ElementId
+        //    /// （支持多级：A3->A2->A1 的链式追踪）
+        //    /// </summary>
+        //    public ElementId ResolveAlive(Document doc, ElementId id)
+        //    {
+        //        if (id == null) return null;
+        //        var visited = new HashSet<long>();
+        //        ElementId cur = id;
+        //        while (cur != null && RemapTable.TryGetValue(cur.IntegerValue, out ElementId next))
+        //        {
+        //            if (!visited.Add(cur.IntegerValue)) break; // 防环
+        //            cur = next;
+        //        }
+        //        // 校验最终结果在文档中确实存在
+        //        return (cur != null && doc.GetElement(cur) is MEPCurve) ? cur : null;
+        //    }
+        //    public void RecordMerge(ElementId deletedId, ElementId survivorId)
+        //    {
+        //        if (deletedId != null && survivorId != null)
+        //            RemapTable[deletedId.IntegerValue] = survivorId;
+        //    }
+        //}
+        public class MergeConnectContext
+        {
+            public Dictionary<long, ElementId> RemapTable { get; } = new Dictionary<long, ElementId>();
+            public List<string> Errors { get; } = new List<string>();
+
+            public ElementId ResolveAlive(Document doc, ElementId id)
+            {
+                if (id == null) return null;
+                var visited = new HashSet<long>();
+                ElementId cur = id;
+                while (cur != null && RemapTable.TryGetValue(cur.IntegerValue, out ElementId next))
+                {
+                    if (!visited.Add(cur.IntegerValue)) break;
+                    cur = next;
+                }
+                return (cur != null && doc.GetElement(cur) is MEPCurve) ? cur : null;
+            }
+
+            public void RecordMerge(ElementId deletedId, ElementId survivorId)
+            {
+                if (deletedId != null && survivorId != null)
+                    RemapTable[deletedId.IntegerValue] = survivorId;
+
+                // ★ 关键：把之前所有指向 deletedId 的映射，一并改指到 survivorId
+                //   避免 A3->A2、A2->A1 时 A3 还停在已删除的 A2 上
+                foreach (var key in RemapTable.Keys.ToList())
+                {
+                    if (RemapTable[key].IntegerValue == deletedId.IntegerValue)
+                        RemapTable[key] = survivorId;
+                }
+            }
         }
     }
 }
