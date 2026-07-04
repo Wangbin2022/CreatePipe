@@ -339,9 +339,9 @@ namespace CreatePipe.Utils
 
         //==========MEP判断方法==========
         // 判断管线是否水平
-        public static bool IsHorizontal(this MEPCurve mep)
+        public static bool IsHorizontal(this MEPCurve mepCurve)
         {
-            if (mep.Location is LocationCurve lc && lc.Curve is Line line)
+            if (mepCurve.Location is LocationCurve lc && lc.Curve is Line line)
             {
                 return Math.Abs(line.Direction.Z) < 0.001;
             }
@@ -1923,15 +1923,11 @@ namespace CreatePipe.Utils
             try
             {
                 if (curves.Count != 2) return;
+                if (!curves.ValidateMEPCurvesCategory()) return;
                 MEPCurve m1 = curves.FirstOrDefault();
                 MEPCurve m2 = curves.Last();
                 (Connector c1, Connector c2) = GetClosestConnectorsTuple(m1.GetConnectors().ToList(), m2.GetConnectors().ToList());
                 if (c1 == null || c2 == null) return;
-                if (m1.Category.Id != m2.Category.Id)
-                {
-                    TaskDialog.Show("提示", "请选择相同类别的管线");
-                    return;
-                }
                 // 高度校验 (Z轴)
                 if (Math.Abs(c1.Origin.Z - c2.Origin.Z) > 0.001)
                 {
@@ -1992,6 +1988,7 @@ namespace CreatePipe.Utils
             Document doc = curves.FirstOrDefault().Document;
             try
             {
+                if (!curves.ValidateMEPCurvesCategory()) return;
                 //if (curves.Any(p => doc.GetElement(p.Id) == null))
                 if (curves.Count != 3)
                 {
@@ -2121,6 +2118,7 @@ namespace CreatePipe.Utils
             Document doc = curves.FirstOrDefault().Document;
             try
             {
+                if (!curves.ValidateMEPCurvesCategory()) return;
                 //if (curves.Any(p => doc.GetElement(p.Id) == null))
                 if (curves.Count != 4)
                 {
@@ -2252,6 +2250,32 @@ namespace CreatePipe.Utils
                 throw;
             }
         }
+        // 新增扩展方法：检查管道类别列表是否一致
+        //public static bool ValidateMEPCurvesCategory(this List<MEPCurve> curves)
+        public static bool ValidateMEPCurvesCategory(this IEnumerable<MEPCurve> curves)
+        {
+            if (curves == null || !curves.Any())
+            {
+                // 对于空集合或null，我们认为它“没有不一致”，所以是有效的。
+                // 调用者如果需要至少一个元素，应该自己检查。
+                return true;
+            }
+            ElementId firstCategoryId = null;
+            foreach (var curve in curves)
+            {
+                // 1. 检查对象本身是否为null或在Revit中已失效
+                if (curve == null || !curve.IsValidObject) return false;
+                // 2. 检查类别
+                if (firstCategoryId == null)
+                {
+                    // 这是我们遇到的第一个有效元素，记录它的类别ID
+                    firstCategoryId = curve.Category.Id;
+                }
+                else if (curve.Category.Id != firstCategoryId) return false;
+            }
+            // 遍历完成都没有返回false，说明所有元素都有效且类别一致
+            return true;
+        }
         // 尝试从四根管道中找出两对共线的管道
         public static bool TryFindColinearPairs(List<MEPCurve> pipes, out List<MEPCurve> pair1, out List<MEPCurve> pair2)
         {
@@ -2288,6 +2312,17 @@ namespace CreatePipe.Utils
             }
 
             return false; // 未找到符合条件的配对
+        }
+        /// <summary>
+        /// 辅助方法：判断一个元素是否为管道管件
+        /// </summary>
+        public static bool IsMEPFitting(this Element elem)
+        {
+            return elem is FamilyInstance fi &&
+                   fi.Category != null &&
+                   (fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipeFitting ||
+                   fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_CableTrayFitting ||
+                   fi.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctFitting);
         }
     }
 
@@ -2330,70 +2365,69 @@ namespace CreatePipe.Utils
             int hashZ = ((int)(p.Z / _tolerance)).GetHashCode();
             return hashX ^ hashY ^ hashZ;
         }
+    }
+    //临时类
+    ///// <summary>
+    ///// 批量连接的上下文：记录被合并删除的管线重映射关系 & 失败报告
+    ///// </summary>
+    //public class MergeConnectContext
+    //{
+    //    // key: 被删除的管ID(.IntegerValue) -> value: 接班的存活管ID
+    //    public Dictionary<long, ElementId> RemapTable { get; } = new Dictionary<long, ElementId>();
+    //    // 收集处理失败的信息（含未能连接的管ID）
+    //    public List<string> Errors { get; } = new List<string>();
+    //    /// <summary>
+    //    /// 顺着重映射链找到当前仍然存活的“接班者”ElementId
+    //    /// （支持多级：A3->A2->A1 的链式追踪）
+    //    /// </summary>
+    //    public ElementId ResolveAlive(Document doc, ElementId id)
+    //    {
+    //        if (id == null) return null;
+    //        var visited = new HashSet<long>();
+    //        ElementId cur = id;
+    //        while (cur != null && RemapTable.TryGetValue(cur.IntegerValue, out ElementId next))
+    //        {
+    //            if (!visited.Add(cur.IntegerValue)) break; // 防环
+    //            cur = next;
+    //        }
+    //        // 校验最终结果在文档中确实存在
+    //        return (cur != null && doc.GetElement(cur) is MEPCurve) ? cur : null;
+    //    }
+    //    public void RecordMerge(ElementId deletedId, ElementId survivorId)
+    //    {
+    //        if (deletedId != null && survivorId != null)
+    //            RemapTable[deletedId.IntegerValue] = survivorId;
+    //    }
+    //}
+    public class MergeConnectContext
+    {
+        public Dictionary<long, ElementId> RemapTable { get; } = new Dictionary<long, ElementId>();
+        public List<string> Errors { get; } = new List<string>();
 
-        //临时类
-        ///// <summary>
-        ///// 批量连接的上下文：记录被合并删除的管线重映射关系 & 失败报告
-        ///// </summary>
-        //public class MergeConnectContext
-        //{
-        //    // key: 被删除的管ID(.IntegerValue) -> value: 接班的存活管ID
-        //    public Dictionary<long, ElementId> RemapTable { get; } = new Dictionary<long, ElementId>();
-        //    // 收集处理失败的信息（含未能连接的管ID）
-        //    public List<string> Errors { get; } = new List<string>();
-        //    /// <summary>
-        //    /// 顺着重映射链找到当前仍然存活的“接班者”ElementId
-        //    /// （支持多级：A3->A2->A1 的链式追踪）
-        //    /// </summary>
-        //    public ElementId ResolveAlive(Document doc, ElementId id)
-        //    {
-        //        if (id == null) return null;
-        //        var visited = new HashSet<long>();
-        //        ElementId cur = id;
-        //        while (cur != null && RemapTable.TryGetValue(cur.IntegerValue, out ElementId next))
-        //        {
-        //            if (!visited.Add(cur.IntegerValue)) break; // 防环
-        //            cur = next;
-        //        }
-        //        // 校验最终结果在文档中确实存在
-        //        return (cur != null && doc.GetElement(cur) is MEPCurve) ? cur : null;
-        //    }
-        //    public void RecordMerge(ElementId deletedId, ElementId survivorId)
-        //    {
-        //        if (deletedId != null && survivorId != null)
-        //            RemapTable[deletedId.IntegerValue] = survivorId;
-        //    }
-        //}
-        public class MergeConnectContext
+        public ElementId ResolveAlive(Document doc, ElementId id)
         {
-            public Dictionary<long, ElementId> RemapTable { get; } = new Dictionary<long, ElementId>();
-            public List<string> Errors { get; } = new List<string>();
-
-            public ElementId ResolveAlive(Document doc, ElementId id)
+            if (id == null) return null;
+            var visited = new HashSet<long>();
+            ElementId cur = id;
+            while (cur != null && RemapTable.TryGetValue(cur.IntegerValue, out ElementId next))
             {
-                if (id == null) return null;
-                var visited = new HashSet<long>();
-                ElementId cur = id;
-                while (cur != null && RemapTable.TryGetValue(cur.IntegerValue, out ElementId next))
-                {
-                    if (!visited.Add(cur.IntegerValue)) break;
-                    cur = next;
-                }
-                return (cur != null && doc.GetElement(cur) is MEPCurve) ? cur : null;
+                if (!visited.Add(cur.IntegerValue)) break;
+                cur = next;
             }
+            return (cur != null && doc.GetElement(cur) is MEPCurve) ? cur : null;
+        }
 
-            public void RecordMerge(ElementId deletedId, ElementId survivorId)
+        public void RecordMerge(ElementId deletedId, ElementId survivorId)
+        {
+            if (deletedId != null && survivorId != null)
+                RemapTable[deletedId.IntegerValue] = survivorId;
+
+            // ★ 关键：把之前所有指向 deletedId 的映射，一并改指到 survivorId
+            //   避免 A3->A2、A2->A1 时 A3 还停在已删除的 A2 上
+            foreach (var key in RemapTable.Keys.ToList())
             {
-                if (deletedId != null && survivorId != null)
-                    RemapTable[deletedId.IntegerValue] = survivorId;
-
-                // ★ 关键：把之前所有指向 deletedId 的映射，一并改指到 survivorId
-                //   避免 A3->A2、A2->A1 时 A3 还停在已删除的 A2 上
-                foreach (var key in RemapTable.Keys.ToList())
-                {
-                    if (RemapTable[key].IntegerValue == deletedId.IntegerValue)
-                        RemapTable[key] = survivorId;
-                }
+                if (RemapTable[key].IntegerValue == deletedId.IntegerValue)
+                    RemapTable[key] = survivorId;
             }
         }
     }

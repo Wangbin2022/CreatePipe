@@ -584,7 +584,7 @@ namespace CreatePipe
                     }
                     else
                     {
-                        success = ConnectParallelPipes(pipe1, conn1, line1, pipe2, conn2, line2, strategy);
+                        success = ConnectNonParallelPipes(pipe1, conn1, line1, pipe2, conn2, line2, strategy);
                     }
                     if (success)
                     {
@@ -663,6 +663,74 @@ namespace CreatePipe
             // 核心逻辑: 在共面不共线的两线之间创建S弯连接
             return CreateS_BendConnection(p1, c1, p2, c2, strategy);
             //return true;
+        }
+        public bool ConnectNonParallelPipes(Pipe p1, Connector c1, Line l1, Pipe p2, Connector c2, Line l2, string strategy)
+        {
+            Document doc = p1.Document;
+            if (l1.AreLinesCoPlanar(l2))
+            {
+                // 相交且共面：直接创建弯头
+                p1.NewElbowBy2MEPCurve(p2);
+                return true;
+            }
+            // 异面：创建立管连接
+            var intersection2D = MEPAnalysisExtension.GetIntersectionPoint2D(l1, l2);
+            if (intersection2D == null || intersection2D.DistanceTo(c1.Origin) > 4 || intersection2D.DistanceTo(c2.Origin) > 4)
+            {
+                TaskDialog.Show("限制", "管道在平面上交点过远，请手工调整。");
+                return false;
+            }
+            double z1 = c1.Origin.Z;
+            double z2 = c2.Origin.Z;
+            // 调整原管道至交点
+            p1.AdjustMEPCurveLength(c1.Origin, -c1.Origin.DistanceTo(new XYZ(intersection2D.X, intersection2D.Y, z1)));
+            p2.AdjustMEPCurveLength(c2.Origin, -c2.Origin.DistanceTo(new XYZ(intersection2D.X, intersection2D.Y, z2)));
+            doc.Regenerate();
+            // 创建立管
+            Pipe verticalPipe = TryCreateVerticalPipe(p1, c1, c2.Origin, intersection2D, strategy);
+            if (verticalPipe == null) return false;
+            verticalPipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(p1.Diameter);
+            doc.Regenerate();
+            // 连接
+            p1.NewElbowBy2MEPCurve(verticalPipe);
+            p2.NewElbowBy2MEPCurve(verticalPipe);
+            return true;
+        }
+        //基于参照管，两连接器高差，交点建立垂直立管，可复用
+        public Pipe TryCreateVerticalPipe(Pipe p1, Connector c1, XYZ cp2, XYZ intersection2D, string strategy)
+        {
+            Document doc = p1.Document;
+            double pipeDiameter = p1.Diameter;
+            double heightDifference = Math.Abs(c1.Origin.Z - cp2.Z);
+            double requiredMultiplier = 0;
+            if (strategy == "高概率")
+            {
+                requiredMultiplier = 6;
+            }
+            else if (strategy == "中概率")
+            {
+                requiredMultiplier = 4;
+            }
+            double minRequiredHeight = pipeDiameter * requiredMultiplier;
+            // 2. 检查实际高差是否满足要求
+            if (heightDifference < minRequiredHeight)
+            {
+                // 高差不足，不满足创建条件。直接返回null，由调用者决定是否提示用户。
+                TaskDialog.Show("tt", $"创建立管失败：实际高差 {heightDifference * 304.8:F3} < 所需最小高差 {minRequiredHeight * 304.8:F3} (策略: {strategy})");
+                return null;
+            }
+            double z1 = c1.Origin.Z;
+            double z2 = cp2.Z;
+            if (Math.Abs(z1 - z2) < 0.01) // 0.01 feet
+            {
+                TaskDialog.Show("提示", "两根管道高度几乎一致，无需立管。"); return null;
+            }
+            double minZ = Math.Min(z1, z2);
+            double maxZ = Math.Max(z1, z2);
+            XYZ bottomPoint = new XYZ(intersection2D.X, intersection2D.Y, minZ);
+            XYZ topPoint = new XYZ(intersection2D.X, intersection2D.Y, maxZ);
+            Pipe verticalPipe = p1.NewPipeBetweenPoints(bottomPoint, topPoint);
+            return verticalPipe;
         }
         //// 为两根平行、共面但不共线的管道创建S型连接。
         public bool CreateS_BendConnection(Pipe p1, Connector c1, Pipe p2, Connector c2, string strategy)
@@ -1045,6 +1113,8 @@ namespace CreatePipe
             return true;
         }
     }
+
+
     //[Transaction(TransactionMode.Manual)]
     //public class Test10_0818 : IExternalCommand
     //{
