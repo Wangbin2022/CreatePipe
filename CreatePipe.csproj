@@ -80,6 +80,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ArrangeRectangle.cs" />
     <Compile Include="Form\BacthDelModelElementView.xaml.cs">
       <DependentUpon>BacthDelModelElementView.xaml</DependentUpon>
     </Compile>
@@ -97,7 +98,7 @@
     </Compile>
     <Compile Include="Obselete\ConnectorService.cs" />
     <Compile Include="Form\UserControls\DrawerButton.cs" />
-    <Compile Include="ErrorHandling.cs" />
+    <Compile Include="Obselete\ErrorHandling.cs" />
     <Compile Include="ExportParameters.cs" />
     <Compile Include="filter\AirTerminalSelectionFilter.cs" />
     <Compile Include="filter\CadSelectionFilter.cs" />
@@ -581,11 +582,11 @@
       <DependentUpon>ZoneEditorWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\ProjectParameterData.cs" />
-    <Compile Include="RevitOperationLogger.cs" />
+    <Compile Include="Obselete\RevitOperationLogger.cs" />
     <Compile Include="Form\RevitStylePopup\ToastWindow.xaml.cs">
       <DependentUpon>ToastWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="RoomRoofBoundaryChecker.cs" />
+    <Compile Include="Obselete\RoomRoofBoundaryChecker.cs" />
     <Compile Include="SplitColumnByLevel.cs" />
     <Compile Include="SplitMEPCurveByLevel.cs" />
     <Compile Include="cmd\RevitContext.cs" />
@@ -842,16 +843,14 @@
     <Compile Include="SplitWallByLevel.cs" />
     <Compile Include="Test10_0818.cs" />
     <Compile Include="Test11_0118.cs" />
+    <Compile Include="Test12_0704.cs" />
     <Compile Include="TestWindow.xaml.cs">
       <DependentUpon>TestWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Obselete\Universal369Buttons.xaml.cs">
       <DependentUpon>Universal369Buttons.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Universal369Buttons.xaml.cs">
-      <DependentUpon>Universal369Buttons.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="UniversalMultiParameterSelect.xaml.cs">
+    <Compile Include="Obselete\UniversalMultiParameterSelect.xaml.cs">
       <DependentUpon>UniversalMultiParameterSelect.xaml</DependentUpon>
     </Compile>
     <Compile Include="Utils\BaseExternalHandler.cs" />
@@ -1716,11 +1715,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Universal369Buttons.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="UniversalMultiParameterSelect.xaml">
+    <Page Include="Obselete\UniversalMultiParameterSelect.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
