@@ -20,6 +20,7 @@ using System.Management;
 using System.Net;
 using System.Text;
 using System.Windows.Controls;
+using System.Windows.Forms;
 using System.Windows.Media.Media3D;
 using static CreatePipe.Utils.XYZComparer;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
@@ -313,8 +314,215 @@ namespace CreatePipe
                 points.Add(intersection);
             }
         }
- 
-    
+
+        ///// <summary>
+        ///// 辅助方法：为CSV字段添加引号（如果需要）
+        ///// </summary>
+        ///// <param name="field">要处理的文本</param>
+        ///// <returns>符合CSV格式的字段</returns>
+        //private string EscapeCsvField(string field)
+        //{
+        //    if (string.IsNullOrEmpty(field))
+        //    {
+        //        return "";
+        //    }
+
+        //    // 如果字段包含逗号、引号或换行符，则用双引号括起来
+        //    if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
+        //    {
+        //        // 将字段内的所有双引号替换为两个双引号
+        //        return $"\"{field.Replace("\"", "\"\"")}\"";
+        //    }
+        //    return field;
+        //} 
+
+        //初生成矩形柱方法
+        ///// <summary>
+        ///// 根据给定的尺寸，查找或创建一个新的柱族类型
+        ///// </summary>
+        ///// <param name="doc">Revit文档</param>
+        ///// <param name="targetFamilyName">目标族名称，如 "CADC_柱-混凝土-矩形"</param>
+        ///// <param name="b">柱的宽度（英制单位）</param>
+        ///// <param name="h">柱的高度（英制单位）</param>
+        ///// <param name="transaction">当前活动的事务</param>
+        ///// <returns>匹配或新建的FamilySymbol，失败则返回null</returns>
+        //private FamilySymbol CreateOrGetColumnSymbol(Document doc, string targetFamilyName, double b, double h, Transaction transaction)
+        //{
+        //    // 使用LINQ更高效地查找目标族的所有类型
+        //    FamilySymbol baseSymbol = new FilteredElementCollector(doc)
+        //        .OfClass(typeof(FamilySymbol)).OfType<FamilySymbol>()
+        //        .FirstOrDefault(fs => fs.Family.Name == targetFamilyName);
+        //    if (baseSymbol == null)
+        //    {
+        //        TaskDialog.Show("错误", $"未在项目中找到名为 '{targetFamilyName}' 的族。");
+        //        return null;
+        //    }
+        //    // 定义一个比较容差，避免浮点数精度问题
+        //    double tolerance = 0.001;
+        //    // 查找具有相同尺寸的现有类型
+        //    // 这是更稳健的方法：直接比较参数值，而不是比较类型名称字符串
+        //    Family family = baseSymbol.Family;
+        //    foreach (ElementId symbolId in family.GetFamilySymbolIds())
+        //    {
+        //        FamilySymbol symbol = doc.GetElement(symbolId) as FamilySymbol;
+        //        if (symbol == null) continue;
+        //        Parameter paramB = symbol.LookupParameter("b");
+        //        Parameter paramH = symbol.LookupParameter("h");
+        //        if (paramB != null && paramH != null &&
+        //            Math.Abs(paramB.AsDouble() - b) < tolerance &&
+        //            Math.Abs(paramH.AsDouble() - h) < tolerance)
+        //        {
+        //            return symbol; // 找到完全匹配的类型
+        //        }
+        //    }
+        //    // 如果没有找到，则创建新类型
+        //    try
+        //    {
+        //        // 确保基础类型已激活
+        //        if (!baseSymbol.IsActive) baseSymbol.Activate();
+        //        // 将尺寸转换为毫米并四舍五入，用于命名
+        //        string typeName = $"{Math.Round(b * 304.8)} x {Math.Round(h * 304.8)}mm";
+        //        FamilySymbol newSymbol = baseSymbol.Duplicate(typeName) as FamilySymbol;
+        //        // 设置新类型的尺寸参数，注意：修改操作必须在事务中
+        //        Parameter widthParam = newSymbol.LookupParameter("b");
+        //        Parameter heightParam = newSymbol.LookupParameter("h");
+        //        if (widthParam != null && heightParam != null)
+        //        {
+        //            widthParam.Set(b);
+        //            heightParam.Set(h);
+        //            return newSymbol;
+        //        }
+        //        else
+        //        {
+        //            TaskDialog.Show("错误", $"族 '{targetFamilyName}' 中找不到参数 'b' 或 'h'。");
+        //            // 刚创建的类型是无效的，需要回滚事务
+        //            transaction.RollBack();
+        //            return null;
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        TaskDialog.Show("创建族类型失败", $"为尺寸 {b * 304.8:F2}x{h * 304.8:F2} 创建新类型时出错: {ex.Message}");
+        //        transaction.RollBack();
+        //        return null;
+        //    }
+        //}
+        /// <summary>
+        /// 根据给定的尺寸，查找或创建一个新的【矩形】柱族类型
+        /// </summary>
+        private FamilySymbol CreateOrGetRectangularColumnSymbol(Document doc, string targetFamilyName, double b, double h, Transaction transaction)
+        {
+            FamilySymbol baseSymbol = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol)).OfType<FamilySymbol>()
+                .FirstOrDefault(fs => fs.Family.Name == targetFamilyName);
+            if (baseSymbol == null)
+            {
+                TaskDialog.Show("错误", $"未在项目中找到名为 '{targetFamilyName}' 的族。");
+                return null;
+            }
+            double tolerance = 0.001; // 容差
+            Family family = baseSymbol.Family;
+            foreach (ElementId symbolId in family.GetFamilySymbolIds())
+            {
+                FamilySymbol symbol = doc.GetElement(symbolId) as FamilySymbol;
+                if (symbol == null) continue;
+                Parameter paramB = symbol.LookupParameter("b");
+                Parameter paramH = symbol.LookupParameter("h");
+                // 同时检查 b x h 和 h x b 两种情况，更鲁棒
+                if (paramB != null && paramH != null &&
+                    ((Math.Abs(paramB.AsDouble() - b) < tolerance && Math.Abs(paramH.AsDouble() - h) < tolerance) ||
+                     (Math.Abs(paramB.AsDouble() - h) < tolerance && Math.Abs(paramH.AsDouble() - b) < tolerance)))
+                {
+                    return symbol;
+                }
+            }
+            try
+            {
+                if (!baseSymbol.IsActive) baseSymbol.Activate();
+                string typeName = $"{Math.Round(b * 304.8)} x {Math.Round(h * 304.8)}";
+                FamilySymbol newSymbol = baseSymbol.Duplicate(typeName) as FamilySymbol;
+                Parameter widthParam = newSymbol.LookupParameter("b");
+                Parameter heightParam = newSymbol.LookupParameter("h");
+                if (widthParam != null && heightParam != null)
+                {
+                    widthParam.Set(b);
+                    heightParam.Set(h);
+                    return newSymbol;
+                }
+                else
+                {
+                    TaskDialog.Show("错误", $"族 '{targetFamilyName}' 中找不到参数 'b' 或 'h'。");
+                    transaction.RollBack();
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("创建族类型失败", $"为尺寸 {b * 304.8:F2}x{h * 304.8:F2} 创建新类型时出错: {ex.Message}");
+                transaction.RollBack();
+                return null;
+            }
+        }
+        /// <summary>
+        /// 根据给定的直径，查找或创建一个新的【圆形】柱族类型
+        /// </summary>
+        private FamilySymbol CreateOrGetRoundColumnSymbol(Document doc, string targetFamilyName, double diameter, Transaction transaction)
+        {
+            FamilySymbol baseSymbol = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol)).OfType<FamilySymbol>()
+                .FirstOrDefault(fs => fs.Family.Name == targetFamilyName);
+            if (baseSymbol == null)
+            {
+                TaskDialog.Show("错误", $"未在项目中找到名为 '{targetFamilyName}' 的族。");
+                return null;
+            }
+            double tolerance = 0.001;
+            Family family = baseSymbol.Family;
+            foreach (ElementId symbolId in family.GetFamilySymbolIds())
+            {
+                FamilySymbol symbol = doc.GetElement(symbolId) as FamilySymbol;
+                if (symbol == null) continue;
+                // 圆柱直径参数通常也叫 'b' 或 'd'，这里假设是 'b'
+                Parameter paramB = symbol.LookupParameter("b");
+                if (paramB != null && Math.Abs(paramB.AsDouble() - diameter) < tolerance)
+                {
+                    return symbol; // 找到匹配的类型
+                }
+            }
+            try
+            {
+                if (!baseSymbol.IsActive) baseSymbol.Activate();
+                string typeName = $"D{Math.Round(diameter * 304.8)}"; // 命名为 D+直径(mm)
+                FamilySymbol newSymbol = baseSymbol.Duplicate(typeName) as FamilySymbol;
+                Parameter diameterParam = newSymbol.LookupParameter("b");
+                if (diameterParam != null)
+                {
+                    diameterParam.Set(diameter);
+                    return newSymbol;
+                }
+                else
+                {
+                    TaskDialog.Show("错误", $"族 '{targetFamilyName}' 中找不到直径参数 'b'。");
+                    transaction.RollBack();
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("创建族类型失败", $"为直径 {diameter * 304.8:F2} 创建新类型时出错: {ex.Message}");
+                transaction.RollBack();
+                return null;
+            }
+        }
+        /// <summary>
+        /// 在指定点创建柱子实例
+        /// </summary>
+        private void CreateColumnInstance(Document doc, XYZ centerPoint, FamilySymbol symbol)
+        {
+            if (!symbol.IsActive) symbol.Activate();
+            // 创建实例，默认标高为当前视图标高，偏移为0
+            doc.Create.NewFamilyInstance(centerPoint, symbol, doc.ActiveView.GenLevel, StructuralType.Column);
+        }
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -322,7 +530,248 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-        
+            try
+            {
+                if (doc.ActiveView.ViewType != ViewType.FloorPlan)
+                {
+                    TaskDialog.Show("错误", $"请在平面视图执行本操作。");
+                    return Result.Cancelled;
+                }
+                using (Transaction ts = new Transaction(doc, "从CAD生成柱子"))
+                {
+                    ts.Start();
+                    Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement, "请拾取一个代表柱子的CAD图元");
+                    Element cadLink = doc.GetElement(r);
+                    GeometryObject pickedGeoObj = cadLink.GetGeometryObjectFromReference(r);
+                    if (pickedGeoObj == null || pickedGeoObj.GraphicsStyleId == ElementId.InvalidElementId)
+                    {
+                        TaskDialog.Show("错误", "无法获取有效的图形样式信息。");
+                        return Result.Failed;
+                    }
+                    ElementId graphicsStyleId = pickedGeoObj.GraphicsStyleId;
+                    GeometryElement geoElem = cadLink.get_Geometry(new Options());
+                    int createdRectCount = 0;
+                    int createdRoundCount = 0;
+                    // 使用 SelectMany 遍历所有几何实例
+                    foreach (var inst in geoElem.OfType<GeometryInstance>())
+                    {
+                        Transform transform = inst.Transform;
+                        GeometryElement instGeo = inst.GetInstanceGeometry();
+                        // --- 1. 处理闭合多段线（生成矩形柱） ---
+                        var polyLinesOnLayer = instGeo.OfType<PolyLine>()
+                            .Where(pl => pl.GraphicsStyleId == graphicsStyleId);
+                        foreach (var polyLine in polyLinesOnLayer)
+                        {
+                            IList<XYZ> points = polyLine.GetCoordinates();
+                            // 正确的闭合判断
+                            bool isClosed = points.Count > 2 && points[0].IsAlmostEqualTo(points[points.Count - 1]);
+                            if (!isClosed) continue;
+                            Outline outline = polyLine.GetOutline();
+                            double b = Math.Abs(outline.MaximumPoint.X - outline.MinimumPoint.X);
+                            double h = Math.Abs(outline.MaximumPoint.Y - outline.MinimumPoint.Y);
+                            XYZ centerInCad = (outline.MaximumPoint + outline.MinimumPoint) / 2.0;
+                            XYZ centerInRevit = transform.OfPoint(centerInCad);
+                            FamilySymbol columnSymbol = CreateOrGetRectangularColumnSymbol(doc, "CADC_结构_混凝土矩形柱", b, h, ts);
+                            if (columnSymbol != null)
+                            {
+                                CreateColumnInstance(doc, centerInRevit, columnSymbol);
+                                createdRectCount++;
+                            }
+                            else return Result.Failed;
+                        }
+                        // --- 2. 处理圆（生成圆柱） ---
+                        var arcsOnLayer = instGeo.OfType<Arc>().Where(a => a.GraphicsStyleId == graphicsStyleId);
+                        foreach (var arc in arcsOnLayer)
+                        {
+                            // 判断是否为一个完整的圆
+                            // 一个完整的圆，其起点和终点在参数上相差2*PI，或者它是一个无边界的圆弧
+                            bool isFullCircle = !arc.IsBound || arc.GetEndPoint(0).IsAlmostEqualTo(arc.GetEndPoint(1));
+                            if (!isFullCircle) continue;
+                            double diameter = arc.Radius * 2;
+                            XYZ centerInCad = arc.Center;
+                            XYZ centerInRevit = transform.OfPoint(centerInCad);
+                            FamilySymbol columnSymbol = CreateOrGetRoundColumnSymbol(doc, "CADC_结构_混凝土圆形柱", diameter, ts);
+                            if (columnSymbol != null)
+                            {
+                                CreateColumnInstance(doc, centerInRevit, columnSymbol);
+                                createdRoundCount++;
+                            }
+                            else return Result.Failed;
+                        }
+                    }
+                    if (createdRectCount == 0 && createdRoundCount == 0)
+                    {
+                        ts.RollBack(); // 没创建任何东西，回滚事务
+                        TaskDialog.Show("提示", "在所选图层上未找到任何可识别的闭合多段线或圆。");
+                        return Result.Cancelled;
+                    }
+                    ts.Commit();
+                    TaskDialog.Show("成功", $"操作完成！\n创建了 {createdRectCount} 个矩形柱。\n创建了 {createdRoundCount} 个圆形柱。");
+                    return Result.Succeeded;
+                }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+                // 确保在发生异常时回滚事务（如果它还未提交或回滚）
+                // using语句会自动处理，但明确一下逻辑
+                TaskDialog.Show("致命错误", $"执行过程中发生错误: {ex.Message}");
+                return Result.Failed;
+            }
+            ////CADC_结构_混凝土矩形柱
+            ////CADC_结构_混凝土圆形柱
+            //try
+            //{
+            //    // 使用using语句确保事务被正确处理
+            //    using (Transaction ts = new Transaction(doc, "从CAD生成柱子"))
+            //    {
+            //        ts.Start();
+            //        // 1. 拾取CAD链接中的一个对象
+            //        Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement, "请拾取一个代表柱子的CAD图元");
+            //        Element cadLink = doc.GetElement(r);
+            //        GeometryObject pickedGeoObj = cadLink.GetGeometryObjectFromReference(r);
+            //        if (pickedGeoObj == null || pickedGeoObj.GraphicsStyleId == ElementId.InvalidElementId)
+            //        {
+            //            TaskDialog.Show("错误", "无法获取有效的图形样式信息。请确保拾取的是CAD图元。");
+            //            return Result.Failed;
+            //        }
+            //        // 2. 获取图层信息 (通过GraphicsStyleId)
+            //        ElementId graphicsStyleId = pickedGeoObj.GraphicsStyleId;
+            //        // 3. 遍历CAD几何体，找到所有在同一图层上的闭合多段线
+            //        GeometryElement geoElem = cadLink.get_Geometry(new Options());
+            //        // 使用LINQ简化几何遍历
+            //        var polyLinesOnLayer = geoElem
+            //            .OfType<GeometryInstance>() // 进入CAD链接的实例几何
+            //            .SelectMany(inst => inst.GetInstanceGeometry().OfType<PolyLine>() // 获取实例内的多段线
+            //                        .Select(pl => new { PolyLine = pl, Transform = inst.Transform })) // 同时获取变换矩阵
+            //            .Where(item => item.PolyLine.GraphicsStyleId == graphicsStyleId); 
+            //        if (!polyLinesOnLayer.Any())
+            //        {
+            //            TaskDialog.Show("提示", "在所选图层上未找到任何闭合的多段线。");
+            //            return Result.Cancelled;
+            //        }
+            //        // 4. 为每个多段线创建柱子
+            //        foreach (var item in polyLinesOnLayer)
+            //        {
+            //            PolyLine polyLine = item.PolyLine;
+            //            Transform transform = item.Transform;
+            //            // 计算包围盒和尺寸
+            //            Outline outline = polyLine.GetOutline();
+            //            double b = Math.Abs(outline.MaximumPoint.X - outline.MinimumPoint.X);
+            //            double h = Math.Abs(outline.MaximumPoint.Y - outline.MinimumPoint.Y);
+            //            // 计算中心点并应用变换
+            //            XYZ centerInCad = (outline.MaximumPoint + outline.MinimumPoint) / 2.0;
+            //            XYZ centerInRevit = transform.OfPoint(centerInCad);
+            //            // 获取或创建族类型 (传递主事务)
+            //            FamilySymbol columnSymbol = CreateOrGetColumnSymbol(doc, "CADC_结构_混凝土矩形柱", b, h, ts);
+            //            // 如果成功获取了族类型，则创建实例
+            //            if (columnSymbol != null)
+            //            {
+            //                CreateColumnInstance(doc, centerInRevit, columnSymbol);
+            //            }
+            //            else
+            //            {
+            //                // 如果CreateOrGetColumnSymbol内部失败并回滚，这里应该停止
+            //                // 由于它内部已经回滚了，我们直接返回失败
+            //                return Result.Failed;
+            //            }
+            //        }
+            //        ts.Commit();
+            //        return Result.Succeeded;
+            //    }
+            //}
+            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //{
+            //    return Result.Cancelled;
+            //}
+            //catch (Exception ex)
+            //{
+            //    message = ex.Message;
+            //    TaskDialog.Show("致命错误", $"执行过程中发生错误: {ex.Message}");
+            //    return Result.Failed;
+            //}
+            //////例程结束
+
+            ////0708 统计文档特定族和族类型清单并输出csv
+            //// 1. 定义需要收集的MEP类别
+            //var categoriesToCollect = new List<BuiltInCategory>
+            //{
+            //    BuiltInCategory.OST_MechanicalEquipment, // 机械设备
+            //    BuiltInCategory.OST_PipeAccessory,       // 管道附件
+            //    BuiltInCategory.OST_PipeFitting,         // 管件
+            //    BuiltInCategory.OST_DuctTerminal,        // 风口
+            //    BuiltInCategory.OST_DuctFitting,         // 风管管件
+            //    BuiltInCategory.OST_DuctAccessory        // 风管附件
+            //};
+            //// 2. 创建多类别过滤器并收集所有【实例】
+            //var multiCategoryFilter = new ElementMulticategoryFilter(categoriesToCollect);
+            //var collector = new FilteredElementCollector(doc)
+            //    .WherePasses(multiCategoryFilter)
+            //    .WhereElementIsNotElementType(); // 关键：只收集实例，从而得知哪些类型被使用了
+            //// 3. 提取唯一的族和类型信息
+            //// 使用字典来存储唯一的族类型，键为 FamilySymbol 的 ElementId
+            //var usedTypes = new Dictionary<ElementId, (string Category, string FamilyName, string TypeName)>();
+            //foreach (Element instance in collector)
+            //{
+            //    ElementId typeId = instance.GetTypeId();
+            //    // 如果该类型ID已处理过，则跳过，实现去重
+            //    if (typeId == ElementId.InvalidElementId || usedTypes.ContainsKey(typeId))
+            //    {
+            //        continue;
+            //    }
+            //    // 获取类型(FamilySymbol)和族(Family)
+            //    if (doc.GetElement(typeId) is FamilySymbol symbol)
+            //    {
+            //        string familyName = symbol.Family.Name;
+            //        string typeName = symbol.Name;
+            //        // 获取本地化的类别名称
+            //        string categoryName = instance.Category?.Name ?? "未知类别";
+            //        usedTypes.Add(typeId, (categoryName, familyName, typeName));
+            //    }
+            //}
+            //if (usedTypes.Count == 0)
+            //{
+            //    TaskDialog.Show("信息", "在当前文件中未找到指定类别的任何已使用族实例。");
+            //    return Result.Succeeded;
+            //}
+            //// 4. 生成CSV文件内容
+            //StringBuilder csvContent = new StringBuilder();
+            //// 添加表头
+            //csvContent.AppendLine("类别,族名称,类型名称");
+            //// 排序后输出，结果更清晰
+            //var sortedList = usedTypes.Values.OrderBy(t => t.Category).ThenBy(t => t.FamilyName).ThenBy(t => t.TypeName);
+            //foreach (var (category, familyName, typeName) in sortedList)
+            //{
+            //    // 处理名称中可能包含逗号的情况
+            //    string line = $"{EscapeCsvField(category)},{EscapeCsvField(familyName)},{EscapeCsvField(typeName)}";
+            //    csvContent.AppendLine(line);
+            //}
+            //// 5. 弹出对话框让用户选择保存路径
+            //using (System.Windows.Forms.SaveFileDialog saveDialog = new System.Windows.Forms.SaveFileDialog())
+            //{
+            //    saveDialog.Filter = "CSV 文件 (*.csv)|*.csv";
+            //    saveDialog.Title = "保存已使用的MEP族清单";
+            //    saveDialog.FileName = $"{doc.Title}_MEP_Families_List.csv";
+            //    if (saveDialog.ShowDialog() == DialogResult.OK)
+            //    {
+            //        try
+            //        {
+            //            // 使用 UTF-8 with BOM 编码写入文件，确保Excel能正确显示中文
+            //            File.WriteAllText(saveDialog.FileName, csvContent.ToString(), new UTF8Encoding(true));
+            //            TaskDialog.Show("成功", $"已成功导出 {usedTypes.Count} 个族类型到:\n{saveDialog.FileName}");
+            //        }
+            //        catch (Exception ex)
+            //        {
+            //            message = $"导出文件失败: {ex.Message}";
+            //            return Result.Failed;
+            //        }
+            //    }
+            //}
+
             ////0511 找轴线交叉点坐标测试
             //// 2. 收集所有轴线 (Grid) 图元
             //FilteredElementCollector collector = new FilteredElementCollector(doc);
@@ -366,13 +815,11 @@ namespace CreatePipe
             //        }
             //        IntersectionResultArray intersections;
             //        SetComparisonResult result = line1.Intersect(line2, out intersections);
-
             //        if (result == SetComparisonResult.Overlap && intersections != null)
             //        {
             //            foreach (IntersectionResult iResult in intersections)
             //            {
             //                XYZ point = iResult.XYZPoint;
-
             //                // 去重机制：检查是否已经存在非常接近的交点 (容差设为 0.001 英尺)
             //                if (!intersectionPoints.Any(p => p.DistanceTo(point) < 0.001))
             //                {
@@ -382,157 +829,35 @@ namespace CreatePipe
             //        }
             //    }
             //}
-            //for (int i = 0; i < intersectionPoints.Count; i++)
-            //{
-            //    XYZ p = intersectionPoints[i];
-            //    if (Math.Round(p.X * 304.8, 4)==0&& Math.Round(p.Y * 304.8, 4)==0)
-            //    {
-            //        TaskDialog.Show("tt", "轴网交点与项目基点有交叉");
-            //    }
-            //}
-            ////// 6. 输出结果到文件
-            ////string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            ////string outputPath = Path.Combine(desktopPath, "GridIntersections.txt");
-            ////using (StreamWriter writer = new StreamWriter(outputPath))
+            ////for (int i = 0; i < intersectionPoints.Count; i++)
             ////{
-            ////    writer.WriteLine($"轴线交点坐标列表 (共 {intersectionPoints.Count} 个点):");
-            ////    writer.WriteLine("=========================================");
-            ////    writer.WriteLine("单位转换为mm");
-            ////    for (int i = 0; i < intersectionPoints.Count; i++)
+            ////    XYZ p = intersectionPoints[i];
+            ////    if (Math.Round(p.X * 304.8, 4) == 0 && Math.Round(p.Y * 304.8, 4) == 0)
             ////    {
-            ////        XYZ p = intersectionPoints[i];
-            ////        writer.WriteLine($"点 {i + 1}: ({Math.Round(p.X * 304.8, 4)}, {Math.Round(p.Y * 304.8, 4)}, {Math.Round(p.Z * 304.8, 4)})");
+            ////        TaskDialog.Show("tt", "轴网交点与项目基点有交叉");
             ////    }
             ////}
-            ////TaskDialog.Show("完成", $"成功找到 {intersectionPoints.Count} 个轴线交点，已保存至：\n{outputPath}");
+            //////// 6. 输出结果到文件
+            //////string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            //////string outputPath = Path.Combine(desktopPath, "GridIntersections.txt");
+            //////using (StreamWriter writer = new StreamWriter(outputPath))
+            //////{
+            //////    writer.WriteLine($"轴线交点坐标列表 (共 {intersectionPoints.Count} 个点):");
+            //////    writer.WriteLine("=========================================");
+            //////    writer.WriteLine("单位转换为mm");
+            //////    for (int i = 0; i < intersectionPoints.Count; i++)
+            //////    {
+            //////        XYZ p = intersectionPoints[i];
+            //////        writer.WriteLine($"点 {i + 1}: ({Math.Round(p.X * 304.8, 4)}, {Math.Round(p.Y * 304.8, 4)}, {Math.Round(p.Z * 304.8, 4)})");
+            //////    }
+            //////}
+            //////TaskDialog.Show("完成", $"成功找到 {intersectionPoints.Count} 个轴线交点，已保存至：\n{outputPath}");
 
-            ////0426 生成柱测试改，先基于通用combobox确定柱样式，需要在平面操作自动确定柱上下偏移。再确定圆柱或方柱（暂不考虑旋转角度）
-            ////结构族SectionShape参数 symbol参数int值表示
-            //var column = doc.GetElement(uiDoc.Selection.PickObject(ObjectType.Element, new ColumnFilter(), "findA柱子")) as FamilyInstance;
-            //TaskDialog.Show("tt", column.Symbol.get_Parameter(BuiltInParameter.STRUCTURAL_SECTION_SHAPE).AsInteger().ToString());
+            //////0426 生成柱测试改，先基于通用combobox确定柱样式，需要在平面操作自动确定柱上下偏移。再确定圆柱或方柱（暂不考虑旋转角度）
+            //////结构族SectionShape参数 symbol参数int值表示
 
-            //////1102 结构柱翻模测试改造 https://zhuanlan.zhihu.com/p/108750783
-            /////改为按标高打断管线,需要增加高度获取和。OK
-            ////////创建应用程序对象
-            //try
-            //{
-            //    //开始事务
-            //    using (Autodesk.Revit.DB.Transaction ts = new Autodesk.Revit.DB.Transaction(doc, "柱子翻模"))
-            //    {
-            //        ts.Start();
-            //        Reference r = uiDoc.Selection.PickObject(ObjectType.PointOnElement); //获取对象
-            //        string ss = r.ConvertToStableRepresentation(doc); //转化为字符串
-            //        Element elem = doc.GetElement(r);
-            //        // 获取几何图元
-            //        GeometryElement geoElem = elem.get_Geometry(new Options());
-            //        GeometryObject geoObj = elem.GetGeometryObjectFromReference(r);
-            //        //获取选中的cad图层
-            //        Category targetCategory = null;
-            //        ElementId graphicsStyleId = ElementId.InvalidElementId;
-            //        //判断所选取的几何对象样式不为元素无效值
-            //        if (geoObj != null && geoObj.GraphicsStyleId != ElementId.InvalidElementId)
-            //        {
-            //            graphicsStyleId = geoObj.GraphicsStyleId;
-            //            GraphicsStyle gs = doc.GetElement(geoObj.GraphicsStyleId) as GraphicsStyle; //获得所选对象图形样式
-            //            if (gs != null)
-            //            {
-            //                //图层及图层名字
-            //                targetCategory = gs.GraphicsStyleCategory;
-            //                string layerName = gs.GraphicsStyleCategory.Name;
-            //            }
-            //            double offsetHeight = 2000 / 304.8;
-            //            ////隐藏选中的cad图层
-            //            if (targetCategory != null)
-            //            {
-            //                //doc.ActiveView.SetCategoryHidden(targetCategory.Id, true);
-            //            }
-            //            CurveArray curveArray = new CurveArray();
-            //            List<double> listdb = new List<double>();
-            //            foreach (var gObj in geoElem)
-            //            {
-            //                GeometryInstance geomInstance = gObj as GeometryInstance;
-            //                if (geomInstance != null)
-            //                {
-            //                    //坐标转换
-            //                    Transform transform = geomInstance.Transform;
-            //                    //TaskDialog.Show("tt", geomInstance.SymbolGeometry.Count().ToString());
-            //                    //坐标空间
-            //                    foreach (var insObj in geomInstance.SymbolGeometry)
-            //                    {
-            //                        if (insObj == null) continue;
-            //                        // 检查图形样式ID是否匹配
-            //                        if (insObj.GraphicsStyleId != graphicsStyleId)
-            //                            continue;
-            //                        //线类型 - 处理PolyLine
-            //                        if (insObj is PolyLine polyLine)
-            //                        {
-            //                            //获取坐标点
-            //                            IList<XYZ> points = polyLine.GetCoordinates();
-            //                            XYZ pMax = polyLine.GetOutline().MaximumPoint;
-            //                            XYZ pMin = polyLine.GetOutline().MinimumPoint;
-            //                            //长和宽
-            //                            double b = Math.Abs(pMin.X - pMax.X);
-            //                            double h = Math.Abs(pMin.Y - pMax.Y);
-            //                            //柱子的中点坐标+坐标转换
-            //                            XYZ pp = pMax.Add(pMin) / 2;
-            //                            pp = transform.OfPoint(pp);
-            //                            ////////找到中点，向上找管道，打断并尝试两侧退后各100
-            //                            ////MEPCurve mepCurveToBreak = FindMEPCurveAtPoint(uiDoc, offsetHeight, pp);
-            //                            ////if (mepCurveToBreak != null)
-            //                            ////{
-            //                            ////    // 打断管道
-            //                            ////    MEPCurve copiedMEPCurve = BreakMEPCurveByOne(doc, mepCurveToBreak, pp);
-            //                            ////}
-            //                            //CreatColu(doc, pp, b, h); //生成柱子
-            //                        }
-            //                        else if (insObj is Arc circle)
-            //                        {
-            //                            //XYZ pp = circle.Center;
-            //                            //pp = transform.OfPoint(pp);
-            //                            ////// 查找与投影点相交的MEP曲线
-            //                            //MEPCurve mepCurveToBreak = FindMEPCurveAtPoint(uiDoc, offsetHeight, pp);
-            //                            //if (mepCurveToBreak != null)
-            //                            //{
-            //                            //    // 打断管道
-            //                            //    MEPCurve copiedMEPCurve = BreakMEPCurveByOne(doc, mepCurveToBreak, pp);
-            //                            //}
-            //                        }
-            //                        else if (insObj is GeometryInstance instance)
-            //                        {
-            //                            //instance.Transform;
-            //                            //
-            //                        }
-            //                        else
-            //                        {
-            //                            TaskDialog.Show("tt", "未检测到符合条件多段线");
-            //                            return Result.Failed;
-            //                        }
-            //                    }
-            //                }
-            //            }
-            //            ts.Commit();
-            //        }
-            //        else
-            //        {
-            //            ts.RollBack();
-            //            TaskDialog.Show("错误", "无法获取有效的图形样式信息");
-            //            return Result.Failed;
-            //        }
-            //        return Result.Succeeded;
-            //    }
-            //}
-            //catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            //{
-            //    // 用户取消了选择操作
-            //    return Result.Cancelled;
-            //}
-            //catch (Exception ex)
-            //{
-            //    message = ex.Message;
-            //    TaskDialog.Show("错误", $"执行过程中发生错误: {ex.Message}");
-            //    return Result.Failed;
-            //}
-            //////例程结束
+
+
 
             ////0704 切割楼板应参考官方示例 暂缓
             ////0425 参照平面切割测试
@@ -1480,122 +1805,8 @@ namespace CreatePipe
             }
             return result;
         }
-        //0428 原TEst10方法
-        //生成柱子
-        // 截断小数位数的方法
-        //private double CutDecimalWithN(double value, int decimalPlaces)
-        //{
-        //    double factor = Math.Pow(10, decimalPlaces);
-        //    return Math.Truncate(value * factor) / factor;
-        //}
-        //private void CreatColu(Document doc, XYZ point, double b, double h)
-        //{
-        //    FilteredElementCollector fil = new FilteredElementCollector(doc);
-        //    fil.OfClass(typeof(FamilySymbol));
-        //    string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
-        //    List<FamilySymbol> listFa = new List<FamilySymbol>();
-        //    foreach (FamilySymbol fa in fil)
-        //    {
-        //        // 更安全的参数获取方式
-        //        Parameter familyNameParam = fa.LookupParameter("族名称");
-        //        if (familyNameParam != null && familyNameParam.AsString() == "CADC_柱-混凝土-矩形")
-        //        {
-        //            listFa.Add(fa);
-        //        }
-        //    }
-        //    if (listFa.Count == 0)
-        //    {
-        //        TaskDialog.Show("错误", "未找到名为'CADC_柱-混凝土-矩形'的族类型");
-        //        return;
-        //    }
-        //    FamilySymbol targetSymbol = null;
-        //    // 查找匹配的族类型
-        //    foreach (FamilySymbol symbol in listFa)
-        //    {
-        //        if (bh == symbol.Name)
-        //        {
-        //            targetSymbol = symbol;
-        //            break;
-        //        }
-        //    }
-        //    if (targetSymbol != null)
-        //    {
-        //        // 确保族类型已激活
-        //        if (!targetSymbol.IsActive) targetSymbol.Activate();
-        //        doc.Create.NewFamilyInstance(point, targetSymbol, StructuralType.Column);
-        //    }
-        //    else
-        //    {
-        //        // 复制创建新的族类型
-        //        FamilySymbol fam = listFa[0];
-        //        // 确保族类型已激活
-        //        if (!fam.IsActive) fam.Activate();
-        //        try
-        //        {
-        //            FamilySymbol newSymbol = fam.Duplicate(bh) as FamilySymbol;
-        //            // 设置参数 - 使用更安全的参数查找方式
-        //            Parameter widthParam = newSymbol.LookupParameter("b");
-        //            Parameter heightParam = newSymbol.LookupParameter("h");
-        //            if (widthParam != null && heightParam != null)
-        //            {
-        //                using (Transaction t = new Transaction(doc, "设置柱参数"))
-        //                {
-        //                    t.Start();
-        //                    widthParam.Set(b);
-        //                    heightParam.Set(h);
-        //                    t.Commit();
-        //                }
-        //                doc.Create.NewFamilyInstance(point, newSymbol, StructuralType.Column);
-        //            }
-        //            else
-        //            {
-        //                TaskDialog.Show("错误", "找不到截面宽度或截面高度参数");
-        //            }
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            TaskDialog.Show("错误", $"创建族类型失败: {ex.Message}");
-        //        }
-        //    }
-        //}
-        //private void CreatColu(Document doc, XYZ point, double b, double h)
-        //{
-        //    FilteredElementCollector fil = new FilteredElementCollector(doc);
-        //    fil.OfClass(typeof(FamilySymbol));
-        //    string bh = CutDecimalWithN(b * 304.8, 4).ToString() + " " + "x" + " " + CutDecimalWithN(h * 304.8, 4);
-        //    List<FamilySymbol> listFa = new List<FamilySymbol>();
-        //    foreach (FamilySymbol fa in fil)
-        //    {
-        //        if (fa.GetParameters("族名称")[0].AsString() == "砼矩形柱")
-        //        {
-        //            listFa.Add(fa);
-        //        }
-        //    }
-        //    int i = 0;
-        //    bool bo = false;
-        //    int j = 0;
-        //    for (i = 0; i < listFa.Count; i++)
-        //    {
-        //        if (bh == listFa[i].Name)
-        //        {
-        //            bo = true;
-        //            j = i;
-        //        }
-        //    }
-        //    if (bo == true)
-        //    {
-        //        doc.Create.NewFamilyInstance(point, listFa[j], StructuralType.Column);
-        //    }
-        //    else
-        //    {
-        //        FamilySymbol fam = listFa[0];
-        //        ElementType coluType = fam.Duplicate(bh);
-        //        coluType.GetParameters("截面宽度")[0].Set(b);
-        //        coluType.GetParameters("截面高度")[0].Set(h);
-        //        FamilySymbol fs = coluType as FamilySymbol;
-        //        doc.Create.NewFamilyInstance(point, fs, StructuralType.Column);
-        //    }
-        //}
+        ////0428 原TEst10方法
+
         //应该是可视性分析用的
         ///// <summary>
         ///// 在视图中绘制可见性分析的结果
