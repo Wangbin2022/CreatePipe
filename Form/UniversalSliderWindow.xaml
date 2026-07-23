@@ -1,0 +1,60 @@
+﻿<Window x:Class="CreatePipe.Form.UniversalSliderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="UniversalSliderWindow" Height="140" Width="280"    Topmost="True"
+        WindowStartupLocation="CenterScreen" 
+        xmlns:vr="clr-namespace:CreatePipe.Form.ValidationRule">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.4*"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <!-- 滑动条 -->
+        <TextBlock Grid.Row="0" Grid.Column="0" 
+                   Text="数值：" 
+                   HorizontalAlignment="Right" 
+                   VerticalAlignment="Center" 
+                   Margin="5"/>
+        <Slider Grid.Row="0" Grid.Column="1" 
+                VerticalAlignment="Center"
+                Minimum="{Binding MinValue}"
+                Maximum="{Binding MaxValue}"
+                Value="{Binding NewNum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                TickFrequency="{Binding SliderTickFrequency}"
+                IsSnapToTickEnabled="False"
+                Margin="5,0,5,0"/>
+
+        <!-- 输入框（移除 ValidationRule） -->
+        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="1"
+             x:Name="InputTextBox"
+             Margin="5,5,5,5" 
+             VerticalAlignment="Center"
+             KeyDown="TextBox_KeyDown">
+            <TextBox.Text>
+                <Binding Path="NewNum" 
+                     UpdateSourceTrigger="PropertyChanged"
+                     StringFormat="{}{0:0.##}"
+                     ValidatesOnDataErrors="True"
+                     NotifyOnValidationError="True" />
+            </TextBox.Text>
+        </TextBox>
+        <!-- 提示文本 -->
+        <TextBlock Grid.Row="1" Grid.Column="1" 
+                   Text="{Binding DisplayText}" 
+                   HorizontalAlignment="Left" 
+                   VerticalAlignment="Center"
+                   FontWeight="Bold"/>
+        <!-- 确定按钮 -->
+        <Button Grid.Row="2" Content="确认并退出" x:Name="btn_OK" IsDefault="True"
+                Click="Button_Click" Margin="5" Grid.ColumnSpan="2"/>
+    </Grid>
+</Window>

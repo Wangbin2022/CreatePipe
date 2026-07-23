@@ -81,11 +81,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ArrangeRectangle.cs" />
+    <Compile Include="AssembleStairTest.cs" />
+    <Compile Include="filter\GridFilter.cs" />
     <Compile Include="Form\BacthDelModelElementView.xaml.cs">
       <DependentUpon>BacthDelModelElementView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\BacthFamilyEditorView.xaml.cs">
       <DependentUpon>BacthFamilyEditorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\StairsManagerView.xaml.cs">
+      <DependentUpon>StairsManagerView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\UniversalDoubleComboboxWindow.xaml.cs">
       <DependentUpon>UniversalDoubleComboboxWindow.xaml</DependentUpon>
@@ -93,6 +98,11 @@
     <Compile Include="Form\UniversalNewListString.xaml.cs">
       <DependentUpon>UniversalNewListString.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Form\UniversalSliderWindow.xaml.cs">
+      <DependentUpon>UniversalSliderWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="models\StairsEntity.cs" />
+    <Compile Include="NewColumns.cs" />
     <Compile Include="Obselete\BasePointMover.xaml.cs">
       <DependentUpon>BasePointMover.xaml</DependentUpon>
     </Compile>
@@ -880,6 +890,7 @@
     <Compile Include="Utils\RobustFailureProcessor.cs" />
     <Compile Include="Utils\RoomWarningService.cs" />
     <Compile Include="Utils\SelectionHelper.cs" />
+    <Compile Include="Utils\StairsWarningService.cs" />
     <Compile Include="Utils\TaskDialogHelper.cs" />
     <Compile Include="Form\UserControls\ProgressWindow.xaml.cs">
       <DependentUpon>ProgressWindow.xaml</DependentUpon>
@@ -955,11 +966,19 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Form\StairsManagerView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Form\UniversalDoubleComboboxWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\UniversalNewListString.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\UniversalSliderWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

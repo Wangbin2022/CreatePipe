@@ -7,10 +7,12 @@ using System.Text;
 
 namespace CreatePipe
 {
-    //0323 代码似乎有问题，检查简单模型但仍有7k+实例明显违背逻辑，待查
+    //0718 初步完成
     [Transaction(TransactionMode.Manual)]
     public class ElementCount : IExternalCommand
     {
+        private Dictionary<string, ElementId> categoryDict = new Dictionary<string, ElementId>();
+        private List<string> _rawCategoryNames = new List<string>();
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
@@ -18,129 +20,156 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            ////0421 构件分析测试 要排除固定的MEP相关配置项和系统材质、视图等，只管理手动添加的元素
-            var analyzer = new ModelProfessionAnalyzer(doc);
-            string report = analyzer.GetDetailedReport();
-            TaskDialog.Show("分析结果", report);
-
-            //////找出所有有几何instance并分类
-            //List<Element> allInstances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).WhereElementIsNotElementType().Cast<Element>().ToList();
-            //List<ElementId> ids = new List<ElementId>();
-            //foreach (var item in allInstances)
-            //{
-            //    if (item.HasPhases())
-            //    {
-            //        ids.Add(item.Id);
-            //    }
-            //}
-            //uiDoc.Selection.SetElementIds(ids);
-
-            ////只统计可见构件数量
-            //FilteredElementCollector collector = new FilteredElementCollector(doc);
-            //IList<Element> physicalElements = collector.WhereElementIsNotElementType().Where(e => e.get_Geometry(new Options()) != null &&
-            //                 e.Category != null && e.Category.HasMaterialQuantities).ToList();
-            //int physicalElementCount = collector.GetElementCount();
-            ////TaskDialog.Show("统计结果", $"模型中包含约 {physicalElementCount} 个物理模型实例。");
-            //Dictionary<ElementId, int> symbolCounts = new Dictionary<ElementId, int>();
-            //// 2. 遍历所有物理实例
-            //foreach (Element elem in physicalElements)
-            //{
-            //    // 获取当前实例的类型ID
-            //    ElementId typeId = elem.GetTypeId();
-
-            //    // 检查类型ID是否有效
-            //    if (typeId != null && typeId != ElementId.InvalidElementId)
-            //    {
-            //        // 如果字典中已经有这个类型ID，则数量加1
-            //        if (symbolCounts.ContainsKey(typeId))
-            //        {
-            //            symbolCounts[typeId]++;
-            //        }
-            //        // 否则，将这个新的类型ID添加到字典中，数量设为1
-            //        else
-            //        {
-            //            symbolCounts.Add(typeId, 1);
-            //        }
-            //    }
-            //}
-            //// --- 第三部分：【新增】统计实例所属的Category数量和分布 ---
-
-            //// 1. 创建一个新字典，用于高效计数
-            ////    键 (Key): Category 的 ElementId
+            ////0717 改白名单收集控制类别，看原始已有类别查找代码
+            FilteredElementCollector collector = null;
+            ICollection<ElementId> idsToExclude = new FilteredElementCollector(doc).WhereElementIsNotElementType()
+                .WherePasses(new LogicalOrFilter(new ElementClassFilter(typeof(RevitLinkInstance)),
+                new ElementClassFilter(typeof(ImportInstance)))).ToElementIds();
+            // 1. 收集当前文档所有元素排除掉链接元素
+            if (idsToExclude.Count() > 0)
+            {
+                ExclusionFilter exclusionFilter = new ExclusionFilter(idsToExclude);
+                collector = new FilteredElementCollector(doc).WhereElementIsNotElementType().WherePasses(exclusionFilter);
+            }
+            else collector = new FilteredElementCollector(doc).WhereElementIsNotElementType();
+            categoryDict = new Dictionary<string, ElementId>();
+            // 定义需要排除的类别名称（黑名单）
+            HashSet<string> _excludedCategoryNames = new HashSet<string>
+            {
+                "<面积边界>","<房间分隔>","<空间分隔>",  "内部原点", "测量点", "项目基点", "主等高线","面积", "详图项目","中心线","HVAC 区","暖通空调分区","线","空间","房间","体量","体量楼层","组成部分","结构梁系统","结构区域钢筋",
+                "结构钢筋","光栅图像","建筑地坪","家具系统","建筑红线","<隔热层线>","<行进路线>","支座","垂直循环","<基于区域的负荷边界>"
+                // 如果有其他需要排除的，可以继续添加 
+            };
+            List<ElementId> countableIds = new List<ElementId>();
+            foreach (Element elem in collector)
+            {
+                Category cat = elem.Category;
+                // 过滤无效类别，并确保该类别在当前视图中是允许被隐藏的 + 模型类别过滤
+                if (cat != null && activeView.CanCategoryBeHidden(cat.Id) && cat.CategoryType == CategoryType.Model)
+                {
+                    if (_excludedCategoryNames.Contains(cat.Name)) continue;
+                    // 存入字典去重
+                    if (!categoryDict.ContainsKey(cat.Name))
+                    {
+                        categoryDict.Add(cat.Name, cat.Id);
+                        _rawCategoryNames.Add(cat.Name);
+                    }
+                    countableIds.Add(elem.Id);
+                }
+            }
+            if (categoryDict.Count == 0)
+            {
+                TaskDialog.Show("提示", "当前模型中没有可统计类别构件！");
+                return Result.Failed;
+            }
+            // 根据类别统计构件数量并选择操作，输出分析结果
+            TaskDialog td = new TaskDialog("选择操作")
+            {
+                MainInstruction = "请选择输出查询结果类型:",
+                MainIcon = TaskDialogIcon.TaskDialogIconInformation,
+                CommonButtons = TaskDialogCommonButtons.Cancel
+            };
+            td.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "输出模型内构件类别组成分析结果");
+            td.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "输出模型内构件专业分布分析结果");
+            //td.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "导出构件按类别详细数量统计csv");
+            TaskDialogResult tdRes = td.Show();
+            if (tdRes == TaskDialogResult.Cancel) return Result.Cancelled;
+            //统计收集各类别总构件数，再次收集处理所有实例，是否可在上一步直接字典收集到ValueTuple
+            //创建一个新字典，用于高效计数 键 (Key): Category 的 ElementId
             ////    值 (Value): 该 Category 下的实例数量 (int)
-            //Dictionary<ElementId, int> categoryCounts = new Dictionary<ElementId, int>();
-
-            //// 2. 遍历所有物理实例
-            //foreach (Element elem in physicalElements)
-            //{
-            //    // 获取当前实例的Category
-            //    Category category = elem.Category;
-
-            //    // 检查Category是否有效
-            //    if (category != null)
-            //    {
-            //        ElementId categoryId = category.Id;
-
-            //        // 使用与统计Symbol时完全相同的字典逻辑
-            //        if (categoryCounts.ContainsKey(categoryId))
-            //        {
-            //            categoryCounts[categoryId]++;
-            //        }
-            //        else
-            //        {
-            //            categoryCounts.Add(categoryId, 1);
-            //        }
-            //    }
-            //}
-            //// --- 第四部分：整合所有结果并格式化输出 ---
-            //StringBuilder resultBuilder = new StringBuilder();
-            //resultBuilder.AppendLine($"模型中包含约 {physicalElementCount} 个物理模型实例。");
-            //resultBuilder.AppendLine("====================================");
-            //resultBuilder.AppendLine(); // 添加空行增加可读性
-
-            //// 添加Symbol统计结果
-            //resultBuilder.AppendLine($"▶ 这些实例分属于 {symbolCounts.Keys.Count} 个不同的构件类型/族。");
-            //resultBuilder.AppendLine("------------------------------------");
-            //resultBuilder.AppendLine("【类型】数量统计 (按数量降序):");
-            //var sortedSymbols = symbolCounts.OrderByDescending(kvp => kvp.Value);
-            //int countToShow = 10; // 最多显示前10条
-            //int currentCount = 0;
-            //foreach (KeyValuePair<ElementId, int> pair in sortedSymbols)
-            //{
-            //    if (currentCount >= countToShow)
-            //    {
-            //        resultBuilder.AppendLine($"... 以及另外 {sortedSymbols.Count() - countToShow} 种类型。");
-            //        break;
-            //    }
-            //    ElementType typeElement = doc.GetElement(pair.Key) as ElementType;
-            //    if (typeElement != null)
-            //    {
-            //        string typeName = (typeElement is FamilySymbol symbol) ? $"{symbol.Family.Name} : {typeElement.Name}" : typeElement.Name;
-            //        resultBuilder.AppendLine($" - {typeName}: {pair.Value} 个");
-            //        currentCount++;
-            //    }
-            //}
-            //resultBuilder.AppendLine();
-            //resultBuilder.AppendLine();
-
-            //// 【新增】添加Category统计结果
-            //resultBuilder.AppendLine($"▶ 这些实例分布在 {categoryCounts.Keys.Count} 个不同的类别中。");
-            //resultBuilder.AppendLine("------------------------------------");
-            //resultBuilder.AppendLine("【类别】数量统计 (按数量降序):");
-            //var sortedCategories = categoryCounts.OrderByDescending(kvp => kvp.Value);
-            //foreach (KeyValuePair<ElementId, int> pair in sortedCategories)
-            //{
-            //    // Revit中Category没有直接的Element对象，但可以通过Id获取其信息
-            //    // 注意：Category.GetCategory(doc, pair.Key) 是获取Category对象的标准方法
-            //    Category categoryInfo = Category.GetCategory(doc, pair.Key);
-            //    if (categoryInfo != null)
-            //    {
-            //        resultBuilder.AppendLine($" - {categoryInfo.Name}: {pair.Value} 个");
-            //    }
-            //}
-
-            //// 最终显示整合后的对话框
-            //TaskDialog.Show("模型详细统计报告", resultBuilder.ToString());
+            Dictionary<ElementId, int> categoryCounts = new Dictionary<ElementId, int>();
+            Dictionary<ElementId, int> symbolCounts = new Dictionary<ElementId, int>();
+            foreach (Element elem in collector)
+            {
+                Category category = elem.Category;
+                ElementId typeId = elem.GetTypeId();
+                if (category != null && _rawCategoryNames.Contains(category.Name))
+                {
+                    ElementId categoryId = category.Id;
+                    // 使用与统计Symbol时完全相同的字典逻辑
+                    if (categoryCounts.ContainsKey(categoryId))
+                    {
+                        categoryCounts[categoryId]++;
+                    }
+                    else
+                    {
+                        categoryCounts.Add(categoryId, 1);
+                    }
+                    // 检查类型ID是否有效
+                    if (typeId != null && typeId != ElementId.InvalidElementId)
+                    {
+                        // 如果字典中已经有这个类型ID，则数量加1
+                        if (symbolCounts.ContainsKey(typeId))
+                        {
+                            symbolCounts[typeId]++;
+                        }
+                        // 否则，将这个新的类型ID添加到字典中，数量设为1
+                        else
+                        {
+                            symbolCounts.Add(typeId, 1);
+                        }
+                    }
+                }
+            }
+            //只分析结果
+            if (tdRes == TaskDialogResult.CommandLink1)
+            {
+                //TaskDialog.Show("tt", "Analysis");
+                StringBuilder resultBuilder = new StringBuilder();
+                resultBuilder.AppendLine($"模型中包含约 {countableIds.Count()} 个物理模型实例。");
+                resultBuilder.AppendLine("====================================");
+                resultBuilder.AppendLine();
+                // 添加Symbol统计结果
+                resultBuilder.AppendLine($"▶ 这些实例分属于 {symbolCounts.Keys.Count} 个不同的构件类型/族。");
+                resultBuilder.AppendLine("------------------------------------");
+                resultBuilder.AppendLine("【类型】数量统计 (按数量降序):");
+                var sortedSymbols = symbolCounts.OrderByDescending(kvp => kvp.Value);
+                int countToShow = 10; // 最多显示前10条
+                int currentCount = 0;
+                foreach (KeyValuePair<ElementId, int> pair in sortedSymbols)
+                {
+                    if (currentCount >= countToShow)
+                    {
+                        resultBuilder.AppendLine($"... 以及另外 {sortedSymbols.Count() - countToShow} 种类型。");
+                        break;
+                    }
+                    ElementType typeElement = doc.GetElement(pair.Key) as ElementType;
+                    if (typeElement != null)
+                    {
+                        string typeName = (typeElement is FamilySymbol symbol) ? $"{symbol.Family.Name} : {typeElement.Name}" : typeElement.Name;
+                        resultBuilder.AppendLine($" - {typeName}: {pair.Value} 个");
+                        currentCount++;
+                    }
+                }
+                resultBuilder.AppendLine();
+                resultBuilder.AppendLine($"▶ 这些实例分布在 {categoryCounts.Keys.Count} 个不同的类别中。");
+                resultBuilder.AppendLine("------------------------------------");
+                resultBuilder.AppendLine("【类别】数量统计 (按数量降序):");
+                var sortedCategories = categoryCounts.OrderByDescending(kvp => kvp.Value);
+                foreach (KeyValuePair<ElementId, int> pair in sortedCategories)
+                {
+                    // Revit中Category没有直接的Element对象，但可以通过Id获取其信息
+                    // 注意：Category.GetCategory(doc, pair.Key) 是获取Category对象的标准方法
+                    Category categoryInfo = Category.GetCategory(doc, pair.Key);
+                    if (categoryInfo != null)
+                    {
+                        resultBuilder.AppendLine($" - {categoryInfo.Name}: {pair.Value} 个");
+                    }
+                }
+                //// 最终显示整合后的对话框
+                TaskDialog.Show("模型详细统计报告", resultBuilder.ToString());
+            }
+            //输出专业分析
+            else if (tdRes == TaskDialogResult.CommandLink2)
+            {
+                var analyzer = new ModelProfessionAnalyzer(doc);
+                string report = analyzer.GetDetailedReport();
+                TaskDialog.Show("分析结果", report);
+            }
+            else
+            {
+                TaskDialog.Show("tt", "ExportCsv");
+            }
             return Result.Succeeded;
         }
     }
@@ -162,7 +191,6 @@ namespace CreatePipe
         public bool IsMultiDiscipline { get; set; }
         public Dictionary<BuiltInCategory, int> CategoryStatistics { get; set; }
         public Dictionary<string, ProfessionStatistic> ProfessionStatistics { get; set; }
-
         public ProfessionAnalysisResult()
         {
             CategoryStatistics = new Dictionary<BuiltInCategory, int>();
@@ -175,16 +203,13 @@ namespace CreatePipe
     public class ModelProfessionAnalyzer
     {
         private readonly Document _doc;
-
         // 专业类别映射字典
         private readonly Dictionary<BuiltInCategory, string> _categoryToProfession;
-
         public ModelProfessionAnalyzer(Document doc)
         {
             _doc = doc;
             _categoryToProfession = InitializeCategoryMapping();
         }
-
         /// <summary>
         /// 初始化 BuiltInCategory 到专业的映射关系
         /// </summary>
@@ -242,9 +267,9 @@ namespace CreatePipe
             { BuiltInCategory.OST_TelephoneDevices, "电气" },
             { BuiltInCategory.OST_Wire, "电气" },
             
-            // 工艺专业
-            { BuiltInCategory.OST_SpecialityEquipment, "工艺" },
-            { BuiltInCategory.OST_GenericModel, "工艺" },
+            // 通用专业
+            { BuiltInCategory.OST_SpecialityEquipment, "通用" },
+            { BuiltInCategory.OST_GenericModel, "通用" },
             //{ BuiltInCategory.OST_Entourage, "工艺" },
             
              //其他通用类别（归入"其他"）
@@ -266,119 +291,37 @@ namespace CreatePipe
         public ProfessionAnalysisResult Analyze()
         {
             var result = new ProfessionAnalysisResult();
-
-            //var categoriesToExclude = new List<BuiltInCategory>
-            //        {
-            //            BuiltInCategory.OST_CenterLines,    BuiltInCategory.OST_CableTrayCenterLine,
-            //            BuiltInCategory.OST_CableTrayFittingCenterLine,    BuiltInCategory.OST_PipeCurvesCenterLine,
-            //            BuiltInCategory.OST_ConduitCenterLine,     BuiltInCategory.OST_ConduitFittingCenterLine,
-            //            BuiltInCategory.OST_DuctCurvesCenterLine,     BuiltInCategory.OST_DuctFittingCenterLine,
-            //            BuiltInCategory.OST_FlexDuctCurvesCenterLine,     BuiltInCategory.OST_FlexPipeCurvesCenterLine,
-            //            BuiltInCategory.OST_PipeFittingCenterLine,     BuiltInCategory.OST_StairsSketchLandingCenterLines,
-            //        };
-            //var categoryIdsToExclude = categoriesToExclude.Select(c => new ElementId((int)c)).ToList();
-            //// 3. 【关键步骤1】创建一个过滤器，用于【匹配】所有我们不想要的类别
-            //ElementFilter filterForUnwantedCategories = new ElementMulticategoryFilter(categoryIdsToExclude);
-            //// 4. 【关键步骤2】创建一个排除过滤器，它会【反转】上一步过滤器的结果
-            //ElementFilter exclusionFilter = new ExclusionFilter(filterForUnwantedCategories);
-            //// 5. 应用过滤器
-            //var allPhysicalElements = new FilteredElementCollector(_doc)
-            //    .WhereElementIsNotElementType() // 首先排除类型
-            //    .WherePasses(exclusionFilter)   // 然后应用我们的排除过滤器
-            //    .ToElements();
-
-            var allPhysicalElements = new FilteredElementCollector(_doc)
-    .WhereElementIsNotElementType() // 排除类型
-                                    // 使用 LINQ 进行精确的二次过滤
-    .Where(e =>
-    {
-        // 健壮性检查：确保元素有类别
-        if (e.Category == null) return false;
-
-        // 核心条件1：类别必须是“模型”类别。
-        // 这一步就能完美排除掉 CenterLine, Grid, Level, ReferencePlane 等。
-        if (e.Category.CategoryType != CategoryType.Model) return false;
-
-        // 核心条件2：元素必须有几何包围盒。
-        // 这可以排除掉一些空的、没有几何形状的“模型”元素。
-        if (e.get_BoundingBox(null) == null) return false;
-
-        // 你的附加条件：元素必须与阶段相关
-        if (!e.HasPhases()) return false;
-
-        return true;
-    }).ToList();
-    //.ToElements();
-
-            //        var allPhysicalElements = new FilteredElementCollector(_doc)
-            //.WhereElementIsNotElementType()          // 1. 排除类型元素，只取实例
-            //.WhereElementIsViewIndependent()         // 2. 排除视图相关元素（如标注、尺寸标注等）
-            //.Where(e =>
-            //    // 3. 核心过滤 1：必须具有类别，且类别类型必须是“模型”
-            //    // 这一步可以直接排掉 CenterLine(中心线)、Grid(轴网)、Level(标高)、ReferencePlane(参照平面) 等基准/注释元素
-            //    e.Category != null &&
-            //    e.Category.CategoryType == CategoryType.Model &&
-            //    // 4. 核心过滤 2：必须具有真实的 3D 包围盒
-            //    // 某些模型类别的空族实例可能没有几何体，通过包围盒检查可以进一步确保它是“实体”
-            //    e.get_BoundingBox(null) != null &&
-            //    // 5. 你的业务逻辑：必须包含阶段信息
-            //    e.HasPhases());
-
-
-
-            ////        //// 获取所有实体元素（排除视图、图纸等非实体类别）
-            ////        //var allPhysicalElements = new FilteredElementCollector(_doc)
-            ////        //    .WhereElementIsNotElementType()  // 排除类型元素，只取实例
-            ////        //    .WhereElementIsViewIndependent() // 排除视图相关元素               
-            ////        //    .Where(e => e.HasPhases());
-            ////        ////.ToElements();
-            ////        var categoriesToExclude = new List<BuiltInCategory>
-            ////        {
-            ////            BuiltInCategory.OST_Grids,    BuiltInCategory.OST_Levels,
-            ////            BuiltInCategory.OST_ReferenceLines,    BuiltInCategory.OST_CenterLines,
-            ////            BuiltInCategory.OST_Views,     BuiltInCategory.OST_SectionBox,
-            ////        };
-            ////        // 2. 将 BuiltInCategory 转换为 ElementId
-            ////        var categoryIdsToExclude = categoriesToExclude.Select(c => new ElementId((int)c)).ToList();
-            ////        // 3. 创建过滤器
-            ////        var multiCategoryFilter = new ElementMulticategoryFilter(categoryIdsToExclude);
-            ////        // 1. 必须有有效的包围盒（这是排除非实体元素的最快方法）2. 必须有类别3. 类别类型必须是模型（排除注释、分析等类别）
-            ////        var allPhysicalElements = new FilteredElementCollector(_doc)
-            ////            .WhereElementIsNotElementType()
-            ////// 关键：排除掉我们不想要的类别
-            ////.WherePasses(new LogicalAndFilter(new ElementIsElementTypeFilter(true), multiCategoryFilter))
-            ////            .Where(e => e.get_BoundingBox(null) != null && e.Category != null &&
-            ////            e.Category.CategoryType == CategoryType.Model)
-            ////            ;
-            //Options opt = new Options();
-            //var allPhysicalElements = new FilteredElementCollector(_doc)
-            //    .WhereElementIsNotElementType() 
-            //    .Where(e => e.get_Geometry(opt) != null);
-
+            var allPhysicalElements = new FilteredElementCollector(_doc).WhereElementIsNotElementType()
+                .Where(e =>
+                {
+                    // 健壮性检查：确保元素有类别
+                    if (e.Category == null) return false;
+                    if (e.Category.CategoryType != CategoryType.Model) return false;
+                    // 核心条件2：元素必须有几何包围盒。
+                    if (e.get_BoundingBox(null) == null) return false;
+                    // 你的附加条件：元素必须与阶段相关
+                    if (!e.HasPhases()) return false;
+                    return true;
+                }).ToList();
             int totalCount = 0;
             var categoryCountMap = new Dictionary<BuiltInCategory, int>();
             var professionCountMap = new Dictionary<string, int>();
-
             // 初始化专业计数字典
-            foreach (var profession in new[] { "建筑", "结构", "给排水", "暖通", "电气", "工艺", "其他" })
+            foreach (var profession in new[] { "建筑", "结构", "给排水", "暖通", "电气", "通用", "其他" })
             {
                 professionCountMap[profession] = 0;
             }
-
             foreach (var element in allPhysicalElements)
             {
                 // 获取元素的类别
                 Category category = element.Category;
                 if (category == null) continue;
-
                 // 获取 BuiltInCategory 值
                 BuiltInCategory bic = (BuiltInCategory)category.Id.IntegerValue;
-
                 // 统计类别计数
                 if (!categoryCountMap.ContainsKey(bic))
                     categoryCountMap[bic] = 0;
                 categoryCountMap[bic]++;
-
                 // 统计专业计数
                 if (_categoryToProfession.TryGetValue(bic, out string profession))
                 {
@@ -389,13 +332,10 @@ namespace CreatePipe
                     // 未映射的类别归入"其他"
                     professionCountMap["其他"]++;
                 }
-
                 totalCount++;
             }
-
             result.TotalElementCount = totalCount;
             result.CategoryStatistics = categoryCountMap;
-
             // 计算各专业占比
             foreach (var kvp in professionCountMap)
             {
@@ -406,19 +346,14 @@ namespace CreatePipe
                     Percentage = percentage
                 });
             }
-
             // 确定模型的主要专业（占比最高的专业）
             result.PrimaryProfession = result.ProfessionStatistics
-                .OrderByDescending(x => x.Value.Percentage)
-                .First().Key;
-
+                .OrderByDescending(x => x.Value.Percentage).First().Key;
             // 判断是否为综合模型（非主导专业占比超过15%）
             double topPercentage = result.ProfessionStatistics.Max(x => x.Value.Percentage);
             result.IsMultiDiscipline = topPercentage < 60;
-
             return result;
         }
-
         /// <summary>
         /// 获取详细的类别统计信息
         /// </summary>
@@ -426,7 +361,6 @@ namespace CreatePipe
         {
             var result = Analyze();
             var report = new System.Text.StringBuilder();
-
             report.AppendLine("========== Revit 模型专业分析报告 ==========");
             report.AppendLine($"模型总构件数: {result.TotalElementCount}");
             report.AppendLine($"主要专业: {result.PrimaryProfession}");
@@ -434,43 +368,32 @@ namespace CreatePipe
             report.AppendLine();
             report.AppendLine("各专业统计:");
             report.AppendLine("----------------------------------------");
-
             foreach (var stat in result.ProfessionStatistics.OrderByDescending(x => x.Value.Percentage))
             {
                 report.AppendLine($"{stat.Key}: {stat.Value.Count} 个构件 ({stat.Value.Percentage:F2}%)");
             }
-
             report.AppendLine();
             report.AppendLine("主要类别明细 (Top 10):");
             report.AppendLine("----------------------------------------");
-
             var topCategories = result.CategoryStatistics
-                .OrderByDescending(x => x.Value)
-                .Take(10);
-
+                .OrderByDescending(x => x.Value).Take(10);
             foreach (var kvp in topCategories)
             {
-                string categoryName = GetCategoryName(kvp.Key);
+                //string categoryName = GetCategoryName(kvp.Key);
+                string categoryName = string.Empty;
+                //// 获取类别的显示名称
+                try
+                {
+                    Category category = Category.GetCategory(_doc, kvp.Key);
+                    categoryName = category?.Name ?? kvp.Key.ToString();
+                }
+                catch
+                {
+                    categoryName = kvp.Key.ToString();
+                }
                 report.AppendLine($"{categoryName}: {kvp.Value} 个");
             }
-
             return report.ToString();
-        }
-
-        /// <summary>
-        /// 获取类别的显示名称
-        /// </summary>
-        private string GetCategoryName(BuiltInCategory bic)
-        {
-            try
-            {
-                Category category = Category.GetCategory(_doc, bic);
-                return category?.Name ?? bic.ToString();
-            }
-            catch
-            {
-                return bic.ToString();
-            }
         }
     }
 }
