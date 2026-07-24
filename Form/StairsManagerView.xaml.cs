@@ -1,6 +1,8 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
+using Autodesk.Revit.DB.ExtensibleStorage;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
 using CreatePipe.models;
 using CreatePipe.Utils;
@@ -43,9 +45,8 @@ namespace CreatePipe.Form
     {
         public Document Document { get; set; }
         public UIDocument uIDoc { get; set; }
+        public View ActiveView { get; set; }
         public BaseExternalHandler ExternalHandler { get; } = new BaseExternalHandler();
-
-
         private readonly StairsWarningService _stairsWarningService; // ViewModel 持有 StairsWarningService 实例
         public StairsManagerViewModel(UIApplication uiApp)
         {
@@ -71,33 +72,23 @@ namespace CreatePipe.Form
                 bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
                 //bool hasWarnings = _roomWarningService.HasWarningsForRoom(room.Id);
                 var entity = new StairsEntity(stair, hasWarnings);
-                if (string.IsNullOrEmpty(obj) || (!string.IsNullOrEmpty(entity.stairName) && entity.stairName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0))
+                string stairId = entity.Id.IntegerValue.ToString();
+                if (string.IsNullOrEmpty(obj) || (!string.IsNullOrEmpty(entity.stairName) && entity.stairName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0)
+                    || (!string.IsNullOrEmpty(stairId) && stairId.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0))
                 {
                     Collection.Add(entity);
                 }
             }
             //继续构造楼梯组合
+            CollectionStairGroup.Clear();
+            List<StairsGroup> groupCollections = new List<StairsGroup>();
             if (Collection == null) return;
-            List<List<StairsEntity>> groups = GroupStairsEntities(Collection);
-
-
-        }
-        /// <summary>
-        /// 按照指定规则整理楼梯实体集合
-        /// </summary>
-        /// <param name="entities">原始楼梯实体集合</param>
-        /// <returns>整理后的List集合列表</returns>
-        public List<List<StairsEntity>> GroupStairsEntities(IEnumerable<StairsEntity> entities)
-        {
-            if (entities == null || !entities.Any())
-                return new List<List<StairsEntity>>();
             // 第一步：过滤
             // IsMultiStairs = true 不受过滤条件限制，直接保留
             // 其他实体需要满足：高度 >= 1000 且 梯段数 >= 2
-            var filteredEntities = entities.Where(e => e.IsMultiStairs || (e.stairTotalHeight >= 1000 && e.Runs >= 2)).ToList();
-            if (!filteredEntities.Any()) return new List<List<StairsEntity>>();
+            var filteredEntities = Collection.Where(e => e.IsMultiStairs || (e.stairTotalHeight >= 1000 && e.Runs >= 2)).ToList();
+            if (!filteredEntities.Any()) return;
             // 第二步：按中心点位置分组
-            var groups = new List<List<StairsEntity>>();
             var remainingEntities = new HashSet<StairsEntity>(filteredEntities);
             while (remainingEntities.Any())
             {
@@ -122,32 +113,50 @@ namespace CreatePipe.Form
                     remainingEntities.Remove(matched);
                 }
                 // 即使只有1个实体，也作为独立组加入
-                groups.Add(currentGroup);
+                groupCollections.Add(new StairsGroup(currentGroup, ExternalHandler));
             }
-            TaskDialog.Show("tt", groups.Count.ToString());
-            return groups;
+            foreach (var item in groupCollections)
+            {
+                CollectionStairGroup.Add(item);
+            }
+            //TaskDialog.Show("tt", groupCollections.Count.ToString());
         }
-        /// <summary>
-        /// 判断两个点是否满足位置匹配条件
-        /// X相等（容差0.01）且Y偏差2%
-        /// 或 Y相等（容差0.01）且X偏差2%
-        /// </summary>
+        // 判断两个点是否满足位置匹配条件
+        //使用绝对距离容差：不分别比较X和Y，而是计算两点在XY平面上的欧几里得距离：
         private bool IsPositionMatch(XYZ point1, XYZ point2)
         {
-            double Tolerance = 0.01;
+            //单向容差设置在50mm左右
+            double Tolerance = 0.165;
+            //另一侧容差保持2%
             double PercentageDeviation = 0.02;
             // 忽略Z值，只比较X和Y
             double x1 = point1.X;
             double y1 = point1.Y;
             double x2 = point2.X;
             double y2 = point2.Y;
-            // 检查X是否相等（容差0.01）且Y偏差2%
-            bool condition1 = Math.Abs(x1 - x2) <= Tolerance &&
+            double dx = Math.Abs(x1 - x2);
+            double dy = Math.Abs(y1 - y2);
+
+            // 计算XY平面距离
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            // 条件1：距离在容差范围内（适用于任意方向偏移// 0.5 英尺约150mm
+            const double distanceTolerance = 0.5;
+            if (distance <= distanceTolerance)
+                return true;
+            // 条件2：X相等（容差0.01）且Y偏差2%
+            bool condition1 = dx <= Tolerance &&
                               IsWithinPercentageDeviation(y1, y2, PercentageDeviation);
-            // 检查Y是否相等（容差0.01）且X偏差2%
-            bool condition2 = Math.Abs(y1 - y2) <= Tolerance &&
+            // 条件3：Y相等（容差0.01）且X偏差2%
+            bool condition2 = dy <= Tolerance &&
                               IsWithinPercentageDeviation(x1, x2, PercentageDeviation);
             return condition1 || condition2;
+            //// 检查X是否相等（容差0.01）且Y偏差2%
+            //bool condition1 = Math.Abs(x1 - x2) <= Tolerance &&
+            //                  IsWithinPercentageDeviation(y1, y2, PercentageDeviation);
+            //// 检查Y是否相等（容差0.01）且X偏差2%
+            //bool condition2 = Math.Abs(y1 - y2) <= Tolerance &&
+            //                  IsWithinPercentageDeviation(x1, x2, PercentageDeviation);
+            //return condition1 || condition2;
         }
         /// <summary>
         /// 检查两个值是否在指定的百分比偏差范围内
@@ -169,7 +178,74 @@ namespace CreatePipe.Form
         {
             uIDoc.Selection.SetElementIds(new List<ElementId> { entity.Id });
         }
-
+        public ICommand SubViewCommand => new RelayCommand<StairsGroup>(SubView);
+        private static void SubView(StairsGroup group)
+        {
+            if (group == null) return;
+            Dictionary<string, string> stairInstanceCount = group.StairInstanceCount;
+            UniversalDictionaryListView universalDictionaryList = new UniversalDictionaryListView(stairInstanceCount, "分层统计");
+            universalDictionaryList.ShowDialog();
+        }
+        public ICommand NewSectionBoxViewCommand => new RelayCommand<StairsGroup>(NewSectionBoxView);
+        private void NewSectionBoxView(StairsGroup group)
+        {
+            if (group == null) return;
+            List<Stairs> stairs = new List<Stairs>();
+            foreach (var item in group.SelectedStairs)
+            {
+                stairs.Add(item.Stair);
+            }
+            // 3. 获取或切换到三维视图
+            View3D targetView = uIDoc.ActiveView as View3D;
+            if (targetView == null || targetView.IsTemplate)
+            {
+                targetView = new FilteredElementCollector(Document).OfClass(typeof(View3D)).Cast<View3D>()
+                    .FirstOrDefault(v => !v.IsTemplate && v.ViewType == ViewType.ThreeD);
+            }
+            if (targetView == null)
+            {
+                TaskDialog.Show("错误", "未找到可用的三维视图"); return ;
+            }
+            // 4. 合并所有楼梯的包围框
+            BoundingBoxXYZ mergedBBox = MergeBoundingBoxes(Document, stairs, targetView);
+            ExternalHandler.Run(app =>
+            {
+                NewTransaction.Execute(Document, "建立包围框", () =>
+                {
+                    targetView.SetSectionBox(mergedBBox);
+                
+                });
+            });
+            uIDoc.ActiveView = targetView;
+        }
+        // 合并多个包围框为一个最大的包含框 通用方法
+        private BoundingBoxXYZ MergeBoundingBoxes<T>(Document doc, List<T> elements, View3D view) where T : Element
+        {
+            if (elements == null || elements.Count == 0) return null;
+            BoundingBoxXYZ mergedBBox = elements[0].get_BoundingBox(view);
+            if (mergedBBox == null) return null;
+            XYZ minPoint = mergedBBox.Min;
+            XYZ maxPoint = mergedBBox.Max;
+            for (int i = 1; i < elements.Count; i++)
+            {
+                BoundingBoxXYZ bbox = elements[i].get_BoundingBox(view);
+                if (bbox == null) continue;
+                minPoint = new XYZ(
+                    Math.Min(minPoint.X, bbox.Min.X),
+                    Math.Min(minPoint.Y, bbox.Min.Y),
+                    Math.Min(minPoint.Z, bbox.Min.Z)
+                );
+                maxPoint = new XYZ(
+                    Math.Max(maxPoint.X, bbox.Max.X),
+                    Math.Max(maxPoint.Y, bbox.Max.Y),
+                    Math.Max(maxPoint.Z, bbox.Max.Z)
+                );
+            }
+            BoundingBoxXYZ result = new BoundingBoxXYZ();
+            result.Min = minPoint;
+            result.Max = maxPoint;
+            return result;
+        }
         public ICommand DeleteElementCommand => new RelayCommand<StairsEntity>(DeleteElement);
         public void DeleteElement(StairsEntity entity)
         {
@@ -180,11 +256,17 @@ namespace CreatePipe.Form
         {
             throw new NotImplementedException();
         }
-        private ObservableCollection<StairsEntity> allRooms = new ObservableCollection<StairsEntity>();
+        private ObservableCollection<StairsEntity> allStairs = new ObservableCollection<StairsEntity>();
         public ObservableCollection<StairsEntity> Collection
         {
-            get => allRooms;
-            set => SetProperty(ref allRooms, value);
+            get => allStairs;
+            set => SetProperty(ref allStairs, value);
+        }
+        private ObservableCollection<StairsGroup> allStairGroups = new ObservableCollection<StairsGroup>();
+        public ObservableCollection<StairsGroup> CollectionStairGroup
+        {
+            get => allStairGroups;
+            set => SetProperty(ref allStairGroups, value);
         }
     }
 }

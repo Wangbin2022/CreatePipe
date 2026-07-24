@@ -101,7 +101,7 @@ SortMemberPath="HasWarnings" >
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="选择楼梯" CanUserResize="False" Width="70">
+                        <DataGridTemplateColumn Header="选择楼梯" CanUserResize="False" Width="75">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Content="{Binding Id}" Width="70" Command="{Binding DataContext.PickElementCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
@@ -125,7 +125,7 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
               AutoGenerateColumns="False" CanUserAddRows="False"
               SelectionUnit="FullRow" EnableColumnVirtualization="False"
               GridLinesVisibility="None" Width="auto" Height="325"
-              SelectionMode="Extended" ItemsSource="{Binding Collection}">
+              SelectionMode="Extended" ItemsSource="{Binding CollectionStairGroup}">
                     <DataGrid.Resources>
                         <Style x:Key="TextVerticalCenter" TargetType="{x:Type TextBlock}">
                             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -136,8 +136,25 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                         </Style>
                     </DataGrid.Resources>
                     <DataGrid.Columns>
-                        <!--<DataGridTextColumn Header="梯段宽" Binding="{Binding stairRunWidth, StringFormat={}{0:F1}}" Width="50" IsReadOnly="True" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="stairRunWidth" />-->
-
+                        <DataGridTextColumn Header="楼梯编号" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"  Width="66" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="Name" />
+                        <DataGridTextColumn Header="构件数"   Binding="{Binding SelectedStairs.Count}" 
+                          Width="50"  IsReadOnly="True"  ElementStyle="{StaticResource TextVerticalCenter}" />
+                        <DataGridTemplateColumn Header="统计" CanUserResize="False" Width="66">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="梯段" Width="60" Command="{Binding DataContext.SubViewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+CommandParameter="{Binding .}" Height="28" HorizontalAlignment="Stretch"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="三维生成" CanUserResize="False" Width="85">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="生成" Width="80" Command="{Binding DataContext.NewSectionBoxViewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+CommandParameter="{Binding .}" Height="28" HorizontalAlignment="Stretch"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>

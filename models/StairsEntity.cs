@@ -4,6 +4,7 @@ using CreatePipe.cmd;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,32 +14,69 @@ namespace CreatePipe.models
     public class StairsGroup : ObserverableObject
     {
         public Document Document;
-        private readonly BaseExternalHandler _handler;
-        public List<StairsEntity> selectedStairs { get; set; } = new List<StairsEntity>();
-        public StairsGroup(List<StairsEntity> stairs)
+        public BaseExternalHandler ExternalHandler { get; } = new BaseExternalHandler();
+        public StairsGroup(List<StairsEntity> stairs, BaseExternalHandler _handler)
         {
             Document = stairs.FirstOrDefault().Document;
-
+            SelectedStairs = new ObservableCollection<StairsEntity>(stairs);
+            ExternalHandler = _handler;
+            // 初始化名称
+            if (SelectedStairs.Any())
+            {
+                _name = SelectedStairs.First().stairName;
+            }
+            // 楼梯统计
+            StairInstanceCount = stairs.ToDictionary( g => g.Id.IntegerValue.ToString(), g => g.startLevelHeight.ToString("F2"));
         }
-
+        public Dictionary<string, string> StairInstanceCount { get; set; } = new Dictionary<string, string>();
         private string _name;
         public string Name
         {
             get => _name;
             set
             {
-                _handler.Run(app =>
+                // 避免重复赋值
+                if (_name == value) return;
+                // ★ 修复：在外部处理器中执行事务
+                ExternalHandler.Run(app =>
                 {
-                    NewTransaction.Execute(Document, "修改名称", () =>
+                    NewTransaction.Execute(Document, "修改楼梯组名称", () =>
                     {
-                        foreach (var item in selectedStairs)
+                        // ★ 修复：使用 value，而非 _name
+                        foreach (var item in SelectedStairs)
                         {
-                            item.Stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS).Set(_name);
+                            var param = item.Stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
+                            if (param != null && !param.IsReadOnly)
+                            {
+                                // ★ 关键：Set 的是新值 value
+                                param.Set(value);
+                            }
+                            // ★ 同时更新内存中的 StairsEntity.stairName
+                            item.stairName = value;
                         }
+                        // ★ 在事务内更新 _name
+                        _name = value;
                     });
-                    _name = value;
                 });
-                OnPropertyChanged();
+                // ★ 修复：传参 nameof(Name)，通知 UI 更新
+                OnPropertyChanged(nameof(Name));
+            }
+        }
+        private ObservableCollection<StairsEntity> _selectedStairs;
+        public ObservableCollection<StairsEntity> SelectedStairs
+        {
+            get => _selectedStairs;
+            set
+            {
+                if (_selectedStairs == value) return;
+                _selectedStairs = value;
+                OnPropertyChanged(nameof(SelectedStairs));
+
+                if (_selectedStairs?.Any() == true)
+                {
+                    _name = _selectedStairs.First().stairName;
+                    OnPropertyChanged(nameof(Name));
+                }
             }
         }
     }
@@ -68,7 +106,6 @@ namespace CreatePipe.models
                 var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().ToList();
                 double deltaHeight = basePoint.FirstOrDefault().Position.Z * 304.8;
                 startLevelHeight = firstStair.BaseElevation * 304.8 - deltaHeight;
-                stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS).AsString();
             }
             else
             {
@@ -83,8 +120,8 @@ namespace CreatePipe.models
                 var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().ToList();
                 double deltaHeight = basePoint.FirstOrDefault().Position.Z * 304.8;
                 startLevelHeight = stair.BaseElevation * 304.8 - deltaHeight;
-                stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS).AsString();
             }
+            stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
             //取楼梯中心几何点投影点
             BoundingBoxXYZ bbox = stair.get_BoundingBox(null);
             XYZ min = bbox.Min;
@@ -97,10 +134,21 @@ namespace CreatePipe.models
         }
         //public double stairArea { get; } = 0;
         //public string startLevelName { get; set; }
-        //梯段组合属性
-        public string stairName { get; set; }
+        //梯段组合属性  实现属性变更通知
+        private string _stairName;
+        public string stairName
+        {
+            get => _stairName;
+            set
+            {
+                if (_stairName != value)
+                {
+                    _stairName = value;
+                    OnPropertyChanged(nameof(stairName));
+                }
+            }
+        }
         public bool isBaseStair { get; } = false;
-
         //以下为单体梯段属性
         public double startLevelHeight { get; }
         public XYZ stairCenter { get; } = new XYZ();
