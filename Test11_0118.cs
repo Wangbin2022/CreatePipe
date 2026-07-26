@@ -750,10 +750,15 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //////0721 楼梯收集
+
+            ////////0721 楼梯收集
             StairsManagerView stairsManagerView = new StairsManagerView(uiApp);
             stairsManagerView.Show();
-
+            //NewTransaction.Execute(doc, "建立包围框", () =>
+            //{
+            //    var id = new ElementId(3290763); //3288901不对
+            //    doc.Delete(id);
+            //});
             ////var reference = uiDoc.Selection.PickObject(ObjectType.Element, new StairsFilter(), "拾取楼梯");
             ////Stairs stair = doc.GetElement(reference) as Stairs;
             ////// 获取当前活动视图，如果是三维视图则直接使用

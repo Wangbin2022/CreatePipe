@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.ExtensibleStorage;
+using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using CreatePipe.cmd;
@@ -8,19 +9,22 @@ using CreatePipe.models;
 using CreatePipe.Utils;
 using CreatePipe.Utils.Interfaces;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+using static System.Windows.Forms.AxHost;
+
+
+
 
 namespace CreatePipe.Form
 {
@@ -38,9 +42,7 @@ namespace CreatePipe.Form
         {
             this.Close();
         }
-
     }
-
     public partial class StairsManagerViewModel : ObserverableObject, IQueryViewModelWithDelete<StairsEntity>
     {
         public Document Document { get; set; }
@@ -53,73 +55,209 @@ namespace CreatePipe.Form
             Document = uiApp.ActiveUIDocument.Document;
             uIDoc = uiApp.ActiveUIDocument;
             _stairsWarningService = new StairsWarningService(Document);
-            QueryElement(string.Empty);
+            InitFunc();
         }
-        public void InitFunc() => QueryElement(null);
-        public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
-        public void QueryElement(string obj)
+        public void InitFunc()
         {
-            Collection.Clear();
-            //  优化核心：先对轻量的 Room 对象进行过滤 
-            var stairs = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Stairs)
-                .WhereElementIsNotElementType().Cast<Stairs>().ToList();
-            // 1. 进行一次全局的警告分析。这是最有效率的方式，避免循环查询Revit的警告列表。
-            StairsWarningAnalysisResult analysisResult = _stairsWarningService.AnalyzeStairsWarnings();
-            // 只为过滤后的结果创建 RoomSingleEntity 对象
-            foreach (var stair in stairs)
-            {
-                // 创建对象时传入缓存数据
-                bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
-                //bool hasWarnings = _roomWarningService.HasWarningsForRoom(room.Id);
-                var entity = new StairsEntity(stair, hasWarnings);
-                string stairId = entity.Id.IntegerValue.ToString();
-                if (string.IsNullOrEmpty(obj) || (!string.IsNullOrEmpty(entity.stairName) && entity.stairName.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0)
-                    || (!string.IsNullOrEmpty(stairId) && stairId.IndexOf(obj, StringComparison.OrdinalIgnoreCase) >= 0))
-                {
-                    Collection.Add(entity);
-                }
-            }
-            //继续构造楼梯组合
+            // 改为初始化时一次性加载全部数据 // 默认显示全部
+            LoadAllStairsFromDocument();
+            QueryElement(string.Empty);
+            // 构建楼梯组合（从 _allStairsCache 中构建
             CollectionStairGroup.Clear();
+            if (_allStairsCache == null || _allStairsCache.Count == 0) return;
             List<StairsGroup> groupCollections = new List<StairsGroup>();
-            if (Collection == null) return;
             // 第一步：过滤
-            // IsMultiStairs = true 不受过滤条件限制，直接保留
-            // 其他实体需要满足：高度 >= 1000 且 梯段数 >= 2
-            var filteredEntities = Collection.Where(e => e.IsMultiStairs || (e.stairTotalHeight >= 1000 && e.Runs >= 2)).ToList();
+            var filteredEntities = _allStairsCache.Where(e => e.IsMultiStairs || (e.stairTotalHeight >= 1000 && e.Runs >= 2)).ToList();
             if (!filteredEntities.Any()) return;
             // 第二步：按中心点位置分组
             var remainingEntities = new HashSet<StairsEntity>(filteredEntities);
             while (remainingEntities.Any())
             {
-                // 取出第一个实体作为基准
                 var baseEntity = remainingEntities.First();
                 var currentGroup = new List<StairsEntity> { baseEntity };
                 remainingEntities.Remove(baseEntity);
-                // 查找与基准实体位置匹配的其他实体
-                List<StairsEntity> matchedEntities = new List<StairsEntity>();
                 var baseCenter = baseEntity.stairCenter;
-                foreach (var candidate in remainingEntities)
-                {
-                    var candidateCenter = candidate.stairCenter;
-                    if (IsPositionMatch(baseCenter, candidateCenter))
-                    {
-                        matchedEntities.Add(candidate);
-                    }
-                }
+                var matchedEntities = remainingEntities.Where(c => IsPositionMatch(baseCenter, c.stairCenter)).ToList();
                 foreach (var matched in matchedEntities)
                 {
                     currentGroup.Add(matched);
                     remainingEntities.Remove(matched);
                 }
-                // 即使只有1个实体，也作为独立组加入
                 groupCollections.Add(new StairsGroup(currentGroup, ExternalHandler));
             }
             foreach (var item in groupCollections)
             {
                 CollectionStairGroup.Add(item);
             }
-            //TaskDialog.Show("tt", groupCollections.Count.ToString());
+        }
+        private void LoadAllStairsFromDocument()
+        {
+            try
+            {
+                var stairs = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Stairs)
+                    .WhereElementIsNotElementType().Cast<Stairs>().ToList();
+                // 一次性分析警告
+                StairsWarningAnalysisResult analysisResult = _stairsWarningService.AnalyzeStairsWarnings();
+                _allStairsCache = new List<StairsEntity>();
+                // 分离多层楼梯和单层楼梯
+                var multiStairsGroups = new Dictionary<ElementId, List<Stairs>>();
+                var singleStairs = new List<Stairs>();
+                foreach (var stair in stairs)
+                {
+                    // 检查是否属于多层楼梯
+                    if (stair.MultistoryStairsId != null &&
+                        stair.MultistoryStairsId != ElementId.InvalidElementId)
+                    {
+                        var multiStairsId = stair.MultistoryStairsId;
+                        if (!multiStairsGroups.ContainsKey(multiStairsId))
+                        {
+                            multiStairsGroups[multiStairsId] = new List<Stairs>();
+                        }
+                        multiStairsGroups[multiStairsId].Add(stair);
+                    }
+                    else
+                    {
+                        singleStairs.Add(stair);
+                    }
+                }
+                // 处理单层楼梯
+                foreach (var stair in singleStairs)
+                {
+                    bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
+                    var entity = new StairsEntity(stair, hasWarnings);
+                    _allStairsCache.Add(entity);
+                }
+                // 处理多层楼梯组
+                foreach (var kvp in multiStairsGroups)
+                {
+                    var multiStairsId = kvp.Key;
+                    var stairComponents = kvp.Value;
+                    // 获取多层楼梯组对象
+                    MultistoryStairs multiStairs = Document.GetElement(multiStairsId) as MultistoryStairs;
+                    if (multiStairs != null)
+                    {
+                        // 检查这个多层楼梯组是否有警告
+                        bool hasWarnings = stairComponents
+                            .Any(component => _stairsWarningService.HasWarningsForStairs(component.Id, analysisResult));
+                        // 传入 MultistoryStairs 对象
+                        var entity = new StairsEntity(multiStairs, hasWarnings);
+                        _allStairsCache.Add(entity);
+                    }
+                }
+                // 排序
+                _allStairsCache = _allStairsCache.OrderBy(e => e.stairName).ToList();
+            }
+            catch (Exception ex)
+            {
+                _allStairsCache = new List<StairsEntity>();
+                // 记录错误日志
+                System.Diagnostics.Debug.WriteLine($"加载楼梯失败：{ex.Message}");
+            }
+            //try
+            //{
+            //    var stairs = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Stairs).WhereElementIsNotElementType().Cast<Stairs>().ToList();
+            //    // 一次性分析警告
+            //    StairsWarningAnalysisResult analysisResult = _stairsWarningService.AnalyzeStairsWarnings();
+            //    // 创建缓存
+            //    _allStairsCache = new List<StairsEntity>();
+            //    // 分离多层楼梯和单层楼梯
+            //    var multiStairsGroups = new Dictionary<ElementId, List<Stairs>>();
+            //    var singleStairs = new List<Stairs>();
+            //    foreach (var stair in stairs)
+            //    {
+            //        // 检查是否属于多层楼梯
+            //        if (stair.MultistoryStairsId != null &&
+            //            stair.MultistoryStairsId != ElementId.InvalidElementId)
+            //        {
+            //            // 属于多层楼梯
+            //            var multiStairsId = stair.MultistoryStairsId;
+            //            if (!multiStairsGroups.ContainsKey(multiStairsId))
+            //            {
+            //                multiStairsGroups[multiStairsId] = new List<Stairs>();
+            //            }
+            //            multiStairsGroups[multiStairsId].Add(stair);
+            //        }
+            //        else
+            //        {
+            //            // 单层楼梯
+            //            singleStairs.Add(stair);
+            //        }
+            //    }
+            //    // 处理单层楼梯
+            //    foreach (var stair in singleStairs)
+            //    {
+            //        bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
+            //        var entity = new StairsEntity(stair, hasWarnings);
+            //        _allStairsCache.Add(entity);
+            //    }
+            //    // 处理多层楼梯组
+            //    foreach (var kvp in multiStairsGroups)
+            //    {
+            //        var multiStairsId = kvp.Key;
+            //        var stairComponents = kvp.Value;
+            //        // 获取多层楼梯组对象
+            //        MultistoryStairs multiStairs = Document.GetElement(multiStairsId) as MultistoryStairs;
+            //        if (multiStairs != null)
+            //        {
+            //            // 检查这个多层楼梯组是否有警告
+            //            bool hasWarnings = false;
+            //            foreach (var component in stairComponents)
+            //            {
+            //                if (_stairsWarningService.HasWarningsForStairs(component.Id, analysisResult))
+            //                {
+            //                    hasWarnings = true;
+            //                    break;
+            //                }
+            //            }
+            //            var entity = new StairsEntity(multiStairs, hasWarnings);
+            //            _allStairsCache.Add(entity);
+            //        }
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    _allStairsCache = new List<StairsEntity>();
+            //}
+            //原版混合版entity
+            //try
+            //{
+            //    var stairs = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Stairs)
+            //        .WhereElementIsNotElementType().Cast<Stairs>().ToList();
+            //    // 一次性分析警告
+            //    StairsWarningAnalysisResult analysisResult = _stairsWarningService.AnalyzeStairsWarnings();
+            //    // 创建缓存
+            //    _allStairsCache = new List<StairsEntity>();
+            //    foreach (var stair in stairs)
+            //    {
+            //        bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
+            //        var entity = new StairsEntity(stair, hasWarnings);
+            //        _allStairsCache.Add(entity);
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    _allStairsCache = new List<StairsEntity>();
+            //}
+        }
+        private List<StairsEntity> _allStairsCache;
+        public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
+        public void QueryElement(string searchText)
+        {
+            Collection.Clear();
+            if (_allStairsCache == null || _allStairsCache.Count == 0) return;
+            // 字符串过滤（内存操作，极快）
+            var filtered = string.IsNullOrWhiteSpace(searchText)
+                ? _allStairsCache : _allStairsCache.Where(e =>
+                {
+                    string searchLower = searchText.ToLowerInvariant();
+                    string stairId = e.Id.IntegerValue.ToString();
+                    return (e.stairName?.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                           (stairId.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
+                }).ToList();
+            foreach (var item in filtered)
+            {
+                Collection.Add(item);
+            }
         }
         // 判断两个点是否满足位置匹配条件
         //使用绝对距离容差：不分别比较X和Y，而是计算两点在XY平面上的欧几里得距离：
@@ -158,9 +296,7 @@ namespace CreatePipe.Form
             //                  IsWithinPercentageDeviation(x1, x2, PercentageDeviation);
             //return condition1 || condition2;
         }
-        /// <summary>
-        /// 检查两个值是否在指定的百分比偏差范围内
-        /// </summary>
+        // 检查两个值是否在指定的百分比偏差范围内
         private bool IsWithinPercentageDeviation(double value1, double value2, double percentage)
         {
             double Tolerance = 0.01;
@@ -204,7 +340,7 @@ namespace CreatePipe.Form
             }
             if (targetView == null)
             {
-                TaskDialog.Show("错误", "未找到可用的三维视图"); return ;
+                TaskDialog.Show("错误", "未找到可用的三维视图"); return;
             }
             // 4. 合并所有楼梯的包围框
             BoundingBoxXYZ mergedBBox = MergeBoundingBoxes(Document, stairs, targetView);
@@ -213,7 +349,7 @@ namespace CreatePipe.Form
                 NewTransaction.Execute(Document, "建立包围框", () =>
                 {
                     targetView.SetSectionBox(mergedBBox);
-                
+
                 });
             });
             uIDoc.ActiveView = targetView;
@@ -246,6 +382,46 @@ namespace CreatePipe.Form
             result.Max = maxPoint;
             return result;
         }
+        public ICommand NewSectionCommand => new RelayCommand<StairsGroup>(NewSection);
+        private void NewSection(StairsGroup group)
+        {
+            if (group == null) return;
+            List<Stairs> stairs = new List<Stairs>();
+            foreach (var item in group.SelectedStairs)
+            {
+                stairs.Add(item.Stair);
+            }
+            // 3. 获取或切换到三维视图
+            View3D targetView = uIDoc.ActiveView as View3D;
+            if (targetView == null || targetView.IsTemplate)
+            {
+                targetView = new FilteredElementCollector(Document).OfClass(typeof(View3D)).Cast<View3D>()
+                    .FirstOrDefault(v => !v.IsTemplate && v.ViewType == ViewType.ThreeD);
+            }
+            if (targetView == null)
+            {
+                TaskDialog.Show("错误", "未找到可用的三维视图"); return;
+            }
+            // 4. 合并所有楼梯的包围框
+            BoundingBoxXYZ mergedBBox = MergeBoundingBoxes(Document, stairs, targetView);
+            ViewSection createdSection = null;
+            // 1. 在事务中创建视图
+            ExternalHandler.Run(app =>
+            {
+                NewTransaction.Execute(Document, "生成剖面", () =>
+                {
+                    // 使用自动使用长边生成剖面
+                    var dir = PickDirectionByLongestEdge(mergedBBox);
+                    ViewSection sectionView = SectionViewHelper.CreateSection(Document, mergedBBox, dir, 200);
+                    createdSection = sectionView; // 保存创建的视图引用
+                });
+                // 2. 在事务外部激活视图
+                if (createdSection != null)
+                {
+                    uIDoc.ActiveView = createdSection;
+                }
+            });
+        }
         public ICommand DeleteElementCommand => new RelayCommand<StairsEntity>(DeleteElement);
         public void DeleteElement(StairsEntity entity)
         {
@@ -254,7 +430,38 @@ namespace CreatePipe.Form
         public ICommand DeleteElementsCommand => new RelayCommand<IEnumerable<object>>(DeleteElements);
         public void DeleteElements(IEnumerable<object> selectedItems)
         {
-            throw new NotImplementedException();
+            var selectedEntities = selectedItems.Cast<StairsEntity>().ToList();
+            if (selectedEntities == null || !selectedEntities.Any())
+            {
+                TaskDialog.Show("提示", "请选择要删除的元素");
+                return;
+            }
+            var idsToDelete = selectedEntities
+                .Where(e => e.Id != null && e.Id != ElementId.InvalidElementId)
+                .Select(e => e.Id).Distinct().ToList();
+            if (!idsToDelete.Any())
+            {
+                TaskDialog.Show("提示", "没有可删除的有效元素");
+                return;
+            }
+            // 执行删除
+            ExternalHandler.Run(app =>
+            {
+                NewTransaction.Execute(Document, "删除实例", () =>
+                {
+                    try
+                    {
+                        Document.Delete(idsToDelete);
+                    }
+                    catch (Exception ex)
+                    {
+                        TaskDialog.Show("错误", $"删除失败：{ex.Message}");
+                    }
+                });
+                // 刷新列表
+                InitFunc();
+            });
+
         }
         private ObservableCollection<StairsEntity> allStairs = new ObservableCollection<StairsEntity>();
         public ObservableCollection<StairsEntity> Collection
@@ -267,6 +474,169 @@ namespace CreatePipe.Form
         {
             get => allStairGroups;
             set => SetProperty(ref allStairGroups, value);
+        }
+        private SectionDirection PickDirectionByLongestEdge(BoundingBoxXYZ bbox)
+        {
+            double dx = bbox.Max.X - bbox.Min.X;
+            double dy = bbox.Max.Y - bbox.Min.Y;
+            // 长边为 X → 生成沿 X 观察的剖面（Front，看整个 X 立面）
+            // 长边为 Y → 生成沿 Y 观察的剖面（Right/Left）
+            return dx >= dy ? SectionDirection.Front : SectionDirection.Right;
+        }
+        /// <summary>
+        /// 剖面观察方向
+        /// </summary>
+        public enum SectionDirection
+        {
+            Front,   // 前视：从 +Y 看向 -Y
+            Back,    // 后视：从 -Y 看向 +Y
+            Left,    // 左视：从 -X 看向 +X
+            Right,   // 右视：从 +X 看向 -X
+            Top,     // 俯视：从 +Z 看向 -Z
+            Bottom   // 仰视：从 -Z 看向 +Z
+        }
+        public static class SectionViewHelper
+        {
+            private const double MM_TO_FEET = 1.0 / 304.8;
+            /// <summary>
+            /// 根据包围盒和指定方向创建剖面视图（裁剪范围紧贴包围盒边界）
+            /// ★ 必须在事务(Transaction)内调用
+            /// </summary>
+            /// <param name="doc">文档</param>
+            /// <param name="bbox">包围盒（可带 Transform）</param>
+            /// <param name="direction">观察方向</param>
+            /// <param name="marginMm">宽/高方向外扩边距(mm)，默认0严格贴合；正值会超出边界</param>
+            /// <returns>创建的剖面视图</returns>
+            public static ViewSection CreateSection(Document doc, BoundingBoxXYZ bbox, SectionDirection direction, double marginMm = 0)
+            {
+                if (doc == null || bbox == null) return null;
+
+                // 1. 获取剖面视图类型
+                ViewFamilyType vft = new FilteredElementCollector(doc)
+                    .OfClass(typeof(ViewFamilyType))
+                    .Cast<ViewFamilyType>()
+                    .FirstOrDefault(x => x.ViewFamily == ViewFamily.Section);
+                if (vft == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("❌ 未找到剖面视图类型");
+                    return null;
+                }
+
+                // 2. 将包围盒转换为世界坐标轴对齐的 min/max（兼容带 Transform 的 bbox）
+                GetWorldAABB(bbox, out XYZ min, out XYZ max);
+
+                XYZ center = (min + max) * 0.5;
+                double hx = (max.X - min.X) * 0.5;  // 世界 X 半尺寸
+                double hy = (max.Y - min.Y) * 0.5;  // 世界 Y 半尺寸
+                double hz = (max.Z - min.Z) * 0.5;  // 世界 Z 半尺寸
+
+                // 3. 根据方向确定坐标系与局部尺寸
+                //    localHalf = (右方向半宽, 上方向半高, 深度半长)
+                XYZ basisX, basisY, basisZ;
+                double halfW, halfH, halfD;
+
+                switch (direction)
+                {
+                    case SectionDirection.Front:
+                        basisX = -XYZ.BasisX; basisY = XYZ.BasisZ; basisZ = XYZ.BasisY;
+                        halfW = hx; halfH = hz; halfD = hy;
+                        break;
+                    case SectionDirection.Back:
+                        basisX = XYZ.BasisX; basisY = XYZ.BasisZ; basisZ = -XYZ.BasisY;
+                        halfW = hx; halfH = hz; halfD = hy;
+                        break;
+                    case SectionDirection.Left:
+                        basisX = -XYZ.BasisY; basisY = XYZ.BasisZ; basisZ = -XYZ.BasisX;
+                        halfW = hy; halfH = hz; halfD = hx;
+                        break;
+                    case SectionDirection.Right:
+                        basisX = XYZ.BasisY; basisY = XYZ.BasisZ; basisZ = XYZ.BasisX;
+                        halfW = hy; halfH = hz; halfD = hx;
+                        break;
+                    case SectionDirection.Top:
+                        basisX = XYZ.BasisX; basisY = XYZ.BasisY; basisZ = XYZ.BasisZ;
+                        halfW = hx; halfH = hy; halfD = hz;
+                        break;
+                    case SectionDirection.Bottom:
+                        basisX = -XYZ.BasisX; basisY = XYZ.BasisY; basisZ = -XYZ.BasisZ;
+                        halfW = hx; halfH = hy; halfD = hz;
+                        break;
+                    default:
+                        return null;
+                }
+
+                double margin = marginMm * MM_TO_FEET;
+
+                // 4. 构建剖面坐标系
+                Transform transform = Transform.Identity;
+                transform.Origin = center;
+                transform.BasisX = basisX;
+                transform.BasisY = basisY;
+                transform.BasisZ = basisZ;
+
+                // 5. 构建剖面框
+                //    宽高可加 margin；深度 Z 不加 margin，保证裁剪不超出包围盒
+                BoundingBoxXYZ sectionBox = new BoundingBoxXYZ
+                {
+                    Transform = transform,
+                    Min = new XYZ(-halfW - margin, -halfH - margin, -halfD),
+                    Max = new XYZ(halfW + margin, halfH + margin, halfD)
+                };
+
+                // 6. 创建剖面视图
+                ViewSection section = ViewSection.CreateSection(doc, vft.Id, sectionBox);
+
+                if (section != null)
+                {
+                    // 确保远裁剪激活，深度严格贴合
+                    Parameter farActive = section.get_Parameter(BuiltInParameter.VIEWER_BOUND_ACTIVE_FAR);
+                    farActive?.Set(1);
+
+                    section.Scale = 100;
+                    section.DetailLevel = ViewDetailLevel.Medium;
+
+                    System.Diagnostics.Debug.WriteLine(
+                        $"✅ 创建剖面成功: {direction}, 深度={halfD * 2 * 304.8:F0}mm");
+                }
+
+                return section;
+            }
+
+            /// <summary>
+            /// 将（可能带 Transform 的）包围盒转换为世界坐标轴对齐的 Min/Max
+            /// </summary>
+            private static void GetWorldAABB(BoundingBoxXYZ bbox, out XYZ min, out XYZ max)
+            {
+                Transform t = bbox.Transform ?? Transform.Identity;
+                XYZ bmin = bbox.Min;
+                XYZ bmax = bbox.Max;
+                // 若为单位变换，直接返回
+                if (t.IsIdentity)
+                {
+                    min = bmin;
+                    max = bmax;
+                    return;
+                }
+                // 变换 8 个角点，重新求轴对齐包围盒
+                double minX = double.MaxValue, minY = double.MaxValue, minZ = double.MaxValue;
+                double maxX = double.MinValue, maxY = double.MinValue, maxZ = double.MinValue;
+                for (int i = 0; i < 2; i++)
+                    for (int j = 0; j < 2; j++)
+                        for (int k = 0; k < 2; k++)
+                        {
+                            XYZ corner = new XYZ(
+                                i == 0 ? bmin.X : bmax.X,
+                                j == 0 ? bmin.Y : bmax.Y,
+                                k == 0 ? bmin.Z : bmax.Z);
+                            XYZ w = t.OfPoint(corner);
+
+                            minX = Math.Min(minX, w.X); maxX = Math.Max(maxX, w.X);
+                            minY = Math.Min(minY, w.Y); maxY = Math.Max(maxY, w.Y);
+                            minZ = Math.Min(minZ, w.Z); maxZ = Math.Max(maxZ, w.Z);
+                        }
+                min = new XYZ(minX, minY, minZ);
+                max = new XYZ(maxX, maxY, maxZ);
+            }
         }
     }
 }

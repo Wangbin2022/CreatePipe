@@ -26,7 +26,7 @@ namespace CreatePipe.models
                 _name = SelectedStairs.First().stairName;
             }
             // 楼梯统计
-            StairInstanceCount = stairs.ToDictionary( g => g.Id.IntegerValue.ToString(), g => g.startLevelHeight.ToString("F2"));
+            StairInstanceCount = stairs.ToDictionary(g => g.Id.IntegerValue.ToString(), g => g.startLevelHeight.ToString("F2"));
         }
         public Dictionary<string, string> StairInstanceCount { get; set; } = new Dictionary<string, string>();
         private string _name;
@@ -83,55 +83,126 @@ namespace CreatePipe.models
     public class StairsEntity : ObserverableObject
     {
         public Document Document;
-        public StairsEntity(Stairs stair, bool hasWarnings)
+        // 楼梯引用
+        public Stairs Stair { get; private set; }
+        public MultistoryStairs MultiStairs { get; private set; }
+        //public Stairs Stair { get; set; }
+        public StairsEntity(Element stairElement, bool hasWarnings)
         {
-            Document = stair.Document;
-            Stair = stair;
-            Id = stair.Id;
-            if (stair.MultistoryStairsId != ElementId.InvalidElementId)
-            {
-                IsMultiStairs = true;
-                MultistoryStairs multiStairs = Document.GetElement(stair.MultistoryStairsId) as MultistoryStairs;
-                var ids = multiStairs.GetStairsPlacementLevels(stair);
-                Stairs firstStair = multiStairs.GetStairsOnLevel(Document.GetElement(ids.FirstOrDefault()).Id);
+            Document = stairElement.Document;
+            Id = stairElement.Id;
+            HasWarnings = hasWarnings;
 
-                stepHeight = firstStair.ActualRiserHeight * 304.8;
-                stepWidth = firstStair.ActualTreadDepth * 304.8;
-                Runs = firstStair.GetStairsRuns().Count * ids.Count;
-                ActualVerticalSteps = firstStair.ActualRisersNumber * ids.Count;
-                ActualHorizontalSteps = firstStair.ActualTreadsNumber * ids.Count;
-                stairTotalHeight = firstStair.Height * 304.8 * ids.Count;
-                stairRunWidth = (Document.GetElement(firstStair.GetStairsRuns().FirstOrDefault()) as StairsRun).ActualRunWidth * 304.8;
-                ////绝对高度底和顶，要计入项目基点高差                
-                var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().ToList();
-                double deltaHeight = basePoint.FirstOrDefault().Position.Z * 304.8;
-                startLevelHeight = firstStair.BaseElevation * 304.8 - deltaHeight;
+            // 判断类型并初始化
+            if (stairElement is MultistoryStairs multiStairs)
+            {
+                InitializeFromMultiStairs(multiStairs, hasWarnings);
+            }
+            else if (stairElement is Stairs singleStair)
+            {
+                InitializeFromSingleStair(singleStair, hasWarnings);
             }
             else
             {
-                stepHeight = stair.ActualRiserHeight * 304.8;
-                stepWidth = stair.ActualTreadDepth * 304.8;
-                ActualVerticalSteps = stair.ActualRisersNumber;
-                ActualHorizontalSteps = stair.ActualTreadsNumber;
-                Runs = stair.GetStairsRuns().Count;
-                stairTotalHeight = stair.Height * 304.8;
-                stairRunWidth = (Document.GetElement(stair.GetStairsRuns().FirstOrDefault()) as StairsRun).ActualRunWidth * 304.8;
-                ////绝对高度底和顶，要计入项目基点高差                
-                var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().ToList();
-                double deltaHeight = basePoint.FirstOrDefault().Position.Z * 304.8;
-                startLevelHeight = stair.BaseElevation * 304.8 - deltaHeight;
+                throw new ArgumentException("元素必须是 Stairs 或 MultistoryStairs 类型");
             }
-            stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
-            //取楼梯中心几何点投影点
-            BoundingBoxXYZ bbox = stair.get_BoundingBox(null);
-            XYZ min = bbox.Min;
-            XYZ max = bbox.Max;
-            XYZ center = (min + max) * 0.5;
-            stairCenter = new XYZ(center.X, center.Y, 0);
-            if (startLevelHeight == 0) isBaseStair = true;
-
-            HasWarnings = hasWarnings;
         }
+        // 从单层楼梯初始化
+        private void InitializeFromSingleStair(Stairs stair, bool hasWarnings)
+        {
+            Stair = stair;
+            IsMultiStairs = false;
+            // 计算楼梯参数
+            stepHeight = stair.ActualRiserHeight * 304.8;
+            stepWidth = stair.ActualTreadDepth * 304.8;
+            ActualVerticalSteps = stair.ActualRisersNumber;
+            ActualHorizontalSteps = stair.ActualTreadsNumber;
+            Runs = stair.GetStairsRuns().Count;
+            stairTotalHeight = stair.Height * 304.8;
+            // 获取梯段宽度
+            var firstRunId = stair.GetStairsRuns().FirstOrDefault();
+            if (firstRunId != null)
+            {
+                var run = Document.GetElement(firstRunId) as StairsRun;
+                stairRunWidth = run?.ActualRunWidth * 304.8 ?? 0;
+            }
+            // 计算标高
+            var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().FirstOrDefault();
+            double deltaHeight = basePoint?.Position.Z * 304.8 ?? 0;
+            startLevelHeight = stair.BaseElevation * 304.8 - deltaHeight;
+            // 获取名称
+            stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
+            // 获取中心点
+            stairCenter = GetStairCenter(stair);
+            if (startLevelHeight == 0) isBaseStair = true;
+        }
+        // 从多层楼梯初始化
+        private void InitializeFromMultiStairs(MultistoryStairs multiStairs, bool hasWarnings)
+        {
+            MultiStairs = multiStairs;
+            IsMultiStairs = true;
+            // 获取所有组件
+            var allStairsIds = multiStairs.GetAllStairsIds();
+            StairComponents = new List<Stairs>();
+            foreach (var id in allStairsIds)
+            {
+                var stair = Document.GetElement(id) as Stairs;
+                if (stair != null)
+                {
+                    StairComponents.Add(stair);
+                }
+            }
+            ComponentCount = multiStairs.GetStairsPlacementLevels(StairComponents.FirstOrDefault()).Count;
+            if (StairComponents.Any())
+            {
+                // 使用第一个楼梯作为代表计算参数
+                var firstStair = StairComponents.FirstOrDefault();
+                if (firstStair != null)
+                {
+                    // 计算单层参数
+                    stepHeight = firstStair.ActualRiserHeight * 304.8;
+                    stepWidth = firstStair.ActualTreadDepth * 304.8;
+                    Runs = firstStair.GetStairsRuns().Count * ComponentCount;
+                    ActualVerticalSteps = firstStair.ActualRisersNumber * ComponentCount;
+                    ActualHorizontalSteps = firstStair.ActualTreadsNumber * ComponentCount;
+                    stairTotalHeight = firstStair.Height * 304.8 * ComponentCount;
+                    // 获取梯段宽度
+                    var firstRunId = firstStair.GetStairsRuns().FirstOrDefault();
+                    if (firstRunId != null)
+                    {
+                        var run = Document.GetElement(firstRunId) as StairsRun;
+                        stairRunWidth = run?.ActualRunWidth * 304.8 ?? 0;
+                    }
+                    // 计算标高
+                    var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().FirstOrDefault();
+                    double deltaHeight = basePoint?.Position.Z * 304.8 ?? 0;
+                    startLevelHeight = firstStair.BaseElevation * 304.8 - deltaHeight;
+                    // 获取名称
+                    stairName = firstStair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
+                    // 获取中心点（使用第一个楼梯的中心点）
+                    stairCenter = GetStairCenter(firstStair);
+                }
+            }
+            else
+            {
+            }
+            if (startLevelHeight == 0) isBaseStair = true;
+        }
+        // 辅助方法：获取楼梯中心点
+        private XYZ GetStairCenter(Stairs stair)
+        {
+            BoundingBoxXYZ bbox = stair.get_BoundingBox(null);
+            if (bbox != null)
+            {
+                XYZ min = bbox.Min;
+                XYZ max = bbox.Max;
+                XYZ center = (min + max) * 0.5;
+                return new XYZ(center.X, center.Y, 0);
+            }
+            return XYZ.Zero;
+        }
+        public int ComponentCount { get; private set; }
+        public List<Stairs> StairComponents = new List<Stairs>();
         //public double stairArea { get; } = 0;
         //public string startLevelName { get; set; }
         //梯段组合属性  实现属性变更通知
@@ -148,20 +219,20 @@ namespace CreatePipe.models
                 }
             }
         }
-        public bool isBaseStair { get; } = false;
+        public bool isBaseStair { get; set; } = false;
         //以下为单体梯段属性
-        public double startLevelHeight { get; }
-        public XYZ stairCenter { get; } = new XYZ();
-        public double stairRunWidth { get; } = 0;
-        public double stairTotalHeight { get; } = 0;
-        public double stepHeight { get; } = 0;
-        public double stepWidth { get; } = 0;
-        public int ActualHorizontalSteps { get; } = 0;
-        public int ActualVerticalSteps { get; } = 0;
-        public int Runs { get; } = 0;
+        public double startLevelHeight { get; set; }
+        public XYZ stairCenter { get; set; } = new XYZ();
+        public double stairRunWidth { get; set; } = 0;
+        public double stairTotalHeight { get; set; } = 0;
+        public double stepHeight { get; set; } = 0;
+        public double stepWidth { get; set; } = 0;
+        public int ActualHorizontalSteps { get; set; } = 0;
+        public int ActualVerticalSteps { get; set; } = 0;
+        public int Runs { get; set; } = 0;
         public bool HasWarnings { get; private set; } = false; // 新增属性
-        public bool IsMultiStairs { get; } = false;
+        public bool IsMultiStairs { get; set; } = false;
         public ElementId Id { get; set; }
-        public Stairs Stair { get; set; }
+
     }
 }

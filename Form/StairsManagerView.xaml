@@ -37,7 +37,7 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                 <!--<Button Content="删除楼梯扶手"  Width="80" Margin="5"  Command="{Binding DeleteElementCommand}"
     HorizontalAlignment="Right"/>-->
                 <Button Width="80" Margin="5" Content="删除选中楼梯" Command="{Binding DeleteElementsCommand}"
-                      CommandParameter="{Binding SelectedItems, ElementName=dataGrid}"/>
+                      CommandParameter="{Binding SelectedItems, ElementName=dataGrid1}"/>
             </StackPanel>
         </Grid>
         <TabControl  Grid.Row="1" Margin="5" TabStripPlacement="Left">
@@ -49,7 +49,7 @@ bv:TextBoxBehavior.TextChangedCommand="{Binding QueryElementCommand}" />
                        TextAlignment="Center" 
                        VerticalAlignment="Center" />
                 </TabItem.Header>
-                <DataGrid x:Name="dataGrid" RowHeight="30"  Margin="5"
+                <DataGrid x:Name="dataGrid1" RowHeight="30"  Margin="5"
               HorizontalAlignment="Stretch"
               AutoGenerateColumns="False" CanUserAddRows="False"
               SelectionUnit="FullRow" EnableColumnVirtualization="False"
@@ -109,6 +109,34 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="多跑梯" Width="50"
+SortMemberPath="IsMultiStairs" >
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <!-- 1. 设置默认值：假设默认是有样板 -->
+                                                <Setter Property="Text" Value="是" />
+                                                <Setter Property="Foreground" Value="Red" />
+                                                <Style.Triggers>
+                                                    <!-- 2. 只有当确实为 False 时，才切换到红色和“无” -->
+                                                    <DataTrigger Binding="{Binding IsMultiStairs}" Value="False">
+                                                        <Setter Property="Text" Value="否" />
+                                                        <Setter Property="Foreground" Value="Green" />
+                                                    </DataTrigger>
+                                                    <!-- 3. 增加一个保险：显式处理 True -->
+                                                    <DataTrigger Binding="{Binding IsMultiStairs}" Value="True">
+                                                        <Setter Property="Text" Value="是" />
+                                                        <Setter Property="Foreground" Value="Red" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
@@ -120,7 +148,7 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
              TextAlignment="Center" 
              VerticalAlignment="Center" />
                 </TabItem.Header>
-                <DataGrid RowHeight="30"  Margin="5"
+                <DataGrid RowHeight="30"  x:Name="dataGrid2" Margin="5"
               HorizontalAlignment="Stretch"
               AutoGenerateColumns="False" CanUserAddRows="False"
               SelectionUnit="FullRow" EnableColumnVirtualization="False"
@@ -136,7 +164,7 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                         </Style>
                     </DataGrid.Resources>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="楼梯编号" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"  Width="66" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="Name" />
+                        <DataGridTextColumn Header="楼梯编号" Binding="{Binding Name, UpdateSourceTrigger=LostFocus}"  Width="90" IsReadOnly="False" ElementStyle="{StaticResource TextVerticalCenter}" SortMemberPath="Name" />
                         <DataGridTextColumn Header="构件数"   Binding="{Binding SelectedStairs.Count}" 
                           Width="50"  IsReadOnly="True"  ElementStyle="{StaticResource TextVerticalCenter}" />
                         <DataGridTemplateColumn Header="统计" CanUserResize="False" Width="66">
@@ -151,6 +179,14 @@ CommandParameter="{Binding .}" Height="28" HorizontalAlignment="Stretch"/>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Content="生成" Width="80" Command="{Binding DataContext.NewSectionBoxViewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+CommandParameter="{Binding .}" Height="28" HorizontalAlignment="Stretch"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="剖面生成" CanUserResize="False" Width="85">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="新剖面" Width="80" Command="{Binding DataContext.NewSectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
 CommandParameter="{Binding .}" Height="28" HorizontalAlignment="Stretch"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
