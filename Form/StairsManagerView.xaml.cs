@@ -8,6 +8,7 @@ using CreatePipe.cmd;
 using CreatePipe.models;
 using CreatePipe.Utils;
 using CreatePipe.Utils.Interfaces;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,8 +23,6 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using static System.Windows.Forms.AxHost;
-
-
 
 
 namespace CreatePipe.Form
@@ -153,91 +152,6 @@ namespace CreatePipe.Form
                 // 记录错误日志
                 System.Diagnostics.Debug.WriteLine($"加载楼梯失败：{ex.Message}");
             }
-            //try
-            //{
-            //    var stairs = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Stairs).WhereElementIsNotElementType().Cast<Stairs>().ToList();
-            //    // 一次性分析警告
-            //    StairsWarningAnalysisResult analysisResult = _stairsWarningService.AnalyzeStairsWarnings();
-            //    // 创建缓存
-            //    _allStairsCache = new List<StairsEntity>();
-            //    // 分离多层楼梯和单层楼梯
-            //    var multiStairsGroups = new Dictionary<ElementId, List<Stairs>>();
-            //    var singleStairs = new List<Stairs>();
-            //    foreach (var stair in stairs)
-            //    {
-            //        // 检查是否属于多层楼梯
-            //        if (stair.MultistoryStairsId != null &&
-            //            stair.MultistoryStairsId != ElementId.InvalidElementId)
-            //        {
-            //            // 属于多层楼梯
-            //            var multiStairsId = stair.MultistoryStairsId;
-            //            if (!multiStairsGroups.ContainsKey(multiStairsId))
-            //            {
-            //                multiStairsGroups[multiStairsId] = new List<Stairs>();
-            //            }
-            //            multiStairsGroups[multiStairsId].Add(stair);
-            //        }
-            //        else
-            //        {
-            //            // 单层楼梯
-            //            singleStairs.Add(stair);
-            //        }
-            //    }
-            //    // 处理单层楼梯
-            //    foreach (var stair in singleStairs)
-            //    {
-            //        bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
-            //        var entity = new StairsEntity(stair, hasWarnings);
-            //        _allStairsCache.Add(entity);
-            //    }
-            //    // 处理多层楼梯组
-            //    foreach (var kvp in multiStairsGroups)
-            //    {
-            //        var multiStairsId = kvp.Key;
-            //        var stairComponents = kvp.Value;
-            //        // 获取多层楼梯组对象
-            //        MultistoryStairs multiStairs = Document.GetElement(multiStairsId) as MultistoryStairs;
-            //        if (multiStairs != null)
-            //        {
-            //            // 检查这个多层楼梯组是否有警告
-            //            bool hasWarnings = false;
-            //            foreach (var component in stairComponents)
-            //            {
-            //                if (_stairsWarningService.HasWarningsForStairs(component.Id, analysisResult))
-            //                {
-            //                    hasWarnings = true;
-            //                    break;
-            //                }
-            //            }
-            //            var entity = new StairsEntity(multiStairs, hasWarnings);
-            //            _allStairsCache.Add(entity);
-            //        }
-            //    }
-            //}
-            //catch (Exception ex)
-            //{
-            //    _allStairsCache = new List<StairsEntity>();
-            //}
-            //原版混合版entity
-            //try
-            //{
-            //    var stairs = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_Stairs)
-            //        .WhereElementIsNotElementType().Cast<Stairs>().ToList();
-            //    // 一次性分析警告
-            //    StairsWarningAnalysisResult analysisResult = _stairsWarningService.AnalyzeStairsWarnings();
-            //    // 创建缓存
-            //    _allStairsCache = new List<StairsEntity>();
-            //    foreach (var stair in stairs)
-            //    {
-            //        bool hasWarnings = _stairsWarningService.HasWarningsForStairs(stair.Id, analysisResult);
-            //        var entity = new StairsEntity(stair, hasWarnings);
-            //        _allStairsCache.Add(entity);
-            //    }
-            //}
-            //catch (Exception ex)
-            //{
-            //    _allStairsCache = new List<StairsEntity>();
-            //}
         }
         private List<StairsEntity> _allStairsCache;
         public ICommand QueryElementCommand => new RelayCommand<string>(QueryElement);
@@ -326,10 +240,18 @@ namespace CreatePipe.Form
         private void NewSectionBoxView(StairsGroup group)
         {
             if (group == null) return;
-            List<Stairs> stairs = new List<Stairs>();
+            List<Element> stairs = new List<Element>();
             foreach (var item in group.SelectedStairs)
             {
-                stairs.Add(item.Stair);
+                //stairs.Add(item.Stair);
+                if (item.IsMultiStairs && item.MultiStairs != null)
+                {
+                    stairs.Add(item.MultiStairs);
+                }
+                else if (item.Stair != null)
+                {
+                    stairs.Add(item.Stair);
+                }
             }
             // 3. 获取或切换到三维视图
             View3D targetView = uIDoc.ActiveView as View3D;
@@ -386,10 +308,18 @@ namespace CreatePipe.Form
         private void NewSection(StairsGroup group)
         {
             if (group == null) return;
-            List<Stairs> stairs = new List<Stairs>();
+            List<Element> stairs = new List<Element>();
             foreach (var item in group.SelectedStairs)
             {
-                stairs.Add(item.Stair);
+                //stairs.Add(item.Stair);
+                if (item.IsMultiStairs && item.MultiStairs != null)
+                {
+                    stairs.Add(item.MultiStairs);
+                }
+                else if (item.Stair != null)
+                {
+                    stairs.Add(item.Stair);
+                }
             }
             // 3. 获取或切换到三维视图
             View3D targetView = uIDoc.ActiveView as View3D;

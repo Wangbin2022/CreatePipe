@@ -35,29 +35,49 @@ namespace CreatePipe.models
             get => _name;
             set
             {
-                // 避免重复赋值
-                if (_name == value) return;
+                //// 避免重复赋值
+                //if (_name == value) return;
                 // ★ 修复：在外部处理器中执行事务
                 ExternalHandler.Run(app =>
                 {
-                    NewTransaction.Execute(Document, "修改楼梯组名称", () =>
+                    NewTransaction.Execute(Document, "修改楼梯名称", () =>
                     {
                         // ★ 修复：使用 value，而非 _name
                         foreach (var item in SelectedStairs)
                         {
-                            var param = item.Stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
-                            if (param != null && !param.IsReadOnly)
+                            try
                             {
-                                // ★ 关键：Set 的是新值 value
-                                param.Set(value);
+                                if (item.IsMultiStairs && item.MultiStairs != null)
+                                {
+                                    // 多层楼梯：更新 MultistoryStairs 的参数
+                                    var param = item.MultiStairs.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
+                                    if (param != null && !param.IsReadOnly)
+                                    {
+                                        param.Set(value);
+                                    }
+                                }
+                                else if (item.Stair != null)
+                                {
+                                    // 单层楼梯：直接更新 Stairs 的参数
+                                    var param = item.Stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
+                                    if (param != null && !param.IsReadOnly)
+                                    {
+                                        param.Set(value);
+                                    }
+                                }
+                                // ★ 同时更新内存中的 StairsEntity.stairName
+                                item.stairName = value;
                             }
-                            // ★ 同时更新内存中的 StairsEntity.stairName
-                            item.stairName = value;
+                            catch (Exception)
+                            {
+                                throw;
+                            }
                         }
-                        // ★ 在事务内更新 _name
-                        _name = value;
+
                     });
                 });
+                // ★ 在事务内更新 _name
+                _name = value;
                 // ★ 修复：传参 nameof(Name)，通知 UI 更新
                 OnPropertyChanged(nameof(Name));
             }
@@ -130,11 +150,11 @@ namespace CreatePipe.models
             var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().FirstOrDefault();
             double deltaHeight = basePoint?.Position.Z * 304.8 ?? 0;
             startLevelHeight = stair.BaseElevation * 304.8 - deltaHeight;
-            // 获取名称
-            stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
             // 获取中心点
             stairCenter = GetStairCenter(stair);
             if (startLevelHeight == 0) isBaseStair = true;
+            // 获取名称
+            stairName = stair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
         }
         // 从多层楼梯初始化
         private void InitializeFromMultiStairs(MultistoryStairs multiStairs, bool hasWarnings)
@@ -177,8 +197,7 @@ namespace CreatePipe.models
                     var basePoint = new FilteredElementCollector(Document).OfCategory(BuiltInCategory.OST_ProjectBasePoint).Cast<BasePoint>().FirstOrDefault();
                     double deltaHeight = basePoint?.Position.Z * 304.8 ?? 0;
                     startLevelHeight = firstStair.BaseElevation * 304.8 - deltaHeight;
-                    // 获取名称
-                    stairName = firstStair.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
+
                     // 获取中心点（使用第一个楼梯的中心点）
                     stairCenter = GetStairCenter(firstStair);
                 }
@@ -187,6 +206,8 @@ namespace CreatePipe.models
             {
             }
             if (startLevelHeight == 0) isBaseStair = true;
+            // 获取名称
+            stairName = multiStairs.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)?.AsString() ?? "";
         }
         // 辅助方法：获取楼梯中心点
         private XYZ GetStairCenter(Stairs stair)
