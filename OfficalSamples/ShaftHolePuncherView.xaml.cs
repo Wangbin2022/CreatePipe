@@ -160,7 +160,7 @@ namespace CreatePipe.OfficalSamples
 
                 if (pointsList.Any())
                 {
-                    using (var transaction = new Transaction(_profile.Document, "创建竖井洞口"))
+                    using (var transaction = new Transaction(_commandData.Application.ActiveUIDocument.Document, "创建竖井洞口"))
                     {
                         transaction.Start();
                         var opening = _profile.CreateOpening(pointsList);
@@ -226,21 +226,22 @@ namespace CreatePipe.OfficalSamples
     public abstract class Profile3
     {
         protected readonly ExternalCommandData _commandData;
-        protected readonly Document _document;
+        protected readonly Autodesk.Revit.Creation.Document _document;
         protected readonly Autodesk.Revit.Creation.Application _appCreator;
 
         protected List<List<XYZ>> _points;
         protected Matrix4 _to2DMatrix;
         protected Matrix4 _moveToCenterMatrix;
         protected Matrix4 _scaleMatrix;
+        protected Matrix4 _transformMatrix = null;
         protected Size _pictureBoxSize;
 
-        public Document Document => _document;
+        public Autodesk.Revit.Creation.Document Document => _document;
 
         protected Profile3(ExternalCommandData commandData)
         {
             _commandData = commandData;
-            _document = commandData.Application.ActiveUIDocument.Document;
+            _document = commandData.Application.ActiveUIDocument.Document.Create;
             _appCreator = commandData.Application.Application.Create;
         }
 
@@ -259,32 +260,32 @@ namespace CreatePipe.OfficalSamples
                           maxX: float.MinValue, maxY: float.MinValue);
             bool first = true;
 
-            //foreach (var pointList in _points)
-            //{
-            //    foreach (var point in pointList)
-            //    {
-            //        var v = matrix.Transform(new Vector4(point));
-            //        if (first)
-            //        {
-            //            bounds = ((float)v.X, (float)v.Y, (float)v.X, (float)v.Y);
-            //            first = false;
-            //        }
-            //        else
-            //        {
-            //            bounds.minX = Math.Min(bounds.minX, (float)v.X);
-            //            bounds.maxX = Math.Max(bounds.maxX, (float)v.X);
-            //            bounds.minY = Math.Min(bounds.minY, (float)v.Y);
-            //            bounds.maxY = Math.Max(bounds.maxY, (float)v.Y);
-            //        }
-            //    }
-            //}
+            foreach (var pointList in _points)
+            {
+                foreach (var point in pointList)
+                {
+                    var v = matrix.Transform(new Vector4(point));
+                    if (first)
+                    {
+                        bounds = ((float)v.X, (float)v.Y, (float)v.X, (float)v.Y);
+                        first = false;
+                    }
+                    else
+                    {
+                        bounds.minX = Math.Min(bounds.minX, (float)v.X);
+                        bounds.maxX = Math.Max(bounds.maxX, (float)v.X);
+                        bounds.minY = Math.Min(bounds.minY, (float)v.Y);
+                        bounds.maxY = Math.Max(bounds.maxY, (float)v.Y);
+                    }
+                }
+            }
             return bounds;
         }
 
         /// <summary>
         /// 计算缩放矩阵
         /// </summary>
-        public Matrix4 ComputeScaleMatrix(Size pictureBoxSize)
+        public virtual Matrix4 ComputeScaleMatrix(Size pictureBoxSize)
         {
             _pictureBoxSize = pictureBoxSize;
             var (minX, minY, maxX, maxY) = GetFaceBounds();
@@ -300,7 +301,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 计算3D到2D的变换矩阵
         /// </summary>
-        public Matrix4 Compute3DTo2DMatrix()
+        public virtual Matrix4 Compute3DTo2DMatrix()
         {
             var result = Matrix4.Multiply(_to2DMatrix.Inverse(), _moveToCenterMatrix.Inverse());
             return Matrix4.Multiply(result, _scaleMatrix);
@@ -309,7 +310,7 @@ namespace CreatePipe.OfficalSamples
         /// <summary>
         /// 将2D屏幕坐标转换为3D世界坐标
         /// </summary>
-        public List<Vector4> Transform2DTo3D(System.Windows.Point[] screenPoints)
+        public virtual List<Vector4> Transform2DTo3D(System.Windows.Point[] screenPoints)
         {
             var transformMatrix = Matrix4.Multiply(_scaleMatrix.Inverse(), _moveToCenterMatrix);
             transformMatrix = Matrix4.Multiply(transformMatrix, _to2DMatrix);
@@ -320,14 +321,16 @@ namespace CreatePipe.OfficalSamples
             centerMatrix.Invert();
 
             var result = new List<Vector4>();
-            //foreach (var pt in screenPoints)
-            //{
-            //    var points = new[] { new System.Drawing.PointF((float)pt.X, (float)pt.Y) };
-            //    centerMatrix.TransformPoints(points);
-            //    var v = new Vector4(points[0].X, points[0].Y, 0);
-            //    v = transformMatrix.Transform(v);
-            //    result.Add(v);
-            //}
+            foreach (var pt in screenPoints)
+            {
+                var points = new[] { new System.Drawing.Point((int)pt.X, (int)pt.Y) };
+                //var points = new[] { new System.Drawing.PointF((float)pt.X, (float)pt.Y) };
+                //centerMatrix.TransformPoints(points);
+                TransformPoints(points);
+                var v = new Vector4(points[0].X, points[0].Y, 0);
+                v = transformMatrix.Transform(v);
+                result.Add(v);
+            }
             return result;
         }
 
@@ -336,17 +339,16 @@ namespace CreatePipe.OfficalSamples
         /// </summary>
         public virtual void Draw2D(DrawingContext dc, Pen pen)
         {
-            //var transform = Compute3DTo2DMatrix();
-
-            //foreach (var pointList in _points)
-            //{
-            //    for (int i = 0; i < pointList.Count - 1; i++)
-            //    {
-            //        var p1 = transform.Transform(new Vector4(pointList[i]));
-            //        var p2 = transform.Transform(new Vector4(pointList[i + 1]));
-            //        dc.DrawLine(pen, new Point(p1.X, p1.Y), new Point(p2.X, p2.Y));
-            //    }
-            //}
+            var transform = Compute3DTo2DMatrix();
+            foreach (var pointList in _points)
+            {
+                for (int i = 0; i < pointList.Count - 1; i++)
+                {
+                    var p1 = transform.Transform(new Vector4(pointList[i]));
+                    var p2 = transform.Transform(new Vector4(pointList[i + 1]));
+                    dc.DrawLine(pen, new System.Windows.Point(p1.X, p1.Y), new System.Windows.Point(p2.X, p2.Y));
+                }
+            }
         }
 
         /// <summary>
@@ -377,6 +379,18 @@ namespace CreatePipe.OfficalSamples
                 }
             }
             return faces;
+        }
+
+        /// <summary>
+        /// use matrix to transform point
+        /// </summary>
+        /// <param name="pts">contain the points to be transformed</param>
+        private void TransformPoints(System.Drawing.Point[] pts)
+        {
+            System.Drawing.Drawing2D.Matrix matrix = new System.Drawing.Drawing2D.Matrix(
+                1, 0, 0, 1, _pictureBoxSize.Width / 2, _pictureBoxSize.Height / 2);
+            matrix.Invert();
+            matrix.TransformPoints(pts);
         }
     }
 
@@ -425,28 +439,28 @@ namespace CreatePipe.OfficalSamples
         /// 根据名称查找标高 - 使用LINQ
         /// </summary>
         private Level FindLevelByName(string levelName) =>
-            new FilteredElementCollector(_document)
+            new FilteredElementCollector(_commandData.Application.ActiveUIDocument.Document)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
                 .FirstOrDefault(l => l.Name == levelName);
 
-        ///// <summary>
-        ///// 计算缩放矩阵 - 使用用户指定的缩放比例
-        ///// </summary>
-        //public override Matrix4 ComputeScaleMatrix(Size pictureBoxSize)
-        //{
-        //    _scaleMatrix = new Matrix4(Scale);
-        //    return _scaleMatrix;
-        //}
+        /// <summary>
+        /// 计算缩放矩阵 - 使用用户指定的缩放比例
+        /// </summary>
+        public override Matrix4 ComputeScaleMatrix(Size pictureBoxSize)
+        {
+            _scaleMatrix = new Matrix4(Scale);
+            return _scaleMatrix;
+        }
 
-        ///// <summary>
-        ///// 计算3D到2D变换矩阵 - 不需要变换
-        ///// </summary>
-        //public override Matrix4 Compute3DTo2DMatrix()
-        //{
-        //    _transformMatrix = new Matrix4();
-        //    return _transformMatrix;
-        //}
+        /// <summary>
+        /// 计算3D到2D变换矩阵 - 不需要变换
+        /// </summary>
+        public override Matrix4 Compute3DTo2DMatrix()
+        {
+            _transformMatrix = new Matrix4();
+            return _transformMatrix;
+        }
 
         ///// <summary>
         ///// 绘制坐标系 - 使用辅助方法简化
@@ -491,7 +505,6 @@ namespace CreatePipe.OfficalSamples
         //        int pos = OriginX + x;
         //        graphics.DrawLine(pen, pos, OriginY - 5, pos, OriginY + 5);
         //    }
-
         //    // Y轴刻度 (100, 200)
         //    for (int y = 100; y <= 200; y += 100)
         //    {
@@ -507,74 +520,69 @@ namespace CreatePipe.OfficalSamples
         //{
         //    using var font = new Font("Verdana", 10, FontStyle.Regular);
         //    var brush = Brushes.Blue;
-
         //    // X轴标签
         //    graphics.DrawString("100'", font, brush, OriginX + 102, OriginY - 14);
         //    graphics.DrawString("200'", font, brush, OriginX + 202, OriginY - 14);
         //    graphics.DrawString("300'", font, brush, OriginX + 302, OriginY - 14);
-
         //    // Y轴标签
         //    graphics.DrawString("100'", font, brush, OriginX - 18, OriginY - 99);
         //    graphics.DrawString("200'", font, brush, OriginX - 18, OriginY - 199);
-
         //    // 原点标签
         //    graphics.DrawString("(0,0)", font, brush, OriginX + 2, OriginY + 4);
         //}
 
-        ///// <summary>
-        ///// 将2D屏幕坐标转换为3D坐标 - UI坐标系到Revit坐标系
-        ///// </summary>
-        //public override List<Vector4> Transform2DTo3D(Point[] screenPoints)
-        //{
-        //    var result = new List<Vector4>();
-
-        //    foreach (var point in screenPoints)
-        //    {
-        //        // UI坐标转Revit坐标：
-        //        // X: 减去原点偏移量
-        //        // Y: 反转方向 (UI中Y向下为正，Revit中Y向上为正)
-        //        var revitX = point.X - OriginX;
-        //        var revitY = -(point.Y - OriginY);
-
-        //        var v = new Vector4(revitX, revitY, 0);
-        //        v = _scaleMatrix.Transform(v);
-        //        result.Add(v);
-        //    }
-
-        //    return result;
-        //}
+        /// <summary>
+        /// 将2D屏幕坐标转换为3D坐标 - UI坐标系到Revit坐标系
+        /// </summary>
+        public override List<Vector4> Transform2DTo3D(System.Windows.Point[] screenPoints)
+        {
+            var result = new List<Vector4>();
+            foreach (var point in screenPoints)
+            {
+                // UI坐标转Revit坐标：
+                // X: 减去原点偏移量
+                // Y: 反转方向 (UI中Y向下为正，Revit中Y向上为正)
+                var revitX = point.X - OriginX;
+                var revitY = -(point.Y - OriginY);
+                var v = new Vector4((float)revitX, (float)revitY, 0);
+                v = _scaleMatrix.Transform(v);
+                result.Add(v);
+            }
+            return result;
+        }
 
         /// <summary>
         /// 创建竖井洞口 - 在Level 1和Level 2之间
         /// </summary>
         public override Opening CreateOpening(List<Vector4> points)
         {
-            //    if (_bottomLevel == null || _topLevel == null)
-            //    {
-            //        throw new Exception("未找到Level 1或Level 2标高，无法创建竖井洞口。");
-            //    }
-            //    var curveArray = _appCreator.NewCurveArray();
-            //    // 创建线段
-            //    for (int i = 0; i < points.Count - 1; i++)
-            //    {
-            //        var curve = CreateLineFromPoints(points[i], points[i + 1]);
-            //        curveArray.Append(curve);
-            //    }
-            //    // 闭合曲线
-            //    var closeCurve = CreateLineFromPoints(points[^1], points[0]);
-            //    curveArray.Append(closeCurve);
-            //    return _docCreator.NewOpening(_bottomLevel, _topLevel, curveArray);
-            return null;
+            if (_bottomLevel == null || _topLevel == null)
+            {
+                throw new Exception("未找到Level 1或Level 2标高，无法创建竖井洞口。");
+            }
+            var curveArray = _appCreator.NewCurveArray();
+            // 创建线段
+            for (int i = 0; i < points.Count - 1; i++)
+            {
+                var curve = CreateLineFromPoints(points[i], points[i + 1]);
+                curveArray.Append(curve);
+            }
+            // 闭合曲线
+            var closeCurve = CreateLineFromPoints(points[1], points[0]);
+            //var closeCurve = CreateLineFromPoints(points[^1], points[0]);
+            curveArray.Append(closeCurve);
+            return _document.NewOpening(_bottomLevel, _topLevel, curveArray);
+            //return null;
         }
 
-        ///// <summary>
-        ///// 从两个Vector4点创建Line - 使用元组解构
-        ///// </summary>
-        //private static Line CreateLineFromPoints(Vector4 start, Vector4 end)
-        //{
-        //    var p1 = new XYZ(start.X, start.Y, start.Z);
-        //    var p2 = new XYZ(end.X, end.Y, end.Z);
-        //    return Line.CreateBound(p1, p2);
-        //}
+        /// <summary>
+        /// 从两个Vector4点创建Line - 使用元组解构
+        /// </summary>
+        private static Line CreateLineFromPoints(Vector4 start, Vector4 end)
+        {
+            var p1 = new XYZ(start.X, start.Y, start.Z);
+            var p2 = new XYZ(end.X, end.Y, end.Z);
+            return Line.CreateBound(p1, p2);
+        }
     }
 }

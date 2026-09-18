@@ -249,8 +249,102 @@ CommandParameter="{Binding }" Height="28" HorizontalAlignment="Stretch"/>
                                 </GroupBox>
                             </Grid>
                         </TabItem>
-                        <TabItem Header="深圳Sz-ifc" FontSize="12">
-
+                        <TabItem Header="深圳Sz-ifc" FontSize="12"  DataContext="{Binding ShenZhenVM}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="30"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.35*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <GroupBox Grid.Column="0" Header="{Binding RoomCount,UpdateSourceTrigger=PropertyChanged}" HeaderStringFormat="{}当前模型房间类型数：{0}"  Margin="5" Grid.RowSpan="2">
+                                    <StackPanel >
+                                        <DataGrid RowHeight="25"  
+           HorizontalAlignment="Stretch" Margin="5"
+           AutoGenerateColumns="False" CanUserAddRows="False"
+           SelectionUnit="FullRow" EnableColumnVirtualization="False"
+           GridLinesVisibility="None" Height="195"  Width="auto"
+           SelectionMode="Extended" SelectedItem="{Binding SelectedFilter}"
+                ItemsSource="{Binding RoomModels}"   >
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="房间名称" Width="80"
+                                  Binding="{Binding roomName}" SortMemberPath="roomName" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="房间数量" Width="60" Binding="{Binding roomNumber}" SortMemberPath="roomNumber" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="已编码数" Width="60"
+                                  Binding="{Binding hasCodeNum}" IsReadOnly="True"/>
+                                                <DataGridTemplateColumn Header="" Width="50"
+               SortMemberPath="IsRoomCoded">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock>
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock" >
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Path= IsRoomCoded}" Value="False">
+                                                                                <Setter Property="Text"  Value="未赋码">
+                                                                                </Setter>
+                                                                                <Setter Property="Foreground" Value="Red">
+                                                                                </Setter>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Path= IsRoomCoded}" Value="True">
+                                                                                <Setter Property="Text"  Value="已赋码">
+                                                                                </Setter>
+                                                                                <Setter Property="Foreground" Value="Green">
+                                                                                </Setter>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="" Width="85">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Button Content="当前房间编码" Width="80"  Command="{Binding DataContext.CodeEntityCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" 
+CommandParameter="{Binding }" ToolTipService.ShowOnDisabled="True"/>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Grid.Column="1" Header="SZ-IFC空间分类表" Margin="5" Grid.RowSpan="2">
+                                    <StackPanel >
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox Margin="5" Height="20" Width="220" 
+     Text="{Binding KeyCodeName,UpdateSourceTrigger=PropertyChanged}"/>
+                                            <Button Content="说明" Margin="5,0,0,0"
+           Style="{StaticResource TransparentHoverButtonStyle}"
+           Command="{Binding CodeRuleCommand}"/>
+                                        </StackPanel>        
+                                        <DataGrid Margin="5" ItemsSource="{Binding ShowList,UpdateSourceTrigger=PropertyChanged}" Height="165" SelectionMode="Single" 
+                AutoGenerateColumns="False" CanUserAddRows="False" SelectedItem="{Binding SelectedSourceRow, Mode=TwoWay}"
+                >
+                                            <DataGrid.CellStyle>
+                                                <Style TargetType="DataGridCell">
+                                                    <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self},
+                                                       Path=Content.Text}"/>
+                                                </Style>
+                                            </DataGrid.CellStyle>
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="大类" Width="60" SortMemberPath="RootClassName" 
+          Binding="{Binding RootClassName}" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="中类" Width="60" SortMemberPath="MiddleClassName" 
+          Binding="{Binding MiddleClassName}" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="小类" Width="70" SortMemberPath="MinorClassName" 
+Binding="{Binding MinorClassName}" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="细类" Width="40" SortMemberPath="SpecClassName" 
+Binding="{Binding SpecClassName}" IsReadOnly="True"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </GroupBox>
+                            </Grid>
                         </TabItem>
                     </TabControl>
                 </StackPanel>

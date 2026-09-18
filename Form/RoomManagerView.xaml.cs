@@ -14,6 +14,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace CreatePipe.Form
@@ -42,6 +43,7 @@ namespace CreatePipe.Form
         private readonly RoomWarningService _roomWarningService; // ViewModel 持有 RoomWarningService 实例
         //根据需要加载项目单独的ViewModel
         public DalianProjectViewModel DalianVM { get; set; }
+        public ShenZhenProjectViewModel ShenZhenVM { get; set; }
         public RoomManagerViewModel(UIApplication uiApp)
         {
             Document = uiApp.ActiveUIDocument.Document;
@@ -50,6 +52,7 @@ namespace CreatePipe.Form
             _roomWarningService = new RoomWarningService(Document);
             // 实例化子 ViewModel
             DalianVM = new DalianProjectViewModel(uiApp);
+            ShenZhenVM = new ShenZhenProjectViewModel(uiApp);
             PrecacheRoomData(Document);
             QueryElement(string.Empty);
         }
@@ -538,16 +541,206 @@ namespace CreatePipe.Form
             }
         }
     }
-    //public class DalianProjectViewModel : ObserverableObject
-    //{ 
+    public class ShenZhenProjectViewModel : ProjectBaseViewModel
+    {
+        private readonly BaseExternalHandler _externalHandler = new BaseExternalHandler();
+        // 只定义SZ-IFC项目需要的参数
+        protected override string[] RequiredParams => new[] { "深圳空间标识" };
+        public ShenZhenProjectViewModel(UIApplication uiApp)
+        {
+            Doc = uiApp.ActiveUIDocument.Document;
+            ImportCsv(null);
+            ValidateRevitParameters();
+            RefreshData();
+        }
+        public ICommand QueryELementCommand => new BaseBindingCommand(GetEntity);
+        private void GetEntity(Object para)
+        {
+            // 优化：使用 LINQ 一次性完成过滤和分组，避免原来的双层 foreach 和 HashSet 造成的 O(N^2) 性能浪费
+            var roomCollector = new FilteredElementCollector(Doc)
+                   .OfCategory(BuiltInCategory.OST_Rooms)
+                   .WhereElementIsNotElementType().Cast<Room>()
+                   .Where(r => r != null && r.IsValidObject);
+            var groupedRooms = roomCollector
+                .GroupBy(r => r.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? "未命名").ToList();
+            var newModels = new ObservableCollection<SZRoomEntity>();
+            foreach (var group in groupedRooms)
+            {
+                var roomList = group.ToList();
+                var entity = new SZRoomEntity(roomList, Doc);
+                CheckCodedStatus(entity, roomList); // 优化：直接传入查好的 roomList 判定，不需全文档再查一遍
+                newModels.Add(entity);
+            }
+            RoomModels = newModels;
+        }
+        public void RefreshData()
+        {
+            GetEntity(null);
+        }
+        private G4CategoryUnit _selectedSourceRow;
+        public G4CategoryUnit SelectedSourceRow
+        {
+            get => _selectedSourceRow;
+            set
+            {
+                _selectedSourceRow = value;
+                OnPropertyChanged();
+            }
+        }
+        // 3. 写入单个实体的参数
+        public ICommand CodeEntityCommand => new RelayCommand<SZRoomEntity>(ExecuteWriteRooms, _ => IsProjectConfigured);
+        private void ExecuteWriteRooms(SZRoomEntity entity)
+        {
+            _externalHandler.Run(app =>
+            {
+                if (SelectedSourceRow == null) return;
+                //读取IFC标准名称
+                var sb = new StringBuilder();
+                // 拼接该行所有列文本
+                sb.AppendLine($"{_selectedSourceRow.RootClassName}{_selectedSourceRow.MiddleClassName}{_selectedSourceRow.MinorClassName}{_selectedSourceRow.SpecClassName}");
+                string roomName = sb.ToString();
 
+                NewTransaction.Execute(Doc, "写入空间编码信息", () =>
+                {
+                    //向房间写入信息
+                    for (int i = 0; i < entity.roomIds.Count; i++)
+                    {
+                        Room room = Doc.GetElement(entity.roomIds[i]) as Room;
+                        if (room == null) continue;
+                        int index = i + 1;
+                        SetParameterValue(room, "深圳空间标识", roomName);
+                    }
+                    // 由于处于异步线程中，UI 更新需要调度或由外部处理。如果是简单绑定直接改状态即可。
+                    entity.IsRoomCoded = true;
+                    RefreshData();
+                });
+            });
+        }
+        // 检查实体是否已完成编码
+        private void CheckCodedStatus(SZRoomEntity entity, List<Room> rooms)
+        {
+            // 只要该组里有一个房间的“ ”有值，就认为已编码
+            entity.IsRoomCoded = rooms.Any(r =>
+                !string.IsNullOrEmpty(r.LookupParameter("深圳空间标识")?.AsString()));
+        }
+        public string RoomCount => RoomModels.Count.ToString();
+        private ObservableCollection<SZRoomEntity> roomModels = new ObservableCollection<SZRoomEntity>();
+        public ObservableCollection<SZRoomEntity> RoomModels
+        {
+            get => roomModels;
+            set
+            {
+                roomModels = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(RoomCount));
+            }
+        }
+        //编码列表的动态查询
+        private ObservableCollection<G4CategoryUnit> originalShowList = new ObservableCollection<G4CategoryUnit>();
+        // 动态过滤字典列表
+        private void FilterShowList()
+        {
+            if (string.IsNullOrEmpty(_keyCodeName))
+            {
+                ShowList = new ObservableCollection<G4CategoryUnit>(_originalShowList);
+            }
+            else
+            {
+                var filtered = _originalShowList.Where(unit => unit.RootClassName.Contains(_keyCodeName) || unit.MiddleClassName.Contains(_keyCodeName) || unit.MinorClassName.Contains(_keyCodeName) || unit.SpecClassName.Contains(_keyCodeName)).ToList();
+                ShowList = new ObservableCollection<G4CategoryUnit>(filtered);
+            }
+        }
+        private bool _hasLoadCsv;
+        public bool HasLoadCsv
+        {
+            get { return _hasLoadCsv; }
+            set
+            {
+                if (_hasLoadCsv != value)
+                {
+                    _hasLoadCsv = value;
+                    OnPropertyChanged(nameof(HasLoadCsv)); // 通知 UI 更新
+                }
+            }
+        }
+        // [修正] 去掉了重复定义的 _originalShowList，统一放到这里
+        private ObservableCollection<G4CategoryUnit> _originalShowList = new ObservableCollection<G4CategoryUnit>();
+        private ObservableCollection<G4CategoryUnit> _showList = new ObservableCollection<G4CategoryUnit>();
+        public ObservableCollection<G4CategoryUnit> ShowList
+        {
+            get => _showList;
+            set { _showList = value; OnPropertyChanged(); }
+        }
+        public ICommand CodeRuleCommand => new BaseBindingCommand(CodeRule);
+        private void CodeRule(object obj)
+        {
+            TaskDialog.Show("输入规则", string.Join(Environment.NewLine, new[]
+            {
+                "SZ-IFC房间空间编码规则说明：",
+                "1. 先确定要编码房间名称",
+                "2. 再按关键词搜索获取最相近功能空间名称并选中",
+                "3. 点击要编码房间行的当前房间编码即可",
+                "4. 右侧空间名称前有@@符号的不可用于编码",
+                "5. 按钮不可用的话请先检查房间的 深圳空间标识 属性是否存在"
+            }));
+        }
+        private void ImportCsv(object obj)
+        {
+            try
+            {
+                // 1. 使用 Helper 静态方法解析（支持引号、复杂换行等）
+                // 默认传入 Encoding.Default (GB2312) 以兼容普通 Excel 导出的 CSV
+                var rows = CsvHelper.ParseCsv(@"D:\SZ空间表.csv", Encoding.Default);
+                _originalShowList.Clear();
+                // 2. 将解析出的 string[] 转换为 RevitUnit 实体
+                foreach (var fields in rows)
+                {
+                    if (fields.Length >= 2)
+                    {
+                        _originalShowList.Add(new G4CategoryUnit
+                        {
+                            RootClassName = fields[0].Trim(),
+                            MiddleClassName = fields[1].Trim(),
+                            MinorClassName = fields[2].Trim(),
+                            SpecClassName = fields[3].Trim()
 
-
-    //}
+                            // ParseCsv 内部已处理引号，此处无需再 Trim('"')
+                        });
+                    }
+                }
+                FilterShowList();
+                HasLoadCsv = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"读取 CSV 失败: {ex.Message}");
+            }
+        }
+        private string csvPath { get; set; }
+        private string _keyCodeName;
+        public string KeyCodeName
+        {
+            get => _keyCodeName;
+            set
+            {
+                _keyCodeName = value;
+                OnPropertyChanged();
+                FilterShowList();
+            }
+        }
+    }
     public class RevitUnit
     {
         public int ID { get; set; }
         public string Code { get; set; }
         public string Name { get; set; }
+    }
+    public class G4CategoryUnit
+    {
+        public int ID { get; set; }
+        public string RootClassName { get; set; }
+        public string MiddleClassName { get; set; }
+        public string MinorClassName { get; set; }
+        public string SpecClassName { get; set; }
     }
 }

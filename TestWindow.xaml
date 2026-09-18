@@ -58,23 +58,23 @@
             </Grid.RowDefinitions>
         </Grid>
         <StackPanel Margin="10">
-            <TextBlock Text="只能输入整数（正数）："/>
+            <!--<TextBlock Text="只能输入整数（正数）："/>
             <TextBox bv:NumericInputBehavior.IsNumericEnabled="True"
                          Text="{Binding D, UpdateSourceTrigger=PropertyChanged}"
                          Height="30" Margin="0,5"/>
             <TextBlock Text="{Binding IntegerValue, StringFormat='当前值: {0}'}" 
                            Foreground="Gray"/>
-            <!-- 第一个下拉框：选择类别 -->
+            --><!-- 第一个下拉框：选择类别 --><!--
             <TextBlock Text="选择族类别 (Category):" Foreground="Gray" Margin="0,0,0,5"/>
             <ComboBox ItemsSource="{Binding CategoryList}" 
        SelectedItem="{Binding SelectedCategory}" 
        Margin="0,0,0,15" Height="26"/>
 
-            <!-- 第二个下拉框：选择零件类型 -->
+            --><!-- 第二个下拉框：选择零件类型 --><!--
             <TextBlock Text="选择零件类型 (PartType):" Foreground="Gray" Margin="0,0,0,5"/>
             <ComboBox ItemsSource="{Binding AvailablePartTypes}" 
        SelectedItem="{Binding SelectedPartType}" 
-       Height="26"/>
+       Height="26"/>-->
         </StackPanel>
   
        

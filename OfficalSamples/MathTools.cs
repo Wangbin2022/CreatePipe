@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.DB;
 using System;
+using static CreatePipe.OfficalSamples.Matrix4;
 
 namespace CreatePipe.OfficalSamples
 {
@@ -115,7 +116,7 @@ namespace CreatePipe.OfficalSamples
 
         /// <summary>判断是否为位置向量（W=1）</summary>
         public bool IsPositionVector => Math.Abs(W - 1f) < float.Epsilon;
-        #endregion
+        #endregion    
     }
 
     /// <summary>
@@ -240,11 +241,11 @@ namespace CreatePipe.OfficalSamples
         public static Matrix4 operator *(Matrix4 left, Matrix4 right) => Multiply(left, right);
 
         /// <summary>变换向量/点</summary>
-        //public Vector4 Transform(Vector4 point) => new Vector4(
-        //    point.X * this[0, 0] + point.Y * this[1, 0] + point.Z * this[2, 0] + point.W * this[3, 0],
-        //    point.X * this[0, 1] + point.Y * this[1, 1] + point.Z * this[2, 1] + point.W * this[3, 1],
-        //    point.X * this[0, 2] + point.Y * this[1, 2] + point.Z * this[2, 2] + point.W * this[3, 2],
-        //    point.W);
+        public Vector4 Transform(Vector4 point) => new Vector4(
+            point.X * this[0, 0] + point.Y * this[1, 0] + point.Z * this[2, 0] + point.W * this[3, 0],
+            point.X * this[0, 1] + point.Y * this[1, 1] + point.Z * this[2, 1] + point.W * this[3, 1],
+            point.X * this[0, 2] + point.Y * this[1, 2] + point.Z * this[2, 2] + point.W * this[3, 2],
+            point.W);
         #endregion
 
         #region 逆矩阵计算
@@ -306,12 +307,154 @@ namespace CreatePipe.OfficalSamples
             $"[{_matrix[2, 0]:F2},{_matrix[2, 1]:F2},{_matrix[2, 2]:F2},{_matrix[2, 3]:F2}]\n" +
             $"[{_matrix[3, 0]:F2},{_matrix[3, 1]:F2},{_matrix[3, 2]:F2},{_matrix[3, 3]:F2}]";
         #endregion
+
+        #region 静态旋转方法 260804 ds代码待测试
+
+        /// <summary>
+        /// 创建绕X轴旋转的矩阵（右手坐标系）
+        /// </summary>
+        /// <param name="angle">旋转角度（弧度）</param>
+        /// <returns>旋转矩阵</returns>
+        public static Matrix4 RotateX(float angle)
+        {
+            float cos = (float)Math.Cos(angle);
+            float sin = (float)Math.Sin(angle);
+
+            var m = new Matrix4();
+            // 注意：行主序存储
+            m[1, 1] = cos; m[1, 2] = -sin;  // Y轴分量
+            m[2, 1] = sin; m[2, 2] = cos;   // Z轴分量
+            return m;
+        }
+
+        /// <summary>
+        /// 创建绕Y轴旋转的矩阵（右手坐标系）
+        /// </summary>
+        /// <param name="angle">旋转角度（弧度）</param>
+        /// <returns>旋转矩阵</returns>
+        public static Matrix4 RotateY(float angle)
+        {
+            float cos = (float)Math.Cos(angle);
+            float sin = (float)Math.Sin(angle);
+
+            var m = new Matrix4();
+            // 注意：行主序存储
+            m[0, 0] = cos; m[0, 2] = sin;   // X轴分量
+            m[2, 0] = -sin; m[2, 2] = cos;  // Z轴分量
+            return m;
+        }
+
+        /// <summary>
+        /// 创建绕Z轴旋转的矩阵（右手坐标系）
+        /// </summary>
+        /// <param name="angle">旋转角度（弧度）</param>
+        /// <returns>旋转矩阵</returns>
+        public static Matrix4 RotateZ(float angle)
+        {
+            float cos = (float)Math.Cos(angle);
+            float sin = (float)Math.Sin(angle);
+
+            var m = new Matrix4();
+            // 注意：行主序存储
+            m[0, 0] = cos; m[0, 1] = -sin;  // X轴分量
+            m[1, 0] = sin; m[1, 1] = cos;   // Y轴分量
+            return m;
+        }
+
+        /// <summary>
+        /// 创建绕任意轴旋转的矩阵（右手坐标系）
+        /// </summary>
+        /// <param name="axis">旋转轴（单位向量）</param>
+        /// <param name="angle">旋转角度（弧度）</param>
+        /// <returns>旋转矩阵</returns>
+        public static Matrix4 RotateAxis(Vector4 axis, float angle)
+        {
+            float cos = (float)Math.Cos(angle);
+            float sin = (float)Math.Sin(angle);
+            float oneMinusCos = 1 - cos;
+
+            float x = axis.X;
+            float y = axis.Y;
+            float z = axis.Z;
+
+            var m = new Matrix4();
+
+            // 罗德里格斯旋转公式
+            m[0, 0] = cos + x * x * oneMinusCos;
+            m[0, 1] = x * y * oneMinusCos - z * sin;
+            m[0, 2] = x * z * oneMinusCos + y * sin;
+
+            m[1, 0] = y * x * oneMinusCos + z * sin;
+            m[1, 1] = cos + y * y * oneMinusCos;
+            m[1, 2] = y * z * oneMinusCos - x * sin;
+
+            m[2, 0] = z * x * oneMinusCos - y * sin;
+            m[2, 1] = z * y * oneMinusCos + x * sin;
+            m[2, 2] = cos + z * z * oneMinusCos;
+
+            m._type = MatrixType.Rotation;
+            return m;
+        }
+
+        #endregion 260804 ds代码待测试
+
+        #region 旋转工具方法260804 ds代码待测试
+
+        /// <summary>
+        /// 从欧拉角创建旋转矩阵（ZYX顺序）
+        /// </summary>
+        public static Matrix4 RotateFromEuler(float pitch, float yaw, float roll)
+        {
+            // 注意：旋转顺序为 Z * Y * X（常用在游戏开发中）
+            Matrix4 rotX = RotateX(pitch);
+            Matrix4 rotY = RotateY(yaw);
+            Matrix4 rotZ = RotateZ(roll);
+
+            // 应用顺序：先绕X，再绕Y，最后绕Z
+            return rotZ * rotY * rotX;
+        }
+
+        /// <summary>
+        /// 从欧拉角创建旋转矩阵（XYZ顺序）
+        /// </summary>
+        public static Matrix4 RotateFromEulerXYZ(float x, float y, float z)
+        {
+            Matrix4 rotX = RotateX(x);
+            Matrix4 rotY = RotateY(y);
+            Matrix4 rotZ = RotateZ(z);
+
+            // 应用顺序：先绕X，再绕Y，最后绕Z
+            return rotX * rotY * rotZ;
+        }
+
+        /// <summary>
+        /// 提取欧拉角（从旋转矩阵）
+        /// </summary>
+        public Vector4 ToEuler()
+        {
+            // 从旋转矩阵中提取欧拉角（ZYX顺序）
+            float pitch = (float)Math.Asin(-this[2, 0]);
+            float yaw, roll;
+            if (Math.Abs(Math.Cos(pitch)) > 1e-6f)
+            {
+                yaw = (float)Math.Atan2(this[2, 0] / Math.Cos(pitch), this[2, 2] / Math.Cos(pitch));
+                roll = (float)Math.Atan2(this[1, 0] / Math.Cos(pitch), this[0, 0] / Math.Cos(pitch));
+            }
+            else
+            {
+                // 万向锁情况
+                yaw = 0;
+                roll = (float)Math.Atan2(-this[0, 1], this[1, 1]);
+            }
+            return new Vector4(pitch, yaw, roll, 0);
+        }
+        #endregion
     }
 
     /// <summary>
     /// 二维双精度点结构
     /// </summary>
-    public struct PointD
+    public struct Point2D
     {
         #region 私有字段
         private double _x;
@@ -324,21 +467,21 @@ namespace CreatePipe.OfficalSamples
         #endregion
 
         #region 构造函数
-        public PointD(double x, double y) => (_x, _y) = (x, y);
+        public Point2D(double x, double y) => (_x, _y) = (x, y);
         #endregion
 
         #region 运算符重载
-        public static PointD operator +(PointD a, PointD b) => new PointD(a.X + b.X, a.Y + b.Y);
-        public static PointD operator -(PointD a, PointD b) => new PointD(a.X - b.X, a.Y - b.Y);
-        public static PointD operator *(PointD p, double factor) => new PointD(p.X * factor, p.Y * factor);
-        public static bool operator ==(PointD a, PointD b) => Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9;
-        public static bool operator !=(PointD a, PointD b) => !(a == b);
+        public static Point2D operator +(Point2D a, Point2D b) => new Point2D(a.X + b.X, a.Y + b.Y);
+        public static Point2D operator -(Point2D a, Point2D b) => new Point2D(a.X - b.X, a.Y - b.Y);
+        public static Point2D operator *(Point2D p, double factor) => new Point2D(p.X * factor, p.Y * factor);
+        public static bool operator ==(Point2D a, Point2D b) => Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9;
+        public static bool operator !=(Point2D a, Point2D b) => !(a == b);
         #endregion
 
         #region 实用方法
-        public double DistanceTo(PointD other) => Math.Sqrt((X - other.X) * (X - other.X) + (Y - other.Y) * (Y - other.Y));
-        public PointD Normalize() { double len = Math.Sqrt(X * X + Y * Y); return len < 1e-9 ? this : new PointD(X / len, Y / len); }
-        public override bool Equals(object obj) => obj is PointD other && this == other;
+        public double DistanceTo(Point2D other) => Math.Sqrt((X - other.X) * (X - other.X) + (Y - other.Y) * (Y - other.Y));
+        public Point2D Normalize() { double len = Math.Sqrt(X * X + Y * Y); return len < 1e-9 ? this : new Point2D(X / len, Y / len); }
+        public override bool Equals(object obj) => obj is Point2D other && this == other;
         public override int GetHashCode() => (X.GetHashCode() * 397) ^ Y.GetHashCode();
         public override string ToString() => $"({X:F3}, {Y:F3})";
         #endregion

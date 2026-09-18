@@ -39,5 +39,34 @@ namespace CreatePipe.Obselete.RoomAttr
         public bool IsRoomCoded { get; set; } = false;
         public List<ElementId> roomIds { get; set; } = new List<ElementId>();
     }
+    public class SZRoomEntity : ObserverableObject
+    {
+        public Room room { get; set; }
+        public Document Doc;
+        public SZRoomEntity(List<Room> singleRoom, Document document)
+        {
+            room = singleRoom.FirstOrDefault();
+            Doc = document;
+            roomName = room.get_Parameter(BuiltInParameter.ROOM_NAME).AsString();
+            roomNumber = singleRoom.Count().ToString();
+            int hadCodeIndex = 0;
+            foreach (var item in singleRoom)
+            {
+                roomIds.Add(item.Id);
+                // 检查特定参数是否有值
+                var p = item.LookupParameter("深圳空间标识");
+                if (p != null && p.HasValue && !string.IsNullOrEmpty(p.AsString()))
+                {
+                    hadCodeIndex++;
+                }
+            }
+            hasCodeNum = hadCodeIndex.ToString();
+        }
+        public string roomName { get; set; }
+        public string roomNumber { get; set; }
+        public string hasCodeNum { get; set; }
+        public bool IsRoomCoded { get; set; } = false;
+        public List<ElementId> roomIds { get; set; } = new List<ElementId>();
+    }
 
 }

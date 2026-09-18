@@ -10,6 +10,7 @@ using Autodesk.Revit.UI.Selection;
 using CreatePipe.filter;
 using CreatePipe.Form;
 using CreatePipe.models;
+using CreatePipe.OfficalSamples;
 using CreatePipe.Utils;
 using Microsoft.VisualBasic.ApplicationServices;
 using Microsoft.Win32;
@@ -750,95 +751,60 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
+            //0918 平面显示对象
+            //获取id，检测是否存在楼层属性
+            //找到楼层ID ， 找到第一个该楼层的平面，如果没有则新建一个
+            //在平面上找到元素的边界，修改视图边界仅显示该构件boundingbox 二维范围内
+            var ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "选择楼板");
+            Element elem = doc.GetElement(ref1) as Element;
+     
 
-            ////////0721 楼梯收集
-            StairsManagerView stairsManagerView = new StairsManagerView(uiApp);
-            stairsManagerView.Show();
-            //NewTransaction.Execute(doc, "建立包围框", () =>
+            ////0916 改房间功能增加SZ_IFC。OK
+            //RoomManagerView guidanceSignManager = new RoomManagerView(uiApp);
+            //guidanceSignManager.Show();
+
+            //0824 修改测量点
+            //if (activeView.ViewType != ViewType.FloorPlan) return Result.Cancelled;
+            //NewTransaction.Execute(doc, "修改测量点", () =>
             //{
-            //    var id = new ElementId(3290763); //3288901不对
-            //    doc.Delete(id);
+            //    BasePoint surveyPoint = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_SharedBasePoint).FirstOrDefault() as BasePoint;
+            //    // 获取当前位置
+            //    XYZ currentPosition = surveyPoint.Position;
+            //    XYZ moveVector = new XYZ(-477078507 / 304.8, -2506999093 / 304.8, 0);
+            //    ElementTransformUtils.MoveElement(doc, surveyPoint.Id, moveVector);
+            //    TaskDialog.Show("tt", "PASS");
             //});
-            ////var reference = uiDoc.Selection.PickObject(ObjectType.Element, new StairsFilter(), "拾取楼梯");
-            ////Stairs stair = doc.GetElement(reference) as Stairs;
-            ////// 获取当前活动视图，如果是三维视图则直接使用
-            ////View3D targetView = uiDoc.ActiveView as View3D;
-            ////// 如果不是三维视图，查找默认三维视图
-            ////if (targetView == null || targetView.IsTemplate)
-            ////{
-            ////    targetView = new FilteredElementCollector(doc).OfClass(typeof(View3D))
-            ////                .Cast<View3D>().FirstOrDefault(v => !v.IsTemplate && v.ViewType == ViewType.ThreeD);
-            ////}
-            ////NewTransaction.Execute(doc, "建立包围框", () =>
-            ////{
-            ////    if (targetView != null)
-            ////    {
-            ////        BoundingBoxXYZ bbox = stair.get_BoundingBox(targetView);
-            ////        if (bbox != null)
-            ////        {
-            ////            targetView.SetSectionBox(bbox);
-            ////            uiDoc.ActiveView = targetView;
-            ////        }
-            ////    }
-            ////});
-            //try
-            //{
-            //    // 1. 多选楼梯
-            //    IList<Reference> references = uiDoc.Selection.PickObjects(
-            //        ObjectType.Element,
-            //        new StairsFilter(),
-            //        "拾取楼梯（可多选，按 Esc 结束）");
-            //    if (references == null || references.Count == 0)
-            //    {
-            //        TaskDialog.Show("提示", "未选择楼梯"); return Result.Failed;
-            //    }
-            //    // 2. 转换为 Stairs 对象列表
-            //    List<Stairs> stairs = new List<Stairs>();
-            //    foreach (var reference in references)
-            //    {
-            //        var stair = doc.GetElement(reference) as Stairs;
-            //        if (stair != null)
-            //            stairs.Add(stair);
-            //    }
-            //    if (stairs.Count == 0)
-            //    {
-            //        TaskDialog.Show("提示", "未找到有效的楼梯"); return Result.Failed;
-            //    }
-            //    // 3. 获取或切换到三维视图
-            //    View3D targetView = uiDoc.ActiveView as View3D;
-            //    if (targetView == null || targetView.IsTemplate)
-            //    {
-            //        targetView = new FilteredElementCollector(doc).OfClass(typeof(View3D)).Cast<View3D>()
-            //            .FirstOrDefault(v => !v.IsTemplate && v.ViewType == ViewType.ThreeD);
-            //    }
-            //    if (targetView == null)
-            //    {
-            //        TaskDialog.Show("错误", "未找到可用的三维视图"); return Result.Failed;
-            //    }
-            //    // 4. 合并所有楼梯的包围框
-            //    BoundingBoxXYZ mergedBBox = MergeBoundingBoxes(doc, stairs, targetView);
-            //    if (mergedBBox == null)
-            //    {
-            //        TaskDialog.Show("错误", "无法获取楼梯包围框"); return Result.Failed;
-            //    }
-            //    // 5. 建立剖面框
-            //    NewTransaction.Execute(doc, "建立包围框", () =>
-            //    {
-            //        targetView.SetSectionBox(mergedBBox);
-            //        uiDoc.ActiveView = targetView;
-            //    });
-            //    TaskDialog.Show("成功", $"已为 {stairs.Count} 个楼梯建立剖面框");
-            //}
-            //catch (OperationCanceledException)
-            //{
-            //    // 用户按 Esc 取消
-            //    TaskDialog.Show("提示", "操作已取消");
-            //}
-            //catch (Exception ex)
-            //{
-            //    TaskDialog.Show("错误", $"操作失败: {ex.Message}");
-            //}
 
+
+            ////0903 播放系统声音测试
+            ////System.Media.SystemSounds.Asterisk.Play();           
+            //System.Media.SystemSounds.Hand.Play();
+
+
+            //var ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "选择楼板");
+            //Floor floor = doc.GetElement(ref1) as Floor;
+            ////TaskDialog.Show("tt", floor.Id.ToString());
+            ////var options = new Options();
+            ////options.ComputeReferences = true;
+            ////var geoFloor = floor.get_Geometry(options);
+            //Options geomOptions = new Options();
+            //// 根据需求设置属性，获取几个信息集合
+            //geomOptions.ComputeReferences = false;
+            //geomOptions.DetailLevel = ViewDetailLevel.Medium;
+            //geomOptions.IncludeNonVisibleObjects = false;
+            //GeometryElement geoElement = floor.get_Geometry(geomOptions);
+            ////// 从 GeometryElement 中获取第一个非空的 Solid
+            ////Solid solid = geoElement.OfType<Solid>()
+            ////                        .Where(s => s != null && s.Volume > 0)
+            ////                        .FirstOrDefault();
+            //// 获取楼板顶面的引用
+            //IList<Reference> topFaceRefs = HostObjectUtils.GetTopFaces(floor);
+            //// 通过引用获取几何面对象
+            //Autodesk.Revit.DB.Face topFace = floor.GetGeometryObjectFromReference(topFaceRefs[1]) as Autodesk.Revit.DB.Face;
+            ////获取面法线的两种方法
+            //XYZ normal=topFace.ComputeNormal(new UV(0.5, 0.5));
+            //PlanarFace planarFace = topFace as PlanarFace;
+            //TaskDialog.Show("tt", planarFace.FaceNormal.ToString());
 
             ////////1003 检测A-B点之间可见
             ////try
@@ -1072,7 +1038,7 @@ namespace CreatePipe
             //}
             //例程结束
 
-            //////1014 补充沟体替换
+            //////1014 测试沟体替换
             //CircleGaugePlaceView circleGaugePlaceView = new CircleGaugePlaceView(uiApp);
             //circleGaugePlaceView.Show();
 
@@ -1405,7 +1371,7 @@ namespace CreatePipe
             //    transaction.Commit();
             //}
 
-            //////0718 批量旋转、左右镜像 基本完成
+            ////////0718 批量旋转、左右镜像 基本完成
             //try
             //{
             //    // 1. 获取当前选中的构件
@@ -1560,6 +1526,10 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
             //////例程结束
+
+            ////////0721 楼梯收集
+            StairsManagerView stairsManagerView = new StairsManagerView(uiApp);
+            stairsManagerView.Show();
             return Result.Succeeded;
         }
         //private int _maximum;

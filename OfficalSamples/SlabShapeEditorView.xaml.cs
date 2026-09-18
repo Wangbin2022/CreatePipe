@@ -753,7 +753,7 @@ namespace CreatePipe.OfficalSamples
     //        for (int i = 0; i < 4; i++)
     //            M[i, i] = 1;
     //    }
-
+    //由三个轴向量创建旋转矩阵
     //    public Matrix4b(Vector4 xAxis, Vector4 yAxis, Vector4 zAxis)
     //    {
     //        M[0, 0] = xAxis.X; M[0, 1] = xAxis.Y; M[0, 2] = xAxis.Z; M[0, 3] = xAxis.W;
@@ -761,7 +761,7 @@ namespace CreatePipe.OfficalSamples
     //        M[2, 0] = zAxis.X; M[2, 1] = zAxis.Y; M[2, 2] = zAxis.Z; M[2, 3] = zAxis.W;
     //        M[3, 3] = 1;
     //    }
-
+    //创建平移矩阵,v1为基点
     //    public Matrix4b(Vector4 translation)
     //    {
     //        M[0, 0] = 1; M[0, 1] = 0; M[0, 2] = 0; M[0, 3] = translation.X;
@@ -769,12 +769,12 @@ namespace CreatePipe.OfficalSamples
     //        M[2, 0] = 0; M[2, 1] = 0; M[2, 2] = 1; M[2, 3] = translation.Z;
     //        M[3, 3] = 1;
     //    }
-
+    //基于单位矩阵，缩放矩阵
     //    public Matrix4b(double scale)
     //    {
     //        M[0, 0] = scale; M[1, 1] = scale; M[2, 2] = scale; M[3, 3] = 1;
     //    }
-
+    //矩阵乘法（左乘右）
     //    public static Matrix4b Multiply(Matrix4b a, Matrix4b b)
     //    {
     //        var result = new Matrix4b();
@@ -791,7 +791,7 @@ namespace CreatePipe.OfficalSamples
     //        }
     //        return result;
     //    }
-
+    //矩阵与向量的乘法运算
     //    public Vector4b Transform(Vector4b v)
     //    {
     //        return new Vector4b(
@@ -801,7 +801,7 @@ namespace CreatePipe.OfficalSamples
     //            M[3, 0] * v.X + M[3, 1] * v.Y + M[3, 2] * v.Z + M[3, 3] * v.W
     //        );
     //    }
-
+    //矩阵的逆
     //    public Matrix4b Inverse()
     //    {
     //        // 简化的逆矩阵计算（实际应用中需要完整实现）
