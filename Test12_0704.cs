@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using CreatePipe.Form;
 using CreatePipe.Utils;
 using System;
 using System.Collections.Generic;
@@ -21,16 +22,16 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            if (activeView.ViewType != ViewType.ThreeD) return Result.Cancelled;
-            NewTransaction.Execute(doc, "修改视图可见性", () =>
-            {
-                CategoryVisibilityService.SetCategoriesVisibility(doc, activeView, new[] { BuiltInCategory.OST_Levels }, false);
-                activeView.AreImportCategoriesHidden = true;
-                //CategoryVisibilityService.SetCategoriesVisibility(doc, activeView, new[] { BuiltInCategory.OST_ImportObjectStyles }, false);
-                TaskDialog.Show("tt", "PASS");
-            });
+          
 
-
+            //if (activeView.ViewType != ViewType.ThreeD) return Result.Cancelled;
+            //NewTransaction.Execute(doc, "修改视图可见性", () =>
+            //{
+            //    CategoryVisibilityService.SetCategoriesVisibility(doc, activeView, new[] { BuiltInCategory.OST_Levels }, false);
+            //    activeView.AreImportCategoriesHidden = true;
+            //    //CategoryVisibilityService.SetCategoriesVisibility(doc, activeView, new[] { BuiltInCategory.OST_ImportObjectStyles }, false);
+            //    TaskDialog.Show("tt", "PASS");
+            //});
 
             //        ////////1207 风口清理和连接
             //        //try

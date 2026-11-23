@@ -84,13 +84,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ArrangeRectangle.cs" />
-    <Compile Include="AssembleStairTest.cs" />
+    <Compile Include="Obselete\AssembleStairTest.cs" />
     <Compile Include="filter\GridFilter.cs" />
     <Compile Include="Form\BacthDelModelElementView.xaml.cs">
       <DependentUpon>BacthDelModelElementView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\BacthFamilyEditorView.xaml.cs">
       <DependentUpon>BacthFamilyEditorView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Form\DisplaceModelView.xaml.cs">
+      <DependentUpon>DisplaceModelView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Form\StairsManagerView.xaml.cs">
       <DependentUpon>StairsManagerView.xaml</DependentUpon>
@@ -105,7 +108,7 @@
       <DependentUpon>UniversalSliderWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="models\StairsEntity.cs" />
-    <Compile Include="NewColumns.cs" />
+    <Compile Include="Obselete\NewColumns.cs" />
     <Compile Include="Obselete\BasePointMover.xaml.cs">
       <DependentUpon>BasePointMover.xaml</DependentUpon>
     </Compile>
@@ -605,7 +608,7 @@
     <Compile Include="cmd\RevitContext.cs" />
     <Compile Include="cmd\RevitTask.cs" />
     <Compile Include="Obselete\DrawAdaptiveCircle.cs" />
-    <Compile Include="ElementCount.cs" />
+    <Compile Include="Obselete\ElementCount.cs" />
     <Compile Include="filter\StairsFilter.cs" />
     <Compile Include="Form\Behaviors\ValidationErrorToViewModelBehavior.cs" />
     <Compile Include="Form\CircleGaugePlaceView.xaml.cs">
@@ -966,6 +969,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Form\BacthFamilyEditorView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Form\DisplaceModelView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

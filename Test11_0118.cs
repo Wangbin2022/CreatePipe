@@ -751,13 +751,127 @@ namespace CreatePipe
             Autodesk.Revit.DB.View activeView = uiDoc.ActiveView;
             UIApplication uiApp = commandData.Application;
 
-            //0918 平面显示对象
-            //获取id，检测是否存在楼层属性
-            //找到楼层ID ， 找到第一个该楼层的平面，如果没有则新建一个
-            //在平面上找到元素的边界，修改视图边界仅显示该构件boundingbox 二维范围内
-            var ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "选择楼板");
-            Element elem = doc.GetElement(ref1) as Element;
-     
+       
+            ////0918 平面显示对象
+            //Element elem = null;
+            //Level level = null;
+            //while (true)
+            //{
+            //    // ---------- 1. 获取元素 ----------
+            //    elem = null;
+            //    List<ElementId> elemIds = uiDoc.Selection.GetElementIds().ToList();
+            //    if (elemIds.Count == 1)
+            //    {
+            //        elem = doc.GetElement(elemIds.First());
+            //    }
+            //    else
+            //    {
+            //        if (elemIds.Count > 1)
+            //        {
+            //            TaskDialog.Show("提示", "已选择多个对象，请重新拾取一个对象。");
+            //            uiDoc.Selection.SetElementIds(new List<ElementId>());
+            //        }
+            //        try
+            //        {
+            //            Reference ref1 = uiDoc.Selection.PickObject(ObjectType.Element, "选择对象");
+            //            elem = doc.GetElement(ref1);
+            //        }
+            //        catch (OperationCanceledException)
+            //        {
+            //            return Result.Cancelled; // 用户按 Esc，退出
+            //        }
+            //    }
+            //    // ---------- 2. 校验元素 ----------
+            //    if (elem == null)
+            //    {
+            //        TaskDialog.Show("提示", "未能获取有效元素，请重新选择。");
+            //        uiDoc.Selection.SetElementIds(new List<ElementId>());
+            //        // 回到循环开头，重新选择
+            //        continue;
+            //    }
+            //    // ---------- 3. 校验标高 ----------
+            //    ElementId levelId = elem.LevelId;
+            //    if (levelId == null || levelId == ElementId.InvalidElementId)
+            //    {
+            //        TaskDialog.Show("提示", "所选元素没有关联标高，请重新选择。");
+            //        uiDoc.Selection.SetElementIds(new List<ElementId>());
+            //        // 回到循环开头，重新选择
+            //        continue;
+            //    }
+            //    level = doc.GetElement(levelId) as Level;
+            //    if (level == null)
+            //    {
+            //        TaskDialog.Show("提示", "无法获取元素所在标高，请重新选择。");
+            //        uiDoc.Selection.SetElementIds(new List<ElementId>());
+            //        // 回到循环开头，重新选择
+            //        continue;
+            //    }
+            //    break;
+            //}
+            ////找到楼层ID ， 找到第一个该楼层的平面或结构平面，如果没有则新建一个
+            //List<ViewPlan> views = new FilteredElementCollector(doc)
+            //     .OfClass(typeof(ViewPlan)).Cast<ViewPlan>()
+            //     .Where(v => !v.IsTemplate
+            //                 && (v.ViewType == ViewType.FloorPlan
+            //                     || v.ViewType == ViewType.EngineeringPlan)
+            //                 && v.GenLevel != null
+            //                 && v.GenLevel.Id == level.Id)
+            //     .ToList();
+            //ViewPlan targetView;
+            //if (views.Count == 0)
+            //{
+            //    // ---------- 4. 没有则新建一个平面视图 ----------
+            //    // 找到平面视图的 ViewFamilyType
+            //    ViewFamilyType planType = new FilteredElementCollector(doc)
+            //        .OfClass(typeof(ViewFamilyType)).Cast<ViewFamilyType>()
+            //        .FirstOrDefault(vft => vft.ViewFamily == ViewFamily.FloorPlan);
+            //    if (planType == null)
+            //    {
+            //        TaskDialog.Show("提示", "未找到平面视图类型，无法创建。");
+            //        return Result.Failed;
+            //    }
+            //    //NewTransaction.Execute(doc,"创建平面视图",() => 
+            //    //{                 
+            //    //});
+            //    using (Transaction t = new Transaction(doc, "创建平面视图"))
+            //    {
+            //        t.Start();
+            //        targetView = ViewPlan.Create(doc, planType.Id, level.Id);
+            //        // 可给视图起个名字便于识别
+            //        targetView.Name = $"构件定位 - {level.Name}";
+            //        t.Commit();
+            //    }
+            //}
+            //else
+            //{
+            //    // 优先选第一个；如需要可让用户选择，这里取第一个
+            //    targetView = views.First();
+            //}
+            ////在平面上找到元素的边界，修改视图边界仅显示该构件boundingbox 二维范围内
+            //BoundingBoxXYZ bbox = elem.get_BoundingBox(null);
+            //if (bbox == null)
+            //{
+            //    TaskDialog.Show("提示", "无法获取元素包围盒。");
+            //    return Result.Failed;
+            //}
+            //NewTransaction.Execute(doc, "裁剪视图到构件", () =>
+            //{
+            //    // 5.1 打开裁剪
+            //    targetView.CropBoxActive = true;
+            //    targetView.CropBoxVisible = true;
+            //    // 5.2 构造裁剪盒：以元素包围盒为基础，Z 方向覆盖标高范围
+            //    //     平面视图的裁剪盒在 X/Y 上限制范围，Z 通常给一个足够大的范围
+            //    double padding = 2.0; // 边界外扩（单位：英尺），可按需调整
+            //    XYZ min = new XYZ(bbox.Min.X - padding, bbox.Min.Y - padding, bbox.Min.Z - padding);
+            //    XYZ max = new XYZ(bbox.Max.X + padding, bbox.Max.Y + padding, bbox.Max.Z + padding);
+            //    Transform tBox = Transform.Identity;
+            //    BoundingBoxXYZ cropBox = new BoundingBoxXYZ { Transform = tBox, Min = min, Max = max };
+            //    targetView.CropBox = cropBox;
+            //}); 
+            //// ---------- 6. 切换到该视图并高亮元素（可选）----------
+            //uiDoc.ActiveView = targetView;
+            //// 选中该元素，方便用户在视图中看到
+            //uiDoc.Selection.SetElementIds(new List<ElementId> { elem.Id });
 
             ////0916 改房间功能增加SZ_IFC。OK
             //RoomManagerView guidanceSignManager = new RoomManagerView(uiApp);
@@ -775,11 +889,9 @@ namespace CreatePipe
             //    TaskDialog.Show("tt", "PASS");
             //});
 
-
             ////0903 播放系统声音测试
             ////System.Media.SystemSounds.Asterisk.Play();           
             //System.Media.SystemSounds.Hand.Play();
-
 
             //var ref1 = uiDoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "选择楼板");
             //Floor floor = doc.GetElement(ref1) as Floor;
@@ -1526,10 +1638,7 @@ namespace CreatePipe
             //    return Result.Failed;
             //}
             //////例程结束
-
-            ////////0721 楼梯收集
-            StairsManagerView stairsManagerView = new StairsManagerView(uiApp);
-            stairsManagerView.Show();
+ 
             return Result.Succeeded;
         }
         //private int _maximum;

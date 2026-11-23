@@ -1,0 +1,73 @@
+﻿<Window x:Class="CreatePipe.Form.DisplaceModelView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CreatePipe.Form"
+        mc:Ignorable="d"
+        Title="移动模型"         
+        Height="300" Width="240" ResizeMode="NoResize" Topmost="True">
+    <Grid Margin="5">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="45"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="35"/>
+        </Grid.RowDefinitions>
+        <DockPanel Margin="5" Grid.ColumnSpan="2">
+            <Button  Content="读取剪贴板中的输入" Height="20" 
+                     Command="{Binding ReadmeCommand}"
+                     HorizontalAlignment="Stretch"/>
+        </DockPanel>
+        <StackPanel Grid.Row="1">
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="54" Text="X坐标"  VerticalAlignment="Center"/>
+                <TextBox Width="88" Text="{Binding DistanceX}" 
+                         TextAlignment="Right"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" 
+                          PreviewTextInput="NumberValidationTextBox" CommandManager.PreviewExecuted="OnTextBoxPaste"/>
+                <TextBlock Width="28" Text=" mm"  VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="54" Text="Y坐标"  VerticalAlignment="Center"/>
+                <TextBox Width="88" Text="{Binding DistanceY}" 
+                         TextAlignment="Right"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                          PreviewTextInput="NumberValidationTextBox" CommandManager.PreviewExecuted="OnTextBoxPaste"/>
+                <TextBlock Width="28" Text=" mm"  VerticalAlignment="Center"/>
+            </StackPanel>   
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2">
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="54" Text="旋转角度"  VerticalAlignment="Center"/>
+                <TextBox Width="88" Text="{Binding RotateAngle}" 
+                         TextAlignment="Right"
+                     HorizontalAlignment="Right" VerticalAlignment="Center" 
+                          PreviewTextInput="NumberValidationTextBox" CommandManager.PreviewExecuted="OnTextBoxPaste"/>
+                <TextBlock Width="75" Text=" (顺时针角度)"  VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Height="30" Margin="5,0">
+                <TextBlock Width="54" Text="标高"  VerticalAlignment="Center"/>
+                <TextBox Width="88" Text="{Binding DistanceZ}" 
+                         TextAlignment="Right"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" 
+                          PreviewTextInput="NumberValidationTextBox" CommandManager.PreviewExecuted="OnTextBoxPaste"/>
+                <TextBlock Width="28" Text=" m"  VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+        <Button  Content="调换" Margin="5"
+                 Grid.Row="1" Grid.Column="1"
+                 Command="{Binding SwitchCommand}"
+                 HorizontalAlignment="Stretch"/>
+        <DockPanel Grid.Row="3" Margin="5" Grid.ColumnSpan="2">
+            <Button  Content="放置并退出" Height="20" IsDefault="True"
+                     IsEnabled="{Binding CanExecuteAction}"
+                    Command="{Binding PlaceCommand}"
+                    HorizontalAlignment="Stretch" Click="btn_OK_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>
